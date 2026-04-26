@@ -1,10 +1,11 @@
-<!DOCTYPE html>
-<!-- saved from url=(0059)file:///Users/rajatsapra/Downloads/rateshield-ai%20(6).html -->
-<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RateShield AI — Business Intelligence Platform</title>
-<link href="./rateshield test_files/css2" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
   --ink: #0f0f0f;
@@ -620,15 +621,15 @@ input[type=range] {
     <div class="auth-error" id="auth-error">Incorrect credentials. Please try again.</div>
 
     <label class="auth-label">Company access code</label>
-    <input class="auth-input" id="auth-company" type="text" placeholder="e.g. RIVERSIDE-TIRE">
+    <input class="auth-input" id="auth-company" type="text" placeholder="e.g. RIVERSIDE-TIRE" />
 
     <label class="auth-label">Password</label>
-    <input class="auth-input" id="auth-pass" type="password" placeholder="Enter your password" onkeydown="if(event.key===&#39;Enter&#39;)login()">
+    <input class="auth-input" id="auth-pass" type="password" placeholder="Enter your password" onkeydown="if(event.key==='Enter')login()" />
 
     <button class="auth-btn" onclick="login()">Access platform →</button>
 
     <div class="auth-secure">
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1L2 3v3c0 2.5 1.8 3.8 4 4.5 2.2-.7 4-2 4-4.5V3L6 1z" stroke="#4ade80" stroke-width="1" stroke-linejoin="round"></path></svg>
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1L2 3v3c0 2.5 1.8 3.8 4 4.5 2.2-.7 4-2 4-4.5V3L6 1z" stroke="#4ade80" stroke-width="1" stroke-linejoin="round"/></svg>
       AES-256 encrypted · Data isolated per company · No data sharing
     </div>
 
@@ -644,11 +645,12 @@ input[type=range] {
   <nav class="topnav">
     <div class="topnav-logo">Rate<span>Shield</span> AI</div>
     <div class="topnav-tabs">
-      <button class="topnav-tab active" onclick="showPanel(&#39;dashboard&#39;)">Dashboard</button>
-      <button class="topnav-tab" onclick="showPanel(&#39;forecast&#39;)">Rate forecast</button>
-      <button class="topnav-tab" onclick="showPanel(&#39;savings&#39;)">Savings finder</button>
-      <button class="topnav-tab" onclick="showPanel(&#39;ai-economy&#39;)">AI economy</button>
-      <button class="topnav-tab" onclick="showPanel(&#39;advisor&#39;)">AI advisor</button>
+      <button class="topnav-tab active" onclick="showPanel('dashboard')">Dashboard</button>
+      <button class="topnav-tab" onclick="showPanel('forecast')">Rate forecast</button>
+      <button class="topnav-tab" onclick="showPanel('savings')">Savings finder</button>
+      <button class="topnav-tab" onclick="showPanel('ai-economy')">AI economy</button>
+      <button class="topnav-tab" onclick="showPanel('loan-rates')">Loan rates</button>
+      <button class="topnav-tab" onclick="showPanel('advisor')">AI advisor</button>
     </div>
     <div class="topnav-right">
       <div class="company-pill" id="company-name-display">—</div>
@@ -658,11 +660,12 @@ input[type=range] {
 
   <!-- Mobile tabs -->
   <div class="mobile-tabs" id="mobile-tabs">
-    <button class="mobile-tab active" onclick="showPanel(&#39;dashboard&#39;)">Dashboard</button>
-    <button class="mobile-tab" onclick="showPanel(&#39;forecast&#39;)">Forecast</button>
-    <button class="mobile-tab" onclick="showPanel(&#39;savings&#39;)">Savings</button>
-    <button class="mobile-tab" onclick="showPanel(&#39;ai-economy&#39;)">AI Economy</button>
-    <button class="mobile-tab" onclick="showPanel(&#39;advisor&#39;)">Advisor</button>
+    <button class="mobile-tab active" onclick="showPanel('dashboard')">Dashboard</button>
+    <button class="mobile-tab" onclick="showPanel('forecast')">Forecast</button>
+    <button class="mobile-tab" onclick="showPanel('savings')">Savings</button>
+    <button class="mobile-tab" onclick="showPanel('ai-economy')">AI Economy</button>
+    <button class="mobile-tab" onclick="showPanel('loan-rates')">Loan rates</button>
+    <button class="mobile-tab" onclick="showPanel('advisor')">Advisor</button>
   </div>
 
   <div class="app-content">
@@ -696,7 +699,7 @@ input[type=range] {
       </div>
 
       <div class="security-row" style="margin-bottom:1rem">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L2 3.5v4C2 10.5 4.3 12.2 7 13c2.7-.8 5-2.5 5-5.5v-4L7 1z" stroke="#1a6b3a" stroke-width="1.3" stroke-linejoin="round"></path></svg>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L2 3.5v4C2 10.5 4.3 12.2 7 13c2.7-.8 5-2.5 5-5.5v-4L7 1z" stroke="#1a6b3a" stroke-width="1.3" stroke-linejoin="round"/></svg>
         Your financial data is encrypted (AES-256) and stored in an isolated database. Only your company account can access this data. No data is shared or used for training.
       </div>
 
@@ -741,7 +744,7 @@ input[type=range] {
           <div class="card-header"><div class="card-title">Module status</div></div>
           <div class="data-row"><span class="data-row-label">Rate forecasting engine</span><span class="tag tag-green">Active</span></div>
           <div class="data-row"><span class="data-row-label">Financial savings scanner</span><span class="tag tag-green">Active</span></div>
-          <div class="data-row"><span class="data-row-label">Hiring &amp; borrowing optimizer</span><span class="tag tag-green">Active</span></div>
+          <div class="data-row"><span class="data-row-label">Hiring & borrowing optimizer</span><span class="tag tag-green">Active</span></div>
           <div class="data-row"><span class="data-row-label">AI economy cost compression</span><span class="tag tag-new">New</span></div>
           <div class="data-row"><span class="data-row-label">AI advisor</span><span class="tag tag-green">Active</span></div>
           <div class="data-row"><span class="data-row-label">Data security</span><span class="tag tag-green">AES-256</span></div>
@@ -834,7 +837,7 @@ input[type=range] {
 
     <!-- ══ SAVINGS FINDER ═════════════════════════ -->
     <div class="panel" id="panel-savings">
-      <div class="page-title">Savings finder + hiring &amp; borrowing optimizer</div>
+      <div class="page-title">Savings finder + hiring & borrowing optimizer</div>
       <div class="page-sub">Find hidden costs, right-size your team, and borrow at the right time based on real rate data.</div>
 
       <div class="section-label">Company profile — adjust to your numbers</div>
@@ -950,29 +953,143 @@ input[type=range] {
       </div>
     </div>
 
+    <!-- ══ LOAN RATES MODULE ═══════════════════════ -->
+    <div class="panel" id="panel-loan-rates">
+      <div class="page-title">Fed rate impact on your loans</div>
+      <div class="page-sub">One Fed decision ripples through every loan your business has — at different speeds and different amounts. Drag the slider to see exactly what happens to your payments.</div>
+
+      <div class="card" style="margin-bottom:1rem">
+        <div class="card-header"><div class="card-title">Federal funds rate — drag to see live impact</div></div>
+        <div class="card-body">
+          <div style="font-size:48px;font-weight:600;color:#534AB7;text-align:center;margin:.5rem 0" id="fed-big-display">3.75%</div>
+          <input type="range" min="0.25" max="10" step="0.25" value="3.75" id="fed-main-slider" oninput="updateLoans()" style="width:100%;accent-color:#534AB7;margin-bottom:.5rem">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-ghost)">
+            <span>0.25% — COVID low 2021</span>
+            <span>5.25% — 2023 peak</span>
+            <span>10% — extreme</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">Every loan type — live rates and payments</div>
+      <div class="grid-2">
+
+        <div class="card">
+          <div class="card-header" style="background:#eef3fc"><div class="card-title" style="color:#1a3a6b">Prime rate loans</div><div class="card-sub">Moves same day as Fed</div></div>
+          <div class="card-body">
+            <div style="font-size:28px;font-weight:600;color:#1a3a6b;margin-bottom:.25rem" id="lr-prime">6.75%</div>
+            <div style="font-size:11px;font-family:monospace;color:var(--ink-muted);margin-bottom:.5rem">Fed rate + 3.00% = Prime rate</div>
+            <div style="font-size:12px;color:var(--ink-muted);line-height:1.6;margin-bottom:.5rem">Business credit cards, overdraft lines, short-term working capital. Adjusts immediately when Fed moves.</div>
+            <div class="tag tag-blue" id="lr-prime-pay">$500K loan → $3,375/mo</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header" style="background:#e8f5ee"><div class="card-title" style="color:#1a6b3a">SBA 7(a) loans</div><div class="card-sub">Adjusts quarterly</div></div>
+          <div class="card-body">
+            <div style="font-size:28px;font-weight:600;color:#1a6b3a;margin-bottom:.25rem" id="lr-sba">9.50%</div>
+            <div style="font-size:11px;font-family:monospace;color:var(--ink-muted);margin-bottom:.5rem">Prime rate + 2.75% = SBA rate</div>
+            <div style="font-size:12px;color:var(--ink-muted);line-height:1.6;margin-bottom:.5rem">Most common small business loan. Working capital, equipment, expansion. Adjusts every quarter.</div>
+            <div class="tag tag-green" id="lr-sba-pay">$500K loan → $3,958/mo</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header" style="background:#fff8e6"><div class="card-title" style="color:#7a4f00">SOFR loans</div><div class="card-sub">Updates daily — most volatile</div></div>
+          <div class="card-body">
+            <div style="font-size:28px;font-weight:600;color:#7a4f00;margin-bottom:.25rem" id="lr-sofr">7.05%</div>
+            <div style="font-size:11px;font-family:monospace;color:var(--ink-muted);margin-bottom:.5rem">SOFR + spread (replaced LIBOR 2023)</div>
+            <div style="font-size:12px;color:var(--ink-muted);line-height:1.6;margin-bottom:.5rem">Commercial real estate, large equipment $1M+, syndicated loans. Updates daily. Most dangerous floating rate.</div>
+            <div class="tag tag-amber" id="lr-sofr-pay">$2M loan → $11,750/mo</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header" style="background:#fef0f0"><div class="card-title" style="color:#8b1a1a">Commercial real estate</div><div class="card-sub">Tied to 10Y Treasury</div></div>
+          <div class="card-body">
+            <div style="font-size:28px;font-weight:600;color:#8b1a1a;margin-bottom:.25rem" id="lr-cre">7.45%</div>
+            <div style="font-size:11px;font-family:monospace;color:var(--ink-muted);margin-bottom:.5rem">10Y Treasury yield + ~3.00%</div>
+            <div style="font-size:12px;color:var(--ink-muted);line-height:1.6;margin-bottom:.5rem">Warehouses, factories, office buildings. Fed moves push Treasury yields up indirectly. 5-year balloon risk.</div>
+            <div class="tag tag-red" id="lr-cre-pay">$3M warehouse → $18,625/mo</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header" style="background:#e8f5ee"><div class="card-title" style="color:#1a6b3a">Equipment financing</div><div class="card-sub">Floating or fixed — your choice</div></div>
+          <div class="card-body">
+            <div style="font-size:28px;font-weight:600;color:#1a6b3a;margin-bottom:.25rem" id="lr-equip">7.25%</div>
+            <div style="font-size:11px;font-family:monospace;color:var(--ink-muted);margin-bottom:.5rem">Prime + 0.50% if floating</div>
+            <div style="font-size:12px;color:var(--ink-muted);line-height:1.6;margin-bottom:.5rem">Machinery, vehicles, AI systems. Most common mistake — taking floating rate in low-rate environment then getting crushed when rates rise.</div>
+            <div class="tag tag-green" id="lr-equip-pay">$800K equipment → $4,833/mo</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header" style="background:#e8f5ee"><div class="card-title" style="color:#1a6b3a">Fixed rate loans</div><div class="card-sub">Fed rate = zero impact ✓</div></div>
+          <div class="card-body">
+            <div style="font-size:28px;font-weight:600;color:#1a6b3a;margin-bottom:.25rem">LOCKED</div>
+            <div style="font-size:11px;font-family:monospace;color:var(--ink-muted);margin-bottom:.5rem">Set at origination — never changes</div>
+            <div style="font-size:12px;color:var(--ink-muted);line-height:1.6;margin-bottom:.5rem">SBA 504, fixed commercial mortgages, locked equipment loans. Fed hikes 10 times — your payment stays the same. This is always the goal.</div>
+            <div class="tag tag-green">Whatever you locked — forever</div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="result-box result-blue" style="margin-top:1rem">
+        <div class="rb-label">Total monthly interest — company with typical debt mix</div>
+        <div class="rb-big" id="lr-total-monthly">$38,541/mo</div>
+        <div class="rb-sub" id="lr-total-annual">$462,492/year — $500K credit line + $500K SBA + $2M SOFR + $800K equipment</div>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-title">TOTAL ANNUAL INTEREST COST AS FED RATE CHANGES</div>
+        <div class="chart-sub">Same company, same loans — different Fed rate. Source: Prime = Fed+3%, SBA = Prime+2.75%, SOFR ≈ Fed rate.</div>
+        <canvas id="loanImpactChart" height="150"></canvas>
+      </div>
+
+      <div class="section-label">The cost of getting the timing wrong — real numbers</div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Company A vs Company B — same business, different rate decision in 2021</div></div>
+        <div class="grid-2" style="border-top:0px">
+          <div style="padding:1.25rem;border-right:0.5px solid var(--border)">
+            <div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:.75rem">Company A — took floating rate</div>
+            <div style="font-size:13px;color:var(--ink-muted);line-height:2">$2M equipment loan floating<br>2021 payment: <strong style="color:var(--ink)">$833/mo interest</strong><br>2023 payment: <strong style="color:var(--red)">$8,875/mo interest</strong><br>Extra paid 2021–2026: <strong style="color:var(--red)">$290,000+</strong></div>
+          </div>
+          <div style="padding:1.25rem">
+            <div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:.75rem">Company B — locked fixed rate</div>
+            <div style="font-size:13px;color:var(--ink-muted);line-height:2">$2M equipment loan at 2.5% fixed<br>2021 payment: <strong style="color:var(--ink)">$4,167/mo interest</strong><br>2023 payment: <strong style="color:var(--green)">$4,167/mo interest</strong><br>Saved vs Company A: <strong style="color:var(--green)">$290,000+</strong></div>
+          </div>
+        </div>
+        <div style="padding:.875rem 1.25rem;background:var(--green-light);border-top:0.5px solid var(--border);font-size:12px;color:var(--green);font-weight:500">
+          RateShield would have told Company A in January 2021: "CPI rising fast. Lock fixed rates immediately. Hikes incoming within 12 months." One alert. $290,000 saved.
+        </div>
+      </div>
+    </div>
+
     <!-- ══ AI ADVISOR ══════════════════════════════ -->
     <div class="panel" id="panel-advisor">
       <div class="page-title">AI advisor</div>
       <div class="page-sub">Ask anything about your business, interest rates, costs, hiring, or expansion. Expert-level answers in seconds.</div>
 
       <div class="security-row" style="margin-bottom:1rem">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L2 3.5v4C2 10.5 4.3 12.2 7 13c2.7-.8 5-2.5 5-5.5v-4L7 1z" stroke="#1a6b3a" stroke-width="1.3" stroke-linejoin="round"></path></svg>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L2 3.5v4C2 10.5 4.3 12.2 7 13c2.7-.8 5-2.5 5-5.5v-4L7 1z" stroke="#1a6b3a" stroke-width="1.3" stroke-linejoin="round"/></svg>
         Your conversations are private to your account. Not stored for AI training. Encrypted in transit and at rest.
       </div>
 
       <div class="quick-btns">
-        <button class="quick-btn" onclick="quickAsk(&#39;Should we refinance our floating-rate debt right now given current rates?&#39;)">Refinance debt?</button>
-        <button class="quick-btn" onclick="quickAsk(&#39;How many people should we hire given current interest rates and the AI economy?&#39;)">How many to hire?</button>
-        <button class="quick-btn" onclick="quickAsk(&#39;How can we cut costs so we can lower prices and gain market share as AI reduces consumer spending?&#39;)">Cut costs for volume</button>
-        <button class="quick-btn" onclick="quickAsk(&#39;When will interest rates go below 3% and what should we do to prepare?&#39;)">Rate prediction</button>
-        <button class="quick-btn" onclick="quickAsk(&#39;What AI investments should we make right now to protect our margins?&#39;)">AI investments</button>
+        <button class="quick-btn" onclick="quickAsk('Should we refinance our floating-rate debt right now given current rates?')">Refinance debt?</button>
+        <button class="quick-btn" onclick="quickAsk('How many people should we hire given current interest rates and the AI economy?')">How many to hire?</button>
+        <button class="quick-btn" onclick="quickAsk('How can we cut costs so we can lower prices and gain market share as AI reduces consumer spending?')">Cut costs for volume</button>
+        <button class="quick-btn" onclick="quickAsk('When will interest rates go below 3% and what should we do to prepare?')">Rate prediction</button>
+        <button class="quick-btn" onclick="quickAsk('What AI investments should we make right now to protect our margins?')">AI investments</button>
       </div>
 
       <div class="chat-messages" id="chat-messages">
         <div class="msg ai">Welcome to RateShield AI. I'm your dedicated business intelligence advisor. I have access to real-time rate data, 55 years of Fed cycle history, and your company's financial profile. Ask me anything — rate timing, cost cutting, hiring decisions, or how the AI economy will affect your margins. What's most urgent for you right now?</div>
       </div>
       <div class="chat-input-row">
-        <input class="chat-input" id="chat-input" type="text" placeholder="Ask about rates, costs, hiring, AI strategy..." onkeydown="if(event.key===&#39;Enter&#39;)sendChat()">
+        <input class="chat-input" id="chat-input" type="text" placeholder="Ask about rates, costs, hiring, AI strategy..." onkeydown="if(event.key==='Enter')sendChat()">
         <button class="chat-send" onclick="sendChat()">Send</button>
       </div>
     </div>
@@ -980,7 +1097,7 @@ input[type=range] {
   </div><!-- /app-content -->
 </div><!-- /app -->
 
-<script src="./rateshield test_files/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
 // ── AUTH ─────────────────────────────────────────
 let companyName = '';
@@ -1312,7 +1429,66 @@ function updateAIEconomy() {
   }
 }
 
-// ── CHART INIT ────────────────────────────────────
+// ── LOAN RATES MODULE ────────────────────────────
+let loanImpactChart = null;
+
+function updateLoans() {
+  const fed = parseFloat(document.getElementById('fed-main-slider').value);
+  document.getElementById('fed-big-display').textContent = fed.toFixed(2) + '%';
+
+  const prime = fed + 3.0;
+  const sba = prime + 2.75;
+  const sofr = fed - 0.10 + 3.25;
+  const cre = fed + 3.70;
+  const equip = prime + 0.50;
+
+  document.getElementById('lr-prime').textContent = prime.toFixed(2) + '%';
+  document.getElementById('lr-sba').textContent = sba.toFixed(2) + '%';
+  document.getElementById('lr-sofr').textContent = sofr.toFixed(2) + '%';
+  document.getElementById('lr-cre').textContent = cre.toFixed(2) + '%';
+  document.getElementById('lr-equip').textContent = equip.toFixed(2) + '%';
+
+  const p1 = Math.round(500000 * prime / 100 / 12);
+  const p2 = Math.round(500000 * sba / 100 / 12);
+  const p3 = Math.round(2000000 * sofr / 100 / 12);
+  const p4 = Math.round(3000000 * cre / 100 / 12);
+  const p5 = Math.round(800000 * equip / 100 / 12);
+
+  document.getElementById('lr-prime-pay').textContent = '$500K loan → $' + p1.toLocaleString() + '/mo';
+  document.getElementById('lr-sba-pay').textContent = '$500K loan → $' + p2.toLocaleString() + '/mo';
+  document.getElementById('lr-sofr-pay').textContent = '$2M loan → $' + p3.toLocaleString() + '/mo';
+  document.getElementById('lr-cre-pay').textContent = '$3M warehouse → $' + p4.toLocaleString() + '/mo';
+  document.getElementById('lr-equip-pay').textContent = '$800K equipment → $' + p5.toLocaleString() + '/mo';
+
+  const totalMonthly = p1 + p2 + p3 + p5;
+  const totalAnnual = totalMonthly * 12;
+  document.getElementById('lr-total-monthly').textContent = '$' + totalMonthly.toLocaleString() + '/mo';
+  document.getElementById('lr-total-annual').textContent = '$' + totalAnnual.toLocaleString() + '/year — $500K credit line + $500K SBA + $2M SOFR + $800K equipment';
+
+  const rates = [0.25,1,2,3,4,5,6,7,8,9,10];
+  const costs = rates.map(r => {
+    const pr = r+3; const sb = pr+2.75; const sf = r+3.15; const eq = pr+0.5;
+    return Math.round(((500000*pr/100/12)+(500000*sb/100/12)+(2000000*sf/100/12)+(800000*eq/100/12))*12);
+  });
+
+  if(loanImpactChart) {
+    loanImpactChart.data.datasets[0].data = costs;
+    loanImpactChart.update('none');
+    return;
+  }
+  const ctx = document.getElementById('loanImpactChart')?.getContext('2d');
+  if(!ctx) return;
+  loanImpactChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: rates.map(r=>r+'%'), datasets:[{
+      label:'Total annual interest', data:costs,
+      borderColor:'#534AB7', backgroundColor:'rgba(83,74,183,0.08)', fill:true, tension:0.4, pointRadius:4, pointBackgroundColor:'#534AB7', borderWidth:2
+    }]},
+    options:{ responsive:true, plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>'$'+c.raw.toLocaleString()+'/yr'}} },
+      scales:{ y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'K',font:{size:10}},grid:{color:'rgba(0,0,0,0.04)'}}, x:{ticks:{font:{size:10}},grid:{display:false}} } }
+  });
+}
+
 function initCharts() {
   const labels = ['Now','3mo','6mo','9mo','12mo','15mo','18mo'];
   const base = [3.75,3.60,3.50,3.40,3.25,3.15,3.00];
@@ -1413,6 +1589,5 @@ function quickAsk(q) {
   sendChat();
 }
 </script>
-
-
-</body></html>
+</body>
+</html>
