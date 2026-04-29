@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1102,12 +1103,12 @@ input[type=range] {
 let companyName = '';
 
 function login() {
+  // simplified login - any input works
   const company = document.getElementById('auth-company').value.trim();
   const pass = document.getElementById('auth-pass').value;
   const err = document.getElementById('auth-error');
 
-  if (!company || !pass) { err.style.display='block'; err.textContent='Please enter both fields.'; return; }
-   if (!pass) { err.style.display='block'; err.textContent='Please enter password.'; return; }
+
   err.style.display='none';
   companyName = company.toUpperCase();
   document.getElementById('company-name-display').textContent = companyName;
