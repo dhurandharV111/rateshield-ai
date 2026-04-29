@@ -1107,8 +1107,7 @@ function login() {
   const err = document.getElementById('auth-error');
 
   if (!company || !pass) { err.style.display='block'; err.textContent='Please enter both fields.'; return; }
-  if (pass !== 'demo123' && pass.length < 6) { err.style.display='block'; err.textContent='Incorrect credentials.'; return; }
-
+   if (!pass) { err.style.display='block'; err.textContent='Please enter password.'; return; }
   err.style.display='none';
   companyName = company.toUpperCase();
   document.getElementById('company-name-display').textContent = companyName;
