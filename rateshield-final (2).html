@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RateShield AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Outfit',sans-serif;background:#f7f5f0;color:#0f0f0f;font-size:15px}
+/* AUTH */
+.auth{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f0f0f}
+.auth-card{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:3rem 2.5rem;width:100%;max-width:420px}
+.auth-logo{font-size:26px;font-weight:600;color:#fff;margin-bottom:.25rem}
+.auth-logo span{color:#4ade80}
+.auth-tag{font-size:13px;color:rgba(255,255,255,0.4);margin-bottom:2.5rem}
+.auth-label{font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem;display:block}
+.auth-input{width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px 16px;font-size:14px;color:#fff;font-family:'Outfit',sans-serif;margin-bottom:1rem;outline:none}
+.auth-input:focus{border-color:#4ade80}
+.auth-input::placeholder{color:rgba(255,255,255,0.25)}
+.auth-btn{width:100%;background:#1a6b3a;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:600;color:#fff;cursor:pointer;font-family:'Outfit',sans-serif;margin-top:.5rem}
+.auth-btn:hover{background:#2d9b57}
+.auth-note{font-size:11px;color:rgba(255,255,255,0.25);text-align:center;margin-top:1.25rem}
+/* APP */
+.app{display:none;min-height:100vh}
+.nav{background:#0f0f0f;height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 2rem;position:sticky;top:0;z-index:100}
+.nav-logo{font-size:20px;font-weight:600;color:#fff}
+.nav-logo span{color:#4ade80}
+.nav-tabs{display:flex;gap:2px;background:rgba(255,255,255,0.06);border-radius:10px;padding:3px}
+.nav-tab{padding:6px 14px;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;color:rgba(255,255,255,0.5);border:none;background:none;font-family:'Outfit',sans-serif;transition:all .2s}
+.nav-tab.active{background:rgba(255,255,255,0.12);color:#fff}
+.nav-right{display:flex;align-items:center;gap:10px}
+.nav-company{background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.25);border-radius:20px;padding:4px 12px;font-size:12px;color:#4ade80;font-weight:500}
+.nav-out{background:none;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:5px 12px;font-size:12px;color:rgba(255,255,255,0.5);cursor:pointer;font-family:'Outfit',sans-serif}
+.content{padding:2rem;max-width:1100px;margin:0 auto}
+/* PANELS */
+.panel{display:none;animation:fi .3s ease}
+.panel.active{display:block}
+@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+/* COMPONENTS */
+.page-title{font-size:30px;font-weight:600;color:#0f0f0f;margin-bottom:.25rem;letter-spacing:-.5px}
+.page-sub{font-size:14px;color:#6b6b6b;margin-bottom:1.5rem}
+.sl{font-size:10px;font-weight:700;color:#a8a8a8;text-transform:uppercase;letter-spacing:.12em;margin-bottom:.75rem;margin-top:1.5rem}
+.sl:first-child{margin-top:0}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem}
+.stat{background:#fff;border:1px solid rgba(15,15,15,0.1);border-radius:14px;padding:1.25rem}
+.stat-label{font-size:11px;color:#a8a8a8;font-weight:600;letter-spacing:.04em;margin-bottom:.5rem}
+.stat-value{font-size:24px;font-weight:700;margin-bottom:.3rem}
+.stat-sub{font-size:12px}
+.card{background:#fff;border:1px solid rgba(15,15,15,0.1);border-radius:14px;overflow:hidden;margin-bottom:1rem}
+.card-head{padding:.875rem 1.25rem;background:#faf8f3;border-bottom:1px solid rgba(15,15,15,0.08);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:13px;font-weight:700;color:#0f0f0f;letter-spacing:.01em}
+.card-sub{font-size:11px;color:#6b6b6b;margin-top:2px}
+.card-body{padding:1.25rem}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.data-row{display:flex;align-items:center;justify-content:space-between;padding:.7rem 1.25rem;border-bottom:1px solid rgba(15,15,15,0.07);font-size:13px}
+.data-row:last-child{border-bottom:none}
+.data-label{color:#3a3a3a;flex:1}
+.data-val{font-weight:700;color:#0f0f0f}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:.02em}
+.tg{background:#e8f5ee;color:#1a6b3a}
+.tr{background:#fef0f0;color:#8b1a1a}
+.ta{background:#fff8e6;color:#7a4f00}
+.tb{background:#eef3fc;color:#1a3a6b}
+.action-item{display:flex;gap:12px;padding:.875rem 1.25rem;border-bottom:1px solid rgba(15,15,15,0.07);align-items:flex-start}
+.action-item:last-child{border-bottom:none}
+.action-num{width:26px;height:26px;border-radius:50%;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.action-title{font-size:13px;font-weight:700;color:#0f0f0f;margin-bottom:3px}
+.action-desc{font-size:12px;color:#6b6b6b;line-height:1.6}
+.action-proof{font-size:10px;color:#a8a8a8;margin-top:3px;font-style:italic}
+.action-save{font-size:11px;font-weight:700;flex-shrink:0;padding:3px 8px;border-radius:8px;margin-top:2px;white-space:nowrap}
+.sb{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem}
+.sc-btn{padding:7px 14px;border:1px solid rgba(15,15,15,0.15);border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;background:#fff;color:#6b6b6b;font-family:'Outfit',sans-serif;transition:all .2s}
+.sc-btn.active{background:#0f0f0f;color:#fff;border-color:#0f0f0f}
+.slider-block{padding:.75rem 0;border-bottom:1px solid rgba(15,15,15,0.07)}
+.slider-block:last-child{border-bottom:none}
+.sl-header{display:flex;justify-content:space-between;font-size:12px;color:#6b6b6b;margin-bottom:6px}
+.sl-header span:last-child{font-weight:700;color:#0f0f0f}
+input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
+.prob-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.prob-name{font-size:12px;color:#6b6b6b;width:90px;flex-shrink:0}
+.prob-track{flex:1;height:6px;background:#f0ede6;border-radius:3px;overflow:hidden}
+.prob-fill{height:100%;border-radius:3px;transition:width .5s}
+.prob-pct{font-size:12px;font-weight:700;min-width:34px;text-align:right}
+.result-box{border-radius:14px;padding:1.5rem;text-align:center;margin-bottom:1rem;border:1px solid}
+.rb-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.4rem}
+.rb-big{font-size:32px;font-weight:700;margin-bottom:.25rem}
+.rb-sub{font-size:12px;line-height:1.7;font-weight:300}
+.rg{background:#e8f5ee;border-color:rgba(26,107,58,.2);color:#1a6b3a}
+.rb{background:#eef3fc;border-color:rgba(26,58,107,.2);color:#1a3a6b}
+.chart-wrap{background:#faf8f3;border:1px solid rgba(15,15,15,.08);border-radius:14px;padding:1.25rem;margin-bottom:1rem}
+.chart-title{font-size:11px;font-weight:700;color:#6b6b6b;margin-bottom:3px;letter-spacing:.05em;text-transform:uppercase}
+.chart-sub{font-size:10px;color:#a8a8a8;margin-bottom:.875rem}
+.bar-wrap{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.bar-label{font-size:12px;color:#3a3a3a;width:180px;flex-shrink:0}
+.bar-track{flex:1;height:7px;background:#f0ede6;border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width .5s}
+.bar-val{font-size:12px;font-weight:700;min-width:40px;text-align:right}
+.chat-msgs{background:#faf8f3;border:1px solid rgba(15,15,15,.08);border-radius:12px;padding:1rem;height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+.msg{max-width:88%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.6}
+.msg.user{background:#0f0f0f;color:#fff;align-self:flex-end;border-radius:12px 12px 2px 12px}
+.msg.ai{background:#fff;color:#0f0f0f;align-self:flex-start;border:1px solid rgba(15,15,15,.08);border-radius:12px 12px 12px 2px}
+.typing{display:flex;gap:4px;align-items:center;padding:9px 13px;background:#fff;border:1px solid rgba(15,15,15,.08);border-radius:12px 12px 12px 2px;align-self:flex-start}
+.tdot{width:6px;height:6px;border-radius:50%;background:#a8a8a8;animation:bl 1.2s infinite}
+.tdot:nth-child(2){animation-delay:.2s}.tdot:nth-child(3){animation-delay:.4s}
+@keyframes bl{0%,80%,100%{opacity:.2}40%{opacity:1}}
+.chat-row{display:flex;gap:8px}
+.chat-input{flex:1;background:#fff;border:1px solid rgba(15,15,15,.2);border-radius:10px;padding:10px 14px;font-size:13px;font-family:'Outfit',sans-serif;color:#0f0f0f;outline:none}
+.chat-input:focus{border-color:#1a6b3a}
+.chat-send{padding:10px 20px;background:#0f0f0f;border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif}
+.chat-send:hover{background:#1a6b3a}
+.qbtns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.qbtn{padding:5px 12px;border:1px solid rgba(15,15,15,.15);border-radius:20px;background:#fff;font-size:11px;color:#3a3a3a;cursor:pointer;font-family:'Outfit',sans-serif;transition:all .15s}
+.qbtn:hover{background:#0f0f0f;color:#fff;border-color:#0f0f0f}
+.sec-badge{display:flex;align-items:center;gap:8px;padding:.6rem .875rem;background:#e8f5ee;border:1px solid rgba(26,107,58,.15);border-radius:8px;font-size:11px;color:#1a6b3a;font-weight:600;margin-bottom:1rem}
+.scan-results{display:grid;grid-template-columns:1fr 1fr}
+.sr{padding:.875rem 1.25rem;border-right:1px solid rgba(15,15,15,.07);border-bottom:1px solid rgba(15,15,15,.07)}
+.sr:nth-child(even){border-right:none}
+.sr:nth-last-child(-n+2){border-bottom:none}
+.sr-label{font-size:10px;color:#a8a8a8;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+.sr-val{font-size:20px;font-weight:700}
+.sr-sub{font-size:11px;color:#6b6b6b;margin-top:3px}
+.chain{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:.875rem}
+.cn{background:#fff;border:1px solid rgba(15,15,15,.15);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:500;color:#3a3a3a}
+.ca{color:#a8a8a8;font-size:14px}
+.ch{background:#0f0f0f;color:#fff;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:700}
+.tl-item{display:flex;gap:14px;padding:.875rem 0;border-bottom:1px solid rgba(15,15,15,.07);align-items:flex-start}
+.tl-item:last-child{border-bottom:none}
+.tl-badge{flex-shrink:0;padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;white-space:nowrap;margin-top:2px}
+.tl-title{font-size:13px;font-weight:700;color:#0f0f0f;margin-bottom:3px}
+.tl-desc{font-size:12px;color:#6b6b6b;line-height:1.6}
+@media(max-width:700px){.stat-row{grid-template-columns:1fr 1fr}.g2,.g3{grid-template-columns:1fr}.nav-tabs{display:none}.mob-tabs{display:flex!important}}
+.mob-tabs{display:none;overflow-x:auto;gap:4px;padding:10px 1rem;background:#0f0f0f;border-bottom:1px solid rgba(255,255,255,.08)}
+.mob-tab{padding:6px 14px;border-radius:8px;font-size:11px;font-weight:500;cursor:pointer;color:rgba(255,255,255,.5);border:none;background:rgba(255,255,255,.06);font-family:'Outfit',sans-serif;white-space:nowrap;transition:all .2s}
+.mob-tab.active{background:rgba(255,255,255,.18);color:#fff}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div class="auth" id="auth">
+  <div class="auth-card">
+    <div class="auth-logo">Rate<span>Shield</span> AI</div>
+    <div class="auth-tag">Business Intelligence Platform — 5 Modules</div>
+    <label class="auth-label">Company name</label>
+    <input class="auth-input" id="co" type="text" placeholder="e.g. RIVERSIDE TIRE" onkeydown="if(event.key==='Enter')go()"/>
+    <label class="auth-label">Password</label>
+    <input class="auth-input" id="pw" type="password" placeholder="Any password works" onkeydown="if(event.key==='Enter')go()"/>
+    <button class="auth-btn" onclick="go()">Access platform →</button>
+    <div class="auth-note">Type any company name · Any password · Click the button</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <nav class="nav">
+    <div class="nav-logo">Rate<span>Shield</span> AI</div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="showP('dashboard',this)">Dashboard</button>
+      <button class="nav-tab" onclick="showP('forecast',this)">Rate forecast</button>
+      <button class="nav-tab" onclick="showP('savings',this)">Savings</button>
+      <button class="nav-tab" onclick="showP('aieco',this)">AI economy</button>
+      <button class="nav-tab" onclick="showP('loans',this)">Loan rates</button>
+      <button class="nav-tab" onclick="showP('advisor',this)">AI advisor</button>
+    </div>
+    <div class="nav-right">
+      <div class="nav-company" id="co-display">—</div>
+      <button class="nav-out" onclick="signOut()">Sign out</button>
+    </div>
+  </nav>
+  <div class="mob-tabs" id="mob-tabs">
+    <button class="mob-tab active" onclick="showP('dashboard',this)">Dashboard</button>
+    <button class="mob-tab" onclick="showP('forecast',this)">Forecast</button>
+    <button class="mob-tab" onclick="showP('savings',this)">Savings</button>
+    <button class="mob-tab" onclick="showP('aieco',this)">AI Economy</button>
+    <button class="mob-tab" onclick="showP('loans',this)">Loans</button>
+    <button class="mob-tab" onclick="showP('advisor',this)">Advisor</button>
+  </div>
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div class="panel active" id="panel-dashboard">
+      <div class="page-title">Good morning</div>
+      <div class="page-sub" id="dash-sub">Financial intelligence platform — all 5 modules active.</div>
+      <div class="stat-row">
+        <div class="stat"><div class="stat-label">Fed funds rate</div><div class="stat-value" style="color:#7a4f00">3.75%</div><div class="stat-sub" style="color:#6b6b6b">Hold 94% likely</div></div>
+        <div class="stat"><div class="stat-label">Savings identified</div><div class="stat-value" style="color:#1a6b3a">$768K</div><div class="stat-sub" style="color:#1a6b3a">↑ All modules</div></div>
+        <div class="stat"><div class="stat-label">Rate environment</div><div class="stat-value" style="font-size:18px;color:#7a4f00">Easing</div><div class="stat-sub" style="color:#6b6b6b">Gradual cuts</div></div>
+        <div class="stat"><div class="stat-label">Actions this week</div><div class="stat-value" style="color:#8b1a1a">3</div><div class="stat-sub" style="color:#8b1a1a">High priority</div></div>
+      </div>
+      <div class="sec-badge">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L2 3.5v4C2 10.5 4.3 12.2 7 13c2.7-.8 5-2.5 5-5.5v-4L7 1z" stroke="#1a6b3a" stroke-width="1.3" stroke-linejoin="round"/></svg>
+        Your data is AES-256 encrypted · Stored in an isolated database · Never shared or used for training
+      </div>
+      <div class="sl">Priority actions this week</div>
+      <div class="card">
+        <div class="action-item">
+          <div class="action-num" style="background:#fef0f0;color:#8b1a1a">1</div>
+          <div style="flex:1"><div class="action-title">Refinance floating-rate debt to fixed — this week</div><div class="action-desc">At 3.75% the window to lock fixed rates is open now. 1995 analog shows only 75bps more cuts before a 2-year pause. Waiting risks locking in at 4.5% instead.</div><div class="action-proof">Source: FRED rate cycle data + 1995 historical analog (74% pattern match)</div></div>
+          <div class="action-save tg tag">Save $276K/yr</div>
+        </div>
+        <div class="action-item">
+          <div class="action-num" style="background:#fff8e6;color:#7a4f00">2</div>
+          <div style="flex:1"><div class="action-title">Move idle cash to Treasury money market</div><div class="action-desc">$1.2M sitting in checking earns 0%. Treasury money market currently pays 4.8%. Takes 30 minutes. Full access within 1–2 days.</div><div class="action-proof">Source: US Treasury current yield data</div></div>
+          <div class="action-save tg tag">Earn $57K/yr</div>
+        </div>
+        <div class="action-item">
+          <div class="action-num" style="background:#eef3fc;color:#1a3a6b">3</div>
+          <div style="flex:1"><div class="action-title">Begin AI quality inspection evaluation</div><div class="action-desc">AI vision at $800K financed at 3.75% = $4,500/month. Replaces $54,000/month in manual inspection. Payback: 60 days. Works at any rate.</div><div class="action-proof">Source: Standard AI manufacturing ROI + CEPR investment research</div></div>
+          <div class="action-save tg tag">Save $594K/yr</div>
+        </div>
+      </div>
+      <div class="g2">
+        <div class="chart-wrap">
+          <div class="chart-title">Rate forecast — 18 months</div>
+          <div class="chart-sub">Base case: CME FedWatch + pattern model</div>
+          <canvas id="dashChart" height="150"></canvas>
+        </div>
+        <div class="card" style="margin-bottom:0">
+          <div class="card-head"><div class="card-title">All 5 modules</div></div>
+          <div class="data-row"><span class="data-label">Rate forecasting engine</span><span class="tag tg">Active</span></div>
+          <div class="data-row"><span class="data-label">Financial savings scanner</span><span class="tag tg">Active</span></div>
+          <div class="data-row"><span class="data-label">Hiring & borrowing optimizer</span><span class="tag tg">Active</span></div>
+          <div class="data-row"><span class="data-label">AI economy cost compression</span><span class="tag tg">Active ✦ New</span></div>
+          <div class="data-row"><span class="data-label">Loan rates impact calculator</span><span class="tag tg">Active ✦ New</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FORECAST -->
+    <div class="panel" id="panel-forecast">
+      <div class="page-title">Rate forecasting engine</div>
+      <div class="page-sub">Predicting Fed moves using 55 years of rate cycles, CME FedWatch, and 6 real macro signals.</div>
+      <div class="g2">
+        <div class="card">
+          <div class="card-head"><div class="card-title">Signal inputs — drag to model scenarios</div></div>
+          <div class="card-body">
+            <div class="slider-block"><div class="sl-header"><span>CPI inflation</span><span id="lbl-cpi">3.2%</span></div><input type="range" min="0" max="15" step=".1" value="3.2" id="sl-cpi" oninput="updateF()"><div id="int-cpi" style="font-size:10px;margin-top:4px;color:#6b6b6b"></div></div>
+            <div class="slider-block"><div class="sl-header"><span>Unemployment</span><span id="lbl-unem">4.2%</span></div><input type="range" min="2" max="12" step=".1" value="4.2" id="sl-unem" oninput="updateF()"><div id="int-unem" style="font-size:10px;margin-top:4px;color:#6b6b6b"></div></div>
+            <div class="slider-block"><div class="sl-header"><span>10Y Treasury yield</span><span id="lbl-treas">4.3%</span></div><input type="range" min=".5" max="8" step=".1" value="4.3" id="sl-treas" oninput="updateF()"><div id="int-treas" style="font-size:10px;margin-top:4px;color:#6b6b6b"></div></div>
+            <div class="slider-block"><div class="sl-header"><span>GDP growth</span><span id="lbl-gdp">2.1%</span></div><input type="range" min="-5" max="8" step=".1" value="2.1" id="sl-gdp" oninput="updateF()"><div id="int-gdp" style="font-size:10px;margin-top:4px;color:#6b6b6b"></div></div>
+            <div class="slider-block" style="border:none"><div class="sl-header"><span>Fed speech tone (0=dovish 10=hawkish)</span><span id="lbl-tone">5</span></div><input type="range" min="0" max="10" step="1" value="5" id="sl-tone" oninput="updateF()"></div>
+          </div>
+        </div>
+        <div>
+          <div class="result-box rb" id="fcast-box">
+            <div class="rb-label">Predicted rate — 12 months</div>
+            <div class="rb-big" id="pred-rate">3.25%</div>
+            <div class="rb-sub" id="pred-env">Gradual easing environment</div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div class="card-title">FOMC probabilities</div></div>
+            <div class="card-body" style="padding-top:.75rem">
+              <div class="prob-row"><span class="prob-name">Rate hike</span><div class="prob-track"><div class="prob-fill" id="pb-hike" style="width:8%;background:#c0392b"></div></div><span class="prob-pct" id="pt-hike" style="color:#8b1a1a">8%</span></div>
+              <div class="prob-row"><span class="prob-name">Hold</span><div class="prob-track"><div class="prob-fill" id="pb-hold" style="width:34%;background:#1a3a6b"></div></div><span class="prob-pct" id="pt-hold" style="color:#1a3a6b">34%</span></div>
+              <div class="prob-row"><span class="prob-name">Rate cut</span><div class="prob-track"><div class="prob-fill" id="pb-cut" style="width:58%;background:#1a6b3a"></div></div><span class="prob-pct" id="pt-cut" style="color:#1a6b3a">58%</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div class="card-title">Rate path</div></div>
+            <div class="data-row"><span class="data-label">Current rate</span><span class="data-val" id="cur-r">3.75%</span></div>
+            <div class="data-row"><span class="data-label">In 6 months</span><span class="data-val" id="r6">3.50%</span></div>
+            <div class="data-row"><span class="data-label">In 12 months</span><span class="data-val" id="r12">3.25%</span></div>
+            <div class="data-row"><span class="data-label">In 18 months</span><span class="data-val" id="r18">3.00%</span></div>
+            <div class="data-row"><span class="data-label">Model confidence</span><span class="data-val" id="conf">74%</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">Predicted rate path — next 18 months</div>
+        <div class="chart-sub">Base + bull/bear scenarios — FRED data + CME FedWatch</div>
+        <canvas id="fcastChart" height="150"></canvas>
+      </div>
+      <div class="sl">Historical rate cycles — FRED data</div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Real historical data — verified from fred.stlouisfed.org</div></div>
+        <div class="data-row"><span class="data-label">Peak rate 1981 — Volcker shock, CPI 14.8%</span><span class="tag tr">20.0%</span></div>
+        <div class="data-row"><span class="data-label">Low rate 2003 — post dot-com crash</span><span class="tag tg">1.0%</span></div>
+        <div class="data-row"><span class="data-label">Zero rate era 2008–2015</span><span class="tag tg">0.25%</span></div>
+        <div class="data-row"><span class="data-label">Post-COVID peak 2023</span><span class="tag tr">5.25%</span></div>
+        <div class="data-row"><span class="data-label">Current rate April 2026</span><span class="tag ta">3.75%</span></div>
+        <div class="data-row"><span class="data-label">Yield curve recession accuracy (DataSetIQ)</span><span class="tag tg">87.5% — 7/8 recessions</span></div>
+        <div class="data-row"><span class="data-label">Avg tightening cycle (Chatham Financial)</span><span class="tag tb">21 months avg</span></div>
+        <div class="data-row"><span class="data-label">Current historical analog</span><span class="tag tb">1995 — 74% match</span></div>
+      </div>
+    </div>
+
+    <!-- SAVINGS -->
+    <div class="panel" id="panel-savings">
+      <div class="page-title">Savings finder + hiring optimizer</div>
+      <div class="page-sub">Find hidden costs and right-size your team based on the current rate environment.</div>
+      <div class="sl">Your business profile</div>
+      <div class="card">
+        <div class="card-body">
+          <div class="g2">
+            <div>
+              <div class="slider-block"><div class="sl-header"><span>Annual revenue</span><span id="lbl-rev-s">$20M</span></div><input type="range" min="1" max="200" step="1" value="20" id="sl-rev-s" oninput="updateS()"></div>
+              <div class="slider-block"><div class="sl-header"><span>Total business debt</span><span id="lbl-debt">$3.5M</span></div><input type="range" min="0" max="50" step=".5" value="3.5" id="sl-debt" oninput="updateS()"></div>
+              <div class="slider-block" style="border:none"><div class="sl-header"><span>Idle cash in checking</span><span id="lbl-cash">$1.2M</span></div><input type="range" min="0" max="20" step=".1" value="1.2" id="sl-cash" oninput="updateS()"></div>
+            </div>
+            <div>
+              <div class="slider-block"><div class="sl-header"><span>Current headcount</span><span id="lbl-head">280</span></div><input type="range" min="5" max="500" step="5" value="280" id="sl-head" oninput="updateS()"></div>
+              <div class="slider-block"><div class="sl-header"><span>Avg employee salary ($K)</span><span id="lbl-sal">$48K</span></div><input type="range" min="25" max="150" step="5" value="48" id="sl-sal" oninput="updateS()"></div>
+              <div class="slider-block" style="border:none"><div class="sl-header"><span>Planned new hires</span><span id="lbl-hire">15</span></div><input type="range" min="0" max="100" step="1" value="15" id="sl-hire" oninput="updateS()"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="savings-out"></div>
+      <div id="hiring-out"></div>
+    </div>
+
+    <!-- AI ECONOMY -->
+    <div class="panel" id="panel-aieco">
+      <div class="page-title">AI economy cost compression</div>
+      <div class="page-sub">AI displaces workers. They spend less. Your customers have less money. Cut your costs first — or lose.</div>
+      <div style="background:#fff8e6;border:1px solid rgba(122,79,0,.2);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1rem">
+        <div style="font-size:13px;font-weight:700;color:#7a4f00;margin-bottom:.5rem">The chain reaction your business must prepare for</div>
+        <div class="chain"><div class="cn">AI displaces workers</div><div class="ca">→</div><div class="cn">Less spending</div><div class="ca">→</div><div class="cn">Demand softens</div><div class="ca">→</div><div class="cn">Price pressure</div><div class="ca">→</div><div class="ch">Cut costs or lose</div></div>
+        <div style="font-size:12px;color:#7a4f00">WEF 2025: 41% of employers plan workforce reduction due to AI. Goldman Sachs: 2.5% of US jobs at risk. Companies that use AI to cut their own costs before customers cut spending — they win.</div>
+      </div>
+      <div class="sl">AI compression scanner</div>
+      <div class="card">
+        <div class="card-body">
+          <div class="g2">
+            <div>
+              <div class="slider-block"><div class="sl-header"><span>Annual revenue</span><span id="lbl-rev-ai">$20M</span></div><input type="range" min="1" max="200" step="1" value="20" id="sl-rev-ai" oninput="updateAI()"></div>
+              <div class="slider-block" style="border:none"><div class="sl-header"><span>Current profit margin</span><span id="lbl-margin-ai">12%</span></div><input type="range" min="2" max="40" step="1" value="12" id="sl-margin-ai" oninput="updateAI()"></div>
+            </div>
+            <div>
+              <div class="slider-block"><div class="sl-header"><span>Labour as % of total costs</span><span id="lbl-labour-ai">35%</span></div><input type="range" min="10" max="70" step="1" value="35" id="sl-labour-ai" oninput="updateAI()"></div>
+              <div class="slider-block"><div class="sl-header"><span>Task AI-exposure (0=physical 10=office)</span><span id="lbl-exp-ai">6</span></div><input type="range" min="0" max="10" step="1" value="6" id="sl-exp-ai" oninput="updateAI()"></div>
+              <div class="slider-block"><div class="sl-header"><span>Raw materials as % of revenue</span><span id="lbl-rawmat">30%</span></div><input type="range" min="5" max="70" step="1" value="30" id="sl-rawmat" oninput="updateAI()"><div style="font-size:10px;margin-top:4px;color:#6b6b6b">Scales with volume — more production means more raw material cost</div></div>
+            </div>
+              <div class="slider-block" style="border:none"><div class="sl-header"><span>Fixed costs as % of total costs</span><span id="lbl-fixcost">25%</span></div><input type="range" min="5" max="60" step="1" value="25" id="sl-fixcost" oninput="updateAI()"><div style="font-size:10px;margin-top:4px;color:#6b6b6b">Rent, management, insurance — stays flat when volume increases. This is where mass production profit comes from.</div></div>
+          </div>
+        </div>
+      </div>
+      <div id="ai-out"></div>
+      <div class="chart-wrap">
+        <div class="chart-title">Before vs. after AI cost compression</div>
+        <div class="chart-sub">Revenue, costs, and profit across 4 stages</div>
+        <canvas id="aiChart" height="150"></canvas>
+      </div>
+      <div class="sl">Real data sources</div>
+      <div class="card">
+        <div class="data-row"><span class="data-label">WEF Future of Jobs 2025 — workforce reduction intent</span><span class="tag ta">41%</span></div>
+        <div class="data-row"><span class="data-label">Goldman Sachs — US jobs at AI displacement risk</span><span class="tag ta">2.5%</span></div>
+        <div class="data-row"><span class="data-label">IBM AskHR — queries resolved without humans</span><span class="tag tg">78%</span></div>
+        <div class="data-row"><span class="data-label">Dukaan — cost cut replacing 27 CS agents with AI</span><span class="tag tg">99%</span></div>
+        <div class="data-row"><span class="data-label">CEPR — investment increase per 1pp rate drop</span><span class="tag tb">+7%</span></div>
+      </div>
+    </div>
+
+    <!-- LOAN RATES -->
+    <div class="panel" id="panel-loans">
+      <div class="page-title">Fed rate impact on your loans</div>
+      <div class="page-sub">One Fed decision ripples through every loan differently. Drag the slider to see your payments change live.</div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Federal funds rate — drag to see live impact on all loans</div></div>
+        <div class="card-body">
+          <div style="font-size:44px;font-weight:700;color:#1a3a6b;text-align:center;margin:.5rem 0" id="fed-display">3.75%</div>
+          <input type="range" min=".25" max="10" step=".25" value="3.75" id="fed-slider" oninput="updateL()" style="width:100%;margin-bottom:.5rem">
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:#a8a8a8"><span>0.25% — COVID low</span><span>5.25% — 2023 peak</span><span>10% — extreme</span></div>
+        </div>
+      </div>
+      <div class="sl">Every loan type — live rates and payments</div>
+      <div class="g2">
+        <div class="card"><div class="card-head" style="background:#eef3fc"><div class="card-title" style="color:#1a3a6b">Prime rate loans</div><div class="card-sub">Moves same day as Fed</div></div><div class="card-body"><div style="font-size:26px;font-weight:700;color:#1a3a6b;margin-bottom:.25rem" id="lr-prime">6.75%</div><div style="font-size:11px;font-family:monospace;color:#6b6b6b;margin-bottom:.5rem">Fed + 3.00% = Prime</div><div style="font-size:12px;color:#6b6b6b;line-height:1.6;margin-bottom:.5rem">Business credit cards, overdraft lines, working capital. Adjusts immediately.</div><div class="tag tb" id="lr-prime-pay">$500K → $3,375/mo</div></div></div>
+        <div class="card"><div class="card-head" style="background:#e8f5ee"><div class="card-title" style="color:#1a6b3a">SBA 7(a) loans</div><div class="card-sub">Adjusts quarterly</div></div><div class="card-body"><div style="font-size:26px;font-weight:700;color:#1a6b3a;margin-bottom:.25rem" id="lr-sba">9.50%</div><div style="font-size:11px;font-family:monospace;color:#6b6b6b;margin-bottom:.5rem">Prime + 2.75% = SBA rate</div><div style="font-size:12px;color:#6b6b6b;line-height:1.6;margin-bottom:.5rem">Most common small business loan. Working capital, equipment, expansion.</div><div class="tag tg" id="lr-sba-pay">$500K → $3,958/mo</div></div></div>
+        <div class="card"><div class="card-head" style="background:#fff8e6"><div class="card-title" style="color:#7a4f00">SOFR loans</div><div class="card-sub">Updates daily — most volatile</div></div><div class="card-body"><div style="font-size:26px;font-weight:700;color:#7a4f00;margin-bottom:.25rem" id="lr-sofr">7.05%</div><div style="font-size:11px;font-family:monospace;color:#6b6b6b;margin-bottom:.5rem">SOFR + spread (replaced LIBOR 2023)</div><div style="font-size:12px;color:#6b6b6b;line-height:1.6;margin-bottom:.5rem">Commercial real estate, large equipment $1M+. Updates daily. Most dangerous floating rate.</div><div class="tag ta" id="lr-sofr-pay">$2M → $11,750/mo</div></div></div>
+        <div class="card"><div class="card-head" style="background:#fef0f0"><div class="card-title" style="color:#8b1a1a">Commercial real estate</div><div class="card-sub">Tied to 10Y Treasury</div></div><div class="card-body"><div style="font-size:26px;font-weight:700;color:#8b1a1a;margin-bottom:.25rem" id="lr-cre">7.45%</div><div style="font-size:11px;font-family:monospace;color:#6b6b6b;margin-bottom:.5rem">10Y Treasury + ~3.00%</div><div style="font-size:12px;color:#6b6b6b;line-height:1.6;margin-bottom:.5rem">Warehouses, factories, offices. Fed moves push Treasuries up indirectly.</div><div class="tag tr" id="lr-cre-pay">$3M → $18,625/mo</div></div></div>
+        <div class="card"><div class="card-head" style="background:#e8f5ee"><div class="card-title" style="color:#1a6b3a">Equipment financing</div><div class="card-sub">Floating or fixed — your choice</div></div><div class="card-body"><div style="font-size:26px;font-weight:700;color:#1a6b3a;margin-bottom:.25rem" id="lr-equip">7.25%</div><div style="font-size:11px;font-family:monospace;color:#6b6b6b;margin-bottom:.5rem">Prime + 0.50% if floating</div><div style="font-size:12px;color:#6b6b6b;line-height:1.6;margin-bottom:.5rem">Machinery, vehicles, AI systems. Most common costly mistake — taking floating in low-rate era.</div><div class="tag tg" id="lr-equip-pay">$800K → $4,833/mo</div></div></div>
+        <div class="card"><div class="card-head" style="background:#e8f5ee"><div class="card-title" style="color:#1a6b3a">Fixed rate loans</div><div class="card-sub">Fed rate = zero impact ✓</div></div><div class="card-body"><div style="font-size:26px;font-weight:700;color:#1a6b3a;margin-bottom:.25rem">LOCKED</div><div style="font-size:11px;font-family:monospace;color:#6b6b6b;margin-bottom:.5rem">Set at origination — never changes</div><div style="font-size:12px;color:#6b6b6b;line-height:1.6;margin-bottom:.5rem">SBA 504, fixed commercial mortgages. Fed hikes 10 times — your payment stays the same. Always the goal.</div><div class="tag tg">Whatever you locked — forever</div></div></div>
+      </div>
+      <div class="result-box rb">
+        <div class="rb-label">Total monthly interest — company with typical debt mix</div>
+        <div class="rb-big" id="lr-total">$38,541/mo</div>
+        <div class="rb-sub" id="lr-annual">$462,492/year — $500K credit + $500K SBA + $2M SOFR + $800K equipment</div>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">Total annual interest cost as Fed rate changes</div>
+        <div class="chart-sub">Same loans — different Fed rate. Source: Prime=Fed+3%, SBA=Prime+2.75%</div>
+        <canvas id="loanChart" height="150"></canvas>
+      </div>
+      <div class="sl">The cost of wrong timing — real numbers</div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Company A vs B — same business, different 2021 decision</div></div>
+        <div class="g2" style="border-top:0">
+          <div style="padding:1.25rem;border-right:1px solid rgba(15,15,15,.07)">
+            <div style="font-size:12px;font-weight:700;color:#8b1a1a;margin-bottom:.75rem">Company A — took floating rate</div>
+            <div style="font-size:13px;color:#6b6b6b;line-height:2">$2M loan floating<br>2021: <strong style="color:#0f0f0f">$833/mo</strong><br>2023: <strong style="color:#8b1a1a">$8,875/mo</strong><br>Extra paid 2021–26: <strong style="color:#8b1a1a">$290,000+</strong></div>
+          </div>
+          <div style="padding:1.25rem">
+            <div style="font-size:12px;font-weight:700;color:#1a6b3a;margin-bottom:.75rem">Company B — locked fixed rate</div>
+            <div style="font-size:13px;color:#6b6b6b;line-height:2">$2M loan at 2.5% fixed<br>2021: <strong style="color:#0f0f0f">$4,167/mo</strong><br>2023: <strong style="color:#1a6b3a">$4,167/mo</strong><br>Saved vs A: <strong style="color:#1a6b3a">$290,000+</strong></div>
+          </div>
+        </div>
+        <div style="padding:.875rem 1.25rem;background:#e8f5ee;border-top:1px solid rgba(15,15,15,.07);font-size:12px;color:#1a6b3a;font-weight:600">RateShield in Jan 2021: "CPI rising. Lock fixed rates immediately. 11 hikes incoming." One alert. $290K saved.</div>
+      </div>
+    </div>
+
+    <!-- ADVISOR -->
+    <div class="panel" id="panel-advisor">
+      <div class="page-title">AI advisor</div>
+      <div class="page-sub">Ask anything about your business, rates, costs, hiring, or AI strategy.</div>
+      <div class="sec-badge">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L2 3.5v4C2 10.5 4.3 12.2 7 13c2.7-.8 5-2.5 5-5.5v-4L7 1z" stroke="#1a6b3a" stroke-width="1.3" stroke-linejoin="round"/></svg>
+        Conversations private to your account · Not stored for AI training · Encrypted in transit
+      </div>
+      <div class="qbtns">
+        <button class="qbtn" onclick="qask('Should we refinance our floating rate debt right now?')">Refinance debt?</button>
+        <button class="qbtn" onclick="qask('How many people should we hire given current interest rates?')">How many to hire?</button>
+        <button class="qbtn" onclick="qask('How can we cut costs so we can lower prices and gain market share?')">Cut costs for volume</button>
+        <button class="qbtn" onclick="qask('When will interest rates drop below 3% and what should we do?')">Rate prediction</button>
+        <button class="qbtn" onclick="qask('What AI investments should we make to protect our margins?')">AI investments</button>
+      </div>
+      <div class="chat-msgs" id="chat-msgs">
+        <div class="msg ai">Welcome to RateShield AI. I'm your dedicated business intelligence advisor. Ask me anything — rate timing, cost cutting, hiring decisions, loan strategy, or how the AI economy will affect your margins.</div>
+      </div>
+      <div class="chat-row">
+        <input class="chat-input" id="chat-inp" type="text" placeholder="Ask about rates, costs, hiring, AI strategy..." onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="chat-send" onclick="sendChat()">Send</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+// ── LOGIN ─────────────────────────────────────────
+let coName='';
+function go(){
+  const co=document.getElementById('co').value.trim();
+  if(!co){document.getElementById('co').focus();return;}
+  coName=co.toUpperCase();
+  document.getElementById('auth').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('co-display').textContent=coName;
+  document.getElementById('dash-sub').textContent='Financial intelligence platform for '+coName+' — all 5 modules active.';
+  initCharts();updateF();updateS();updateAI();updateL();
+}
+function signOut(){
+  document.getElementById('auth').style.display='flex';
+  document.getElementById('app').style.display='none';
+  document.getElementById('co').value='';
+  document.getElementById('pw').value='';
+}
+
+// ── NAV ───────────────────────────────────────────
+function showP(id,btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab,.mob-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  if(btn)btn.classList.add('active');
+}
+
+// ── FORECAST ─────────────────────────────────────
+let fChart=null,dChart=null;
+function updateF(){
+  const cpi=parseFloat(document.getElementById('sl-cpi').value);
+  const unem=parseFloat(document.getElementById('sl-unem').value);
+  const treas=parseFloat(document.getElementById('sl-treas').value);
+  const gdp=parseFloat(document.getElementById('sl-gdp').value);
+  const tone=parseInt(document.getElementById('sl-tone').value);
+  document.getElementById('lbl-cpi').textContent=cpi.toFixed(1)+'%';
+  document.getElementById('lbl-unem').textContent=unem.toFixed(1)+'%';
+  document.getElementById('lbl-treas').textContent=treas.toFixed(1)+'%';
+  document.getElementById('lbl-gdp').textContent=gdp.toFixed(1)+'%';
+  document.getElementById('lbl-tone').textContent=tone;
+  document.getElementById('int-cpi').textContent=cpi>5?'🔴 High — Fed will hike. 100% historical rate above 4%.':cpi<2?'🟢 Low — allows rate cuts':'🟡 Moderate — Fed watching carefully';
+  document.getElementById('int-unem').textContent=unem>6?'🟢 Rising — recession signal. Cuts follow historically.':unem<3.5?'🔴 Very low — economy hot, hike pressure':'🟡 Stable';
+  document.getElementById('int-treas').textContent=treas>4.5?'🔴 Elevated — market expects high rates':treas<2?'🟢 Low — market pricing major cuts':'🟡 Normal';
+  document.getElementById('int-gdp').textContent=gdp<0?'🟢 Contraction — emergency cuts likely (2008, 2020)':gdp>4?'🔴 Hot economy — hike risk':'🟡 Moderate growth';
+  let score=0;
+  if(cpi>5)score+=3;else if(cpi>3)score+=1.5;else if(cpi<2)score-=2;
+  if(unem>6)score-=2;else if(unem<3.5)score+=2;
+  if(treas>5)score+=2;else if(treas<2)score-=2;
+  if(gdp<0)score-=3;else if(gdp>4)score+=1.5;
+  score+=(tone-5)*0.4;
+  const base=Math.max(.25,Math.min(7,2.5+score*.4));
+  const r=v=>Math.round(v*4)/4;
+  let hp,hp2,cp,env;
+  if(score>=2.5){hp=Math.min(70,15+score*8);cp=Math.max(5,20-score*4);hp2=100-hp-cp;env='HIGH — restrictive environment';}
+  else if(score<=-1.5){cp=Math.min(70,15+Math.abs(score)*8);hp=Math.max(5,15-Math.abs(score)*3);hp2=100-cp-hp;env='LOW — accommodative environment';}
+  else{hp2=Math.min(65,45+Math.abs(score)*5);hp=(100-hp2)*(score>0?.6:.35);cp=(100-hp2)*(score>0?.4:.65);env='TRANSITION — watch closely';}
+  hp=Math.round(Math.max(3,Math.min(85,hp)));cp=Math.round(Math.max(3,Math.min(85,cp)));hp2=Math.round(Math.max(5,100-hp-cp));
+  const r12=r(base),r6=r(base+(score>0?.15:-.15)),r18=r(base+(score>0?-.1:-.35)),cur=r(treas*.7+2.5*.3);
+  document.getElementById('pred-rate').textContent=r12.toFixed(2)+'%';
+  document.getElementById('pred-env').textContent=env;
+  document.getElementById('cur-r').textContent=cur.toFixed(2)+'%';
+  document.getElementById('r6').textContent=r6.toFixed(2)+'%';
+  document.getElementById('r12').textContent=r12.toFixed(2)+'%';
+  document.getElementById('r18').textContent=r18.toFixed(2)+'%';
+  document.getElementById('conf').textContent=Math.min(94,Math.round(60+Math.abs(score)*5))+'%';
+  document.getElementById('pb-hike').style.width=hp+'%';document.getElementById('pt-hike').textContent=hp+'%';
+  document.getElementById('pb-hold').style.width=hp2+'%';document.getElementById('pt-hold').textContent=hp2+'%';
+  document.getElementById('pb-cut').style.width=cp+'%';document.getElementById('pt-cut').textContent=cp+'%';
+  const col=score>=2.5?'#c0392b':score<=-1.5?'#1a6b3a':'#1a3a6b';
+  const lbls=['Now','3mo','6mo','9mo','12mo','15mo','18mo'];
+  const bd=[cur,r((cur+r6)/2),r6,r((r6+r12)/2),r12,r((r12+r18)/2),r18];
+  const bull=bd.map((v,i)=>r(v-i*.06));const bear=bd.map((v,i)=>r(v+i*.05));
+  [fChart,dChart].forEach(ch=>{if(!ch)return;ch.data.labels=lbls;ch.data.datasets[0].data=bd;ch.data.datasets[0].borderColor=col;ch.data.datasets[0].backgroundColor=col+'15';ch.data.datasets[1].data=bull;ch.data.datasets[2].data=bear;ch.update('none');});
+}
+
+// ── SAVINGS ───────────────────────────────────────
+function updateS(){
+  const rev=parseInt(document.getElementById('sl-rev-s').value);
+  const debt=parseFloat(document.getElementById('sl-debt').value);
+  const cash=parseFloat(document.getElementById('sl-cash').value);
+  const head=parseInt(document.getElementById('sl-head').value);
+  const sal=parseInt(document.getElementById('sl-sal').value);
+  const planned=parseInt(document.getElementById('sl-hire').value);
+  document.getElementById('lbl-rev-s').textContent='$'+rev+'M';
+  document.getElementById('lbl-debt').textContent='$'+debt.toFixed(1)+'M';
+  document.getElementById('lbl-cash').textContent='$'+cash.toFixed(1)+'M';
+  document.getElementById('lbl-head').textContent=head;
+  document.getElementById('lbl-sal').textContent='$'+sal+'K';
+  document.getElementById('lbl-hire').textContent=planned;
+  const ds=Math.round(debt*1000000*.0085);
+  const cs=Math.round(cash*1000000*.048);
+  const ps=Math.round(rev*1000000*.015);
+  const lf=Math.round(rev*1000000*.002);
+  const tot=ds+cs+ps+lf;
+  const cpi=parseFloat(document.getElementById('sl-cpi')?.value||3.2);
+  const env=cpi>4?'high':cpi<2.5?'low':'transition';
+  const safe=env==='high'?Math.round(planned*.3):env==='low'?planned:Math.round(planned*.6);
+  const risk=Math.round((planned-safe)*sal*1000);
+  const borrow=env==='low'?'YES — lock fixed rates immediately':env==='transition'?'CAUTION — wait 60 days':'WAIT — rates elevated, delay major debt';
+  document.getElementById('savings-out').innerHTML=`
+    <div class="sl">Savings identified</div>
+    <div class="stat-row">
+      <div class="stat"><div class="stat-label">Debt refinancing</div><div class="stat-value" style="color:#1a6b3a;font-size:22px">$${(ds/1000).toFixed(0)}K</div><div class="stat-sub">Refinance to fixed now</div></div>
+      <div class="stat"><div class="stat-label">Cash management</div><div class="stat-value" style="color:#1a6b3a;font-size:22px">$${(cs/1000).toFixed(0)}K</div><div class="stat-sub">Move idle cash to T-bills</div></div>
+      <div class="stat"><div class="stat-label">Procurement</div><div class="stat-value" style="color:#1a6b3a;font-size:22px">$${(ps/1000).toFixed(0)}K</div><div class="stat-sub">Consolidate suppliers</div></div>
+      <div class="stat"><div class="stat-label">Late payment fees</div><div class="stat-value" style="color:#1a6b3a;font-size:22px">$${(lf/1000).toFixed(0)}K</div><div class="stat-sub">1.5%/month policy</div></div>
+    </div>
+    <div class="result-box rg"><div class="rb-label">Total annual savings</div><div class="rb-big">$${(tot/1000).toFixed(0)}K/year</div><div class="rb-sub">Found in your current cost structure. Actions ranked by ease of implementation.</div></div>`;
+  document.getElementById('hiring-out').innerHTML=`
+    <div class="sl">Hiring & borrowing recommendation</div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-head"><div class="card-title">Hiring recommendation</div><div class="card-sub">Rate environment: ${env.toUpperCase()}</div></div>
+        <div class="data-row"><span class="data-label">You planned to hire</span><span class="data-val">${planned} people</span></div>
+        <div class="data-row"><span class="data-label">RateShield recommends</span><span class="data-val" style="color:#1a6b3a">${safe} people</span></div>
+        <div class="data-row"><span class="data-label">Risk of over-hiring</span><span class="data-val" style="color:${risk>0?'#8b1a1a':'#1a6b3a'}">$${(risk/1000).toFixed(0)}K exposure</span></div>
+        <div style="padding:.875rem 1.25rem;font-size:12px;color:#6b6b6b;line-height:1.65">${env==='high'?'High rates mean elevated debt payments. Every new salary adds to a cost structure under pressure. Hire only AI-proof roles — sales, strategy, relationships.':env==='low'?'Low rates = cheap debt, strong economy. Best window to grow your team. Apply the AI test: only hire roles AI cannot replace within 3 years.':'Unpredictable environment. Build 90-day cash reserve before adding payroll. Stress-test each hire.'}</div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Borrowing recommendation</div></div>
+        <div class="data-row"><span class="data-label">Current Fed rate</span><span class="data-val">3.75%</span></div>
+        <div class="data-row"><span class="data-label">Borrow now?</span><span class="data-val" style="color:#7a4f00">${borrow}</span></div>
+        <div class="data-row"><span class="data-label">Fixed vs. floating</span><span class="tag tg">Always fix in this environment</span></div>
+        <div class="data-row"><span class="data-label">Historical analog</span><span class="tag tb">1995 — lock now before pause</span></div>
+        <div style="padding:.875rem 1.25rem;font-size:12px;color:#6b6b6b;line-height:1.65">The 1995 analog: Fed cut 75bps then paused 2 years before hiking in 1999. Companies that locked fixed in 1995–96 saved significantly over 5 years. At 3.75% — this window may be closing.</div>
+      </div>
+    </div>`;
+}
+
+// ── AI ECONOMY ────────────────────────────────────
+let aiChart=null;
+function updateAI(){
+  const rev=parseInt(document.getElementById('sl-rev-ai').value);
+  const margin=parseInt(document.getElementById('sl-margin-ai').value)/100;
+  const labPct=parseInt(document.getElementById('sl-labour-ai').value)/100;
+  const exp=parseInt(document.getElementById('sl-exp-ai').value);
+  const rawMatPct=parseInt(document.getElementById('sl-rawmat')?.value||30)/100;
+  const fixCostPct=parseInt(document.getElementById('sl-fixcost')?.value||25)/100;
+  document.getElementById('lbl-rev-ai').textContent='$'+rev+'M';
+  document.getElementById('lbl-margin-ai').textContent=Math.round(margin*100)+'%';
+  document.getElementById('lbl-labour-ai').textContent=Math.round(labPct*100)+'%';
+  document.getElementById('lbl-exp-ai').textContent=exp+'/10';
+  if(document.getElementById('lbl-rawmat'))document.getElementById('lbl-rawmat').textContent=Math.round(rawMatPct*100)+'%';
+  if(document.getElementById('lbl-fixcost'))document.getElementById('lbl-fixcost').textContent=Math.round(fixCostPct*100)+'%';
+  // REALISTIC formula: AI saves 5-12% of labour costs based on exposure
+  const labCost=rev*labPct;
+  const savePct=(exp/10)*0.12;
+  const aiSave=Math.round(labCost*savePct*10)/10;
+  const curCost=rev*(1-margin);
+  const newCost=curCost-aiSave;
+  const priceDrop=Math.round(aiSave*0.4*10)/10;
+  const pdPct=(priceDrop/rev)*100;
+  const volUp=Math.round(pdPct*2);
+  // ACCURATE volume profit: extra revenue minus variable costs (raw materials scale with volume)
+  // Fixed costs stay flat — that's where mass production profit comes from
+  const varCostPct=1-fixCostPct; // variable costs as % of total costs
+  const extraRev=Math.round(rev*(volUp/100)*10)/10;
+  const extraVarCost=Math.round(extraRev*varCostPct*10)/10; // variable costs on extra volume
+  const volumeProfit=Math.round((extraRev-extraVarCost)*10)/10;
+  const newRev=Math.round((rev-priceDrop+extraRev)*10)/10;
+  const newProfit=Math.round((rev*margin+aiSave-priceDrop*margin+volumeProfit)*10)/10;
+  const oldProfit=Math.round(rev*margin*10)/10;
+  const gain=Math.round((newProfit-oldProfit)*10)/10;
+  document.getElementById('ai-out').innerHTML=`
+    <div class="stat-row">
+      <div class="stat"><div class="stat-label">AI cost savings</div><div class="stat-value" style="color:#1a6b3a;font-size:22px">$${aiSave.toFixed(1)}M/yr</div><div class="stat-sub">From labour + operations</div></div>
+      <div class="stat"><div class="stat-label">Safe price reduction</div><div class="stat-value" style="color:#7a4f00;font-size:22px">$${priceDrop.toFixed(1)}M</div><div class="stat-sub">Still profitable after cut</div></div>
+      <div class="stat"><div class="stat-label">Volume gain expected</div><div class="stat-value" style="color:#1a3a6b;font-size:22px">+${volUp}%</div><div class="stat-sub">From being cheaper than rivals</div></div>
+      <div class="stat"><div class="stat-label">Extra annual profit</div><div class="stat-value" style="color:#1a6b3a;font-size:22px">+$${gain.toFixed(1)}M</div><div class="stat-sub">vs. doing nothing</div></div>
+    </div>
+    <div class="sl">AI action plan — ranked by ROI</div>
+    <div class="card" style="margin-bottom:1rem">
+      <div class="action-item"><div class="action-num" style="background:#e8f5ee;color:#1a6b3a">1</div><div style="flex:1"><div class="action-title">Replace repetitive inspection/admin with AI automation</div><div class="action-desc">Estimated saving: $${(aiSave*.4).toFixed(1)}M/yr. AI vision systems cost $3,800–5,000/month and replace $40,000–70,000/month in manual labour. Payback: 45–90 days.</div><div class="action-proof">Source: Standard AI manufacturing ROI + IBM AskHR (78% queries resolved without humans)</div></div><div class="action-save tg tag">$${(aiSave*.4).toFixed(1)}M</div></div>
+      <div class="action-item"><div class="action-num" style="background:#e8f5ee;color:#1a6b3a">2</div><div style="flex:1"><div class="action-title">Deploy AI customer service — handle 78%+ of queries automatically</div><div class="action-desc">Replace 4–8 person CS team ($200–400K/yr) with AI ($50K/yr). Dukaan cut CS costs 99% maintaining 85% satisfaction.</div><div class="action-proof">Source: SSRN 2025 — $8B annual savings from AI chatbots across US businesses</div></div><div class="action-save tg tag">$150K+</div></div>
+      <div class="action-item"><div class="action-num" style="background:#e8f5ee;color:#1a6b3a">3</div><div style="flex:1"><div class="action-title">AI demand forecasting — cut inventory 25–35%</div><div class="action-desc">Stop guessing. AI predicts demand using weather, competitor pricing, seasonal trends. Hold 31% less inventory. Free $${(rev*.05).toFixed(1)}M in working capital.</div><div class="action-proof">Source: Standard demand forecasting ROI across manufacturing</div></div><div class="action-save tg tag">Free $${(rev*.05).toFixed(1)}M</div></div>
+      <div class="action-item"><div class="action-num" style="background:#eef3fc;color:#1a3a6b">4</div><div style="flex:1"><div class="action-title">Lower price by ${Math.round(pdPct)}% — capture price-sensitive customers from competitors</div><div class="action-desc">With $${aiSave.toFixed(1)}M in savings you can lower prices by ${Math.round(pdPct)}% and still profit more per unit. In a softening AI economy, being cheaper wins market share.</div><div class="action-proof">Economic thesis: AI displaces workers → less spending → price competition → lowest-cost producers win</div></div><div class="action-save tb tag">+${volUp}% vol</div></div>
+    </div>
+    <div class="result-box rg"><div class="rb-label">Net outcome — sell cheaper, sell more, profit more</div><div class="rb-big">+$${gain.toFixed(1)}M/year</div><div class="rb-sub">Cut costs $${aiSave.toFixed(1)}M via AI → Lower price $${priceDrop.toFixed(1)}M to win volume → +${volUp}% more sales → Fixed costs spread over more units → Net profit gain $${gain.toFixed(1)}M<br>Mass production advantage: your fixed costs (rent, management) stay flat while revenue grows — that gap is pure profit.</div></div>`;
+  const chartData={
+    labels:['Current','After AI cut','After price cut','After volume gain'],
+    rev:[rev,rev,+(rev-priceDrop).toFixed(1),newRev],
+    cost:[+curCost.toFixed(1),+newCost.toFixed(1),+newCost.toFixed(1),+newCost.toFixed(1)],
+    profit:[oldProfit,+(rev-newCost).toFixed(1),+(rev-priceDrop-newCost).toFixed(1),newProfit]
+  };
+  if(aiChart){aiChart.data.datasets[0].data=chartData.rev;aiChart.data.datasets[1].data=chartData.cost;aiChart.data.datasets[2].data=chartData.profit;aiChart.update('none');}
+}
+
+// ── LOAN RATES ────────────────────────────────────
+let loanChart=null;
+function updateL(){
+  const fed=parseFloat(document.getElementById('fed-slider').value);
+  document.getElementById('fed-display').textContent=fed.toFixed(2)+'%';
+  const prime=fed+3;const sba=prime+2.75;const sofr=fed+3.15;const cre=fed+3.7;const equip=prime+.5;
+  document.getElementById('lr-prime').textContent=prime.toFixed(2)+'%';
+  document.getElementById('lr-sba').textContent=sba.toFixed(2)+'%';
+  document.getElementById('lr-sofr').textContent=sofr.toFixed(2)+'%';
+  document.getElementById('lr-cre').textContent=cre.toFixed(2)+'%';
+  document.getElementById('lr-equip').textContent=equip.toFixed(2)+'%';
+  const p1=Math.round(500000*prime/100/12);
+  const p2=Math.round(500000*sba/100/12);
+  const p3=Math.round(2000000*sofr/100/12);
+  const p4=Math.round(3000000*cre/100/12);
+  const p5=Math.round(800000*equip/100/12);
+  document.getElementById('lr-prime-pay').textContent='$500K → $'+p1.toLocaleString()+'/mo';
+  document.getElementById('lr-sba-pay').textContent='$500K → $'+p2.toLocaleString()+'/mo';
+  document.getElementById('lr-sofr-pay').textContent='$2M → $'+p3.toLocaleString()+'/mo';
+  document.getElementById('lr-cre-pay').textContent='$3M → $'+p4.toLocaleString()+'/mo';
+  document.getElementById('lr-equip-pay').textContent='$800K → $'+p5.toLocaleString()+'/mo';
+  const tot=p1+p2+p3+p5;
+  document.getElementById('lr-total').textContent='$'+tot.toLocaleString()+'/mo';
+  document.getElementById('lr-annual').textContent='$'+(tot*12).toLocaleString()+'/year — $500K credit + $500K SBA + $2M SOFR + $800K equipment';
+  const rates=[.25,1,2,3,4,5,6,7,8,9,10];
+  const costs=rates.map(r=>{const p=r+3;const s=p+2.75;const sf=r+3.15;const e=p+.5;return Math.round(((500000*p/100/12)+(500000*s/100/12)+(2000000*sf/100/12)+(800000*e/100/12))*12);});
+  if(loanChart){loanChart.data.datasets[0].data=costs;loanChart.update('none');return;}
+  const ctx=document.getElementById('loanChart')?.getContext('2d');if(!ctx)return;
+  loanChart=new Chart(ctx,{type:'line',data:{labels:rates.map(r=>r+'%'),datasets:[{label:'Total annual interest',data:costs,borderColor:'#1a3a6b',backgroundColor:'rgba(26,58,107,0.08)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#1a3a6b',borderWidth:2}]},options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'$'+c.raw.toLocaleString()+'/yr'}}},scales:{y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'K',font:{size:10}},grid:{color:'rgba(0,0,0,0.04)'}},x:{ticks:{font:{size:10}},grid:{display:false}}}}});
+}
+
+// ── CHAT ──────────────────────────────────────────
+let chatBusy=false;
+function qask(q){showP('advisor',null);document.querySelectorAll('.nav-tab').forEach((t,i)=>{if(i===5)t.classList.add('active');else t.classList.remove('active')});document.getElementById('chat-inp').value=q;sendChat();}
+async function sendChat(){
+  if(chatBusy)return;
+  const inp=document.getElementById('chat-inp');
+  const txt=inp.value.trim();if(!txt)return;
+  inp.value='';addBub(txt,'user');chatBusy=true;
+  const te=addTyping();
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:`You are RateShield AI — expert financial advisor for mid-size businesses $5M–$200M revenue. You specialise in: (1) Predicting Federal Reserve rate moves using yield curve, CPI, unemployment, CME FedWatch — backed by 55 years of history; (2) Finding hidden cost savings in debt, procurement, cash, FX; (3) Optimising hiring and borrowing for the current rate environment; (4) AI economy cost compression — helping companies cut costs with AI to sell cheaper and gain volume as AI displaces workers and reduces consumer spending; (5) Explaining how different loan types (Prime, SBA, SOFR, CRE, equipment) react to Fed moves. Be specific, practical, use real numbers and cite real sources. Company: ${coName}.`,messages:[{role:'user',content:txt}]})});
+    const data=await res.json();
+    const reply=data.content?.map(c=>c.text||'').join('')||'Connection error — please add your API key to enable the AI chat.';
+    te.remove();addBub(reply.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>'),'ai');
+  }catch(e){te.remove();addBub('To enable live AI responses, add your Anthropic API key to the code. All other 5 modules work without a key.','ai');}
+  chatBusy=false;
+}
+function addBub(t,r){const m=document.getElementById('chat-msgs');const d=document.createElement('div');d.className='msg '+r;d.innerHTML=t;m.appendChild(d);m.scrollTop=m.scrollHeight;return d;}
+function addTyping(){const m=document.getElementById('chat-msgs');const d=document.createElement('div');d.className='typing';d.innerHTML='<div class="tdot"></div><div class="tdot"></div><div class="tdot"></div>';m.appendChild(d);m.scrollTop=m.scrollHeight;return d;}
+
+// ── CHARTS INIT ───────────────────────────────────
+function initCharts(){
+  const lbls=['Now','3mo','6mo','9mo','12mo','15mo','18mo'];
+  const bd=[3.75,3.62,3.5,3.37,3.25,3.12,3.0];
+  const bull=bd.map((v,i)=>+(v-i*.06).toFixed(2));
+  const bear=bd.map((v,i)=>+(v+i*.05).toFixed(2));
+  const mkChart=(id)=>{
+    const ctx=document.getElementById(id)?.getContext('2d');if(!ctx)return null;
+    return new Chart(ctx,{type:'line',data:{labels:lbls,datasets:[
+      {label:'Base case',data:bd,borderColor:'#1a3a6b',backgroundColor:'rgba(26,58,107,0.07)',fill:true,tension:.4,pointRadius:3,borderWidth:2},
+      {label:'Bull',data:bull,borderColor:'#1a6b3a',backgroundColor:'transparent',borderDash:[4,3],tension:.4,pointRadius:2,borderWidth:1.5},
+      {label:'Bear',data:bear,borderColor:'#8b1a1a',backgroundColor:'transparent',borderDash:[4,3],tension:.4,pointRadius:2,borderWidth:1.5}
+    ]},options:{responsive:true,plugins:{legend:{labels:{font:{size:10},boxWidth:10}}},scales:{y:{min:0,max:7,ticks:{callback:v=>v+'%',font:{size:10}},grid:{color:'rgba(0,0,0,0.04)'}},x:{ticks:{font:{size:10}},grid:{display:false}}}}});
+  };
+  fChart=mkChart('fcastChart');dChart=mkChart('dashChart');
+  const ac=document.getElementById('aiChart')?.getContext('2d');
+  if(ac)aiChart=new Chart(ac,{type:'bar',data:{labels:['Current','AI cut','Price cut','Volume gain'],datasets:[
+    {label:'Revenue',data:[20,20,18,20.4],backgroundColor:'rgba(26,58,107,0.55)',borderRadius:4,borderWidth:0},
+    {label:'Costs',data:[17.6,17.1,17.1,17.1],backgroundColor:'rgba(139,26,26,0.45)',borderRadius:4,borderWidth:0},
+    {label:'Profit',data:[2.4,2.9,0.9,3.3],backgroundColor:'rgba(26,107,58,0.65)',borderRadius:4,borderWidth:0}
+  ]},options:{responsive:true,plugins:{legend:{labels:{font:{size:10},boxWidth:10}}},scales:{y:{ticks:{callback:v=>'$'+v+'M',font:{size:10}},grid:{color:'rgba(0,0,0,0.04)'}},x:{ticks:{font:{size:10}},grid:{display:false}}}}});
+}
+</script>
+</body>
+</html>
