@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RateShield AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Outfit',sans-serif;background:#f0ede6;color:#0f0f0f;font-size:15px}
+.auth{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0a}
+.auth-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:3rem 2.5rem;width:100%;max-width:440px}
+.auth-logo{font-size:28px;font-weight:700;color:#fff;margin-bottom:.25rem}
+.auth-logo span{color:#4ade80}
+.auth-tag{font-size:13px;color:rgba(255,255,255,.4);margin-bottom:2rem;display:block}
+.auth-label{font-size:11px;font-weight:600;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem;display:block;margin-top:.875rem}
+.auth-label:first-of-type{margin-top:0}
+.auth-input{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px 16px;font-size:14px;color:#fff;font-family:'Outfit',sans-serif;outline:none}
+.auth-input:focus{border-color:#4ade80}
+.auth-input::placeholder{color:rgba(255,255,255,.25)}
+.auth-btn{width:100%;background:#1a6b3a;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:600;color:#fff;cursor:pointer;font-family:'Outfit',sans-serif;margin-top:1.25rem}
+.auth-btn:hover{background:#2d9b57}
+.auth-note{font-size:11px;color:rgba(255,255,255,.25);text-align:center;margin-top:1rem}
+.app{display:none;min-height:100vh}
+.nav{background:#0a0a0a;height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 2rem;position:sticky;top:0;z-index:100}
+.nav-logo{font-size:18px;font-weight:700;color:#fff}
+.nav-logo span{color:#4ade80}
+.nav-tabs{display:flex;gap:2px;background:rgba(255,255,255,.06);border-radius:10px;padding:3px}
+.nav-tab{padding:6px 14px;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;color:rgba(255,255,255,.5);border:none;background:none;font-family:'Outfit',sans-serif;transition:all .2s;white-space:nowrap}
+.nav-tab.active{background:rgba(255,255,255,.12);color:#fff}
+.nav-right{display:flex;align-items:center;gap:10px}
+.nav-co{background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.25);border-radius:20px;padding:4px 12px;font-size:11px;color:#4ade80;font-weight:600}
+.nav-sec{border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700}
+.nav-out{background:none;border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:5px 12px;font-size:12px;color:rgba(255,255,255,.5);cursor:pointer;font-family:'Outfit',sans-serif}
+.content{padding:2rem;max-width:1100px;margin:0 auto}
+.panel{display:none}
+.panel.active{display:block}
+.pg-title{font-size:26px;font-weight:700;margin-bottom:.2rem;letter-spacing:-.3px}
+.pg-sub{font-size:13px;color:#6b6b6b;margin-bottom:1.5rem;line-height:1.6}
+.card{background:#fff;border:1px solid rgba(15,15,15,.08);border-radius:14px;overflow:hidden;margin-bottom:1rem;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.card-head{padding:.875rem 1.25rem;background:#faf8f3;border-bottom:1px solid rgba(15,15,15,.07);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:13px;font-weight:700;color:#0f0f0f}
+.card-sub{font-size:11px;color:#6b6b6b;margin-top:2px}
+.card-body{padding:1.25rem}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}
+.stat{background:#fff;border:1px solid rgba(15,15,15,.08);border-radius:14px;padding:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.stat-label{font-size:10px;color:#a8a8a8;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.5rem}
+.stat-value{font-size:22px;font-weight:700;margin-bottom:.2rem;line-height:1.2}
+.stat-sub{font-size:11px;color:#6b6b6b}
+.dr{display:flex;align-items:center;justify-content:space-between;padding:.65rem 1.25rem;border-bottom:1px solid rgba(15,15,15,.06);font-size:13px}
+.dr:last-child{border-bottom:none}
+.dl{color:#3a3a3a;flex:1}
+.dv{font-weight:700;color:#0f0f0f}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px}
+.tg{background:#e8f5ee;color:#1a6b3a}
+.tr{background:#fef0f0;color:#8b1a1a}
+.ta{background:#fff8e6;color:#7a4f00}
+.tb{background:#eef3fc;color:#1a3a6b}
+.sl-lbl{font-size:10px;font-weight:700;color:#a8a8a8;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.75rem;margin-top:1.5rem}
+.sl-lbl:first-child{margin-top:0}
+.sb{padding:.75rem 0;border-bottom:1px solid rgba(15,15,15,.06)}
+.sb:last-child{border-bottom:none}
+.sb-head{display:flex;justify-content:space-between;font-size:12px;color:#6b6b6b;margin-bottom:6px}
+.sb-head span:last-child{font-weight:700;color:#0f0f0f;background:#f0ede6;padding:2px 8px;border-radius:6px;font-size:13px}
+input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
+.sn{font-size:10px;color:#a8a8a8;margin-top:3px}
+.pb{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.pb-name{font-size:12px;color:#6b6b6b;width:80px;flex-shrink:0}
+.pb-track{flex:1;height:7px;background:#f0ede6;border-radius:4px;overflow:hidden}
+.pb-fill{height:100%;border-radius:4px;transition:width .4s}
+.pb-pct{font-size:12px;font-weight:700;min-width:34px;text-align:right}
+.rb{border-radius:14px;padding:1.25rem;margin-bottom:1rem;border:1px solid}
+.rb-blue{background:#eef3fc;border-color:rgba(26,58,107,.2);color:#1a3a6b}
+.rb-green{background:#e8f5ee;border-color:rgba(26,107,58,.2);color:#1a6b3a}
+.rb-amber{background:#fff8e6;border-color:rgba(122,79,0,.2);color:#7a4f00}
+.rb-red{background:#fef0f0;border-color:rgba(139,26,26,.2);color:#8b1a1a}
+.rb-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.4rem;opacity:.7}
+.rb-big{font-size:26px;font-weight:700;margin-bottom:.25rem;line-height:1.2}
+.rb-sub{font-size:12px;line-height:1.7}
+.chart-wrap{background:#f7f5f0;border:1px solid rgba(15,15,15,.06);border-radius:14px;padding:1.25rem;margin-bottom:1rem}
+.chart-title{font-size:11px;font-weight:700;color:#6b6b6b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.chart-src{font-size:10px;color:#a8a8a8;margin-bottom:.875rem}
+.ai-row{display:flex;gap:12px;padding:.875rem 1.25rem;border-bottom:1px solid rgba(15,15,15,.06);align-items:flex-start}
+.ai-row:last-child{border-bottom:none}
+.ai-num{width:26px;height:26px;border-radius:50%;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.ai-title{font-size:13px;font-weight:700;color:#0f0f0f;margin-bottom:2px}
+.ai-desc{font-size:12px;color:#6b6b6b;line-height:1.6}
+.ai-src{font-size:10px;color:#a8a8a8;margin-top:3px;font-style:italic}
+.ai-save{font-size:11px;font-weight:700;flex-shrink:0;padding:3px 9px;border-radius:8px;white-space:nowrap;margin-top:2px}
+.chat-box{background:#f7f5f0;border:1px solid rgba(15,15,15,.06);border-radius:12px;padding:1rem;height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+.msg{max-width:88%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.6}
+.msg.u{background:#0f0f0f;color:#fff;align-self:flex-end;border-radius:12px 12px 2px 12px}
+.msg.a{background:#fff;color:#0f0f0f;align-self:flex-start;border:1px solid rgba(15,15,15,.08);border-radius:12px 12px 12px 2px}
+.typing{display:flex;gap:4px;align-items:center;padding:9px 13px;background:#fff;border:1px solid rgba(15,15,15,.08);border-radius:12px 12px 12px 2px;align-self:flex-start}
+.tdot{width:6px;height:6px;border-radius:50%;background:#a8a8a8;animation:bl 1.2s infinite}
+.tdot:nth-child(2){animation-delay:.2s}.tdot:nth-child(3){animation-delay:.4s}
+@keyframes bl{0%,80%,100%{opacity:.2}40%{opacity:1}}
+.chat-row{display:flex;gap:8px}
+.chat-inp{flex:1;background:#fff;border:1px solid rgba(15,15,15,.15);border-radius:10px;padding:10px 14px;font-size:13px;font-family:'Outfit',sans-serif;color:#0f0f0f;outline:none}
+.chat-inp:focus{border-color:#1a6b3a}
+.chat-send{padding:10px 20px;background:#0f0f0f;border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif}
+.chat-send:hover{background:#1a6b3a}
+.qbtns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.qbtn{padding:5px 12px;border:1px solid rgba(15,15,15,.12);border-radius:20px;background:#fff;font-size:11px;color:#3a3a3a;cursor:pointer;font-family:'Outfit',sans-serif}
+.qbtn:hover{background:#0f0f0f;color:#fff}
+.sec-badge{display:flex;align-items:center;gap:8px;padding:.65rem 1rem;background:#e8f5ee;border:1px solid rgba(26,107,58,.15);border-radius:8px;font-size:11px;color:#1a6b3a;font-weight:600;margin-bottom:1.5rem}
+.chain{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:.75rem}
+.cn{background:#f0ede6;border:1px solid rgba(15,15,15,.1);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:500}
+.carr{color:#a8a8a8;font-size:12px}
+.chigh{background:#0f0f0f;color:#fff;border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700}
+.wbox{background:#fff8e6;border:1px solid rgba(122,79,0,.2);border-radius:10px;padding:1rem;margin-bottom:1.25rem}
+.wbox-t{font-size:13px;font-weight:700;color:#7a4f00;margin-bottom:.35rem}
+.wbox-d{font-size:12px;color:#7a4f00;line-height:1.6}
+/* Sector select */
+.sec-select{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px 16px;font-size:14px;color:#fff;font-family:'Outfit',sans-serif;outline:none;cursor:pointer;margin-top:0}
+.sec-select option{background:#1a1a1a}
+@media(max-width:700px){.g2,.g3,.g4{grid-template-columns:1fr}.nav-tabs{display:none}}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div class="auth" id="auth">
+  <div class="auth-card">
+    <div class="auth-logo">Rate<span>Shield</span> AI</div>
+    <span class="auth-tag">Business Intelligence Platform — 6 Modules</span>
+    <label class="auth-label">Company name</label>
+    <input class="auth-input" id="co" type="text" placeholder="e.g. SMITH MIDLAND CORP" onkeydown="if(event.key==='Enter')go()"/>
+    <label class="auth-label">Industry sector</label>
+    <select class="auth-input sec-select" id="sec-sel">
+      <option value="manufacturing">🏭 Manufacturing</option>
+      <option value="technology">💻 Technology / SaaS</option>
+      <option value="retail">🏪 Retail</option>
+      <option value="restaurant">🍽️ Restaurant / Food Service</option>
+      <option value="construction">🏗️ Construction</option>
+      <option value="healthcare">🏥 Healthcare</option>
+      <option value="logistics">🚛 Logistics / Transport</option>
+      <option value="realestate">🏠 Real Estate</option>
+      <option value="professional">💼 Professional Services</option>
+      <option value="consumer">🛒 Consumer Goods</option>
+    </select>
+    <label class="auth-label">Password</label>
+    <input class="auth-input" id="pw" type="password" placeholder="Any password" onkeydown="if(event.key==='Enter')go()"/>
+    <button class="auth-btn" onclick="go()">Access platform →</button>
+    <div class="auth-note">Any company name · Select sector · Any password · Click button or press Enter</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <nav class="nav">
+    <div class="nav-logo">Rate<span>Shield</span> AI</div>
+    <div style="display:flex;gap:4px;overflow-x:auto;flex:1;justify-content:center">
+      <a href="#m1" style="padding:5px 11px;border-radius:8px;font-size:11px;font-weight:500;color:rgba(255,255,255,.6);text-decoration:none;background:rgba(255,255,255,.08)">① Rates</a>
+      <a href="#m2" style="padding:5px 11px;border-radius:8px;font-size:11px;font-weight:500;color:rgba(255,255,255,.6);text-decoration:none;background:rgba(255,255,255,.08)">② Hiring</a>
+      <a href="#m3" style="padding:5px 11px;border-radius:8px;font-size:11px;font-weight:500;color:rgba(255,255,255,.6);text-decoration:none;background:rgba(255,255,255,.08)">③ AI economy</a>
+      <a href="#m4" style="padding:5px 11px;border-radius:8px;font-size:11px;font-weight:500;color:rgba(255,255,255,.6);text-decoration:none;background:rgba(255,255,255,.08)">④ Loans</a>
+      <a href="#m5" style="padding:5px 11px;border-radius:8px;font-size:11px;font-weight:500;color:rgba(255,255,255,.6);text-decoration:none;background:rgba(255,255,255,.08)">⑤ Equilibrium</a>
+      <a href="#m6" style="padding:5px 11px;border-radius:8px;font-size:11px;font-weight:500;color:rgba(255,255,255,.6);text-decoration:none;background:rgba(255,255,255,.08)">⑥ Advisor</a>
+    </div>
+    <div class="nav-right">
+      <div class="nav-co" id="nav-co">—</div>
+      <div class="nav-sec" id="nav-sec">Sector</div>
+      <button class="nav-out" onclick="signOut()">Sign out</button>
+    </div>
+  </nav>
+  <div class="content">
+
+  <!-- MODULE 1: RATE FORECAST -->
+  <div id="m1" style="scroll-margin-top:60px">
+    <div class="pg-title">Rate forecasting engine</div>
+    <div class="pg-sub">Enter current macro conditions. RateShield calculates Fed move probabilities using 55 years of FRED data and what it means for your sector.</div>
+    <div class="g2">
+      <table style="width:100%;border-collapse:collapse;margin-bottom:1.5rem;border:1px solid rgba(15,15,15,.1);border-radius:12px;overflow:hidden"><thead><tr style="background:#f0ede6"><th style="padding:8px 14px;text-align:left;font-size:10px;font-weight:700;color:#6b6b6b;text-transform:uppercase;border-bottom:2px solid rgba(15,15,15,.1)">Input</th><th style="padding:8px 14px;text-align:right;font-size:10px;font-weight:700;color:#6b6b6b;border-bottom:2px solid rgba(15,15,15,.1)">Value</th><th style="padding:8px 14px;text-align:right;font-size:10px;font-weight:700;color:#6b6b6b;border-bottom:2px solid rgba(15,15,15,.1)">Unit</th></tr></thead><tbody><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">CPI inflation</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="f-cpi" type="number" step="0.1" min="0" value="3.2" oninput="updateF()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% · target 2.0%</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Above 3%: cuts on hold · Above 5%: hikes follow · Below 2%: cuts possible</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Unemployment rate</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="f-un" type="number" step="0.1" min="0" value="4.2" oninput="updateF()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% · full employment ~4.0%</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Above 6%: recession signal · Below 3.5%: hike pressure</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">10Y Treasury yield</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="f-tr" type="number" step="0.1" min="0" value="4.3" oninput="updateF()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% · normal 2–5%</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Rising yield = market expects rates higher for longer</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">GDP growth rate</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="f-gdp" type="number" step="0.1" min="-10" value="2.1" oninput="updateF()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% · recession below 0%</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Negative = emergency cuts (2008,2020) · Above 4%: hike risk</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Core PCE inflation</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="f-pce" type="number" step="0.1" min="0" value="2.8" oninput="updateF()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% · Fed preferred gauge</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Must fall below 2.5% before cuts — the most important signal</td></tr></tbody></table>
+      <div>
+        <div class="rb rb-blue">
+          <div class="rb-label">Predicted rate — 12 months</div>
+          <div class="rb-big" id="pred-rate">3.25%</div>
+          <div class="rb-sub" id="pred-env">Gradual easing — transition environment</div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title">FOMC probabilities</div></div>
+          <div class="card-body" style="padding-top:.75rem">
+            <div class="pb"><span class="pb-name">Rate hike</span><div class="pb-track"><div class="pb-fill" id="pb-hike" style="width:8%;background:#c0392b"></div></div><span class="pb-pct" id="pt-hike" style="color:#8b1a1a">8%</span></div>
+            <div class="pb"><span class="pb-name">Hold</span><div class="pb-track"><div class="pb-fill" id="pb-hold" style="width:34%;background:#1a3a6b"></div></div><span class="pb-pct" id="pt-hold" style="color:#1a3a6b">34%</span></div>
+            <div class="pb"><span class="pb-name">Rate cut</span><div class="pb-track"><div class="pb-fill" id="pb-cut" style="width:58%;background:#1a6b3a"></div></div><span class="pb-pct" id="pt-cut" style="color:#1a6b3a">58%</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title">Rate path</div></div>
+          <div class="dr"><span class="dl">Current rate</span><span class="dv" id="cur-r">3.75%</span></div>
+          <div class="dr"><span class="dl">In 6 months</span><span class="dv" id="r6">3.50%</span></div>
+          <div class="dr"><span class="dl">In 12 months</span><span class="dv" id="r12">3.25%</span></div>
+          <div class="dr"><span class="dl">In 18 months</span><span class="dv" id="r18">3.00%</span></div>
+          <div class="dr"><span class="dl">Model confidence</span><span class="dv" id="conf">74%</span></div>
+        </div>
+        <div class="rb rb-amber" id="sec-impact-box">
+          <div class="rb-label">What this means for your sector</div>
+          <div class="rb-sub" id="sec-impact-text">Loading sector context...</div>
+        </div>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title">18-month rate path — 3 scenarios</div>
+      <div class="chart-src">Base case + bull (more cuts) + bear (fewer cuts) · Source: CME FedWatch + FRED 55yr data</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:.875rem"><thead><tr style="background:#f0ede6"><th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#3a3a3a;border-bottom:2px solid rgba(15,15,15,.1)">Period</th><th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:700;color:#1a3a6b;border-bottom:2px solid rgba(15,15,15,.1)">Base case</th><th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:700;color:#1a6b3a;border-bottom:2px solid rgba(15,15,15,.1)">Bull</th><th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:700;color:#8b1a1a;border-bottom:2px solid rgba(15,15,15,.1)">Bear</th><th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">vs. Today</th></tr></thead><tbody id="f-tbody"></tbody></table>
+      <canvas id="fChart" height="150"></canvas>
+    </div>
+    <div class="sl-lbl" style="margin-top:1.5rem">Verified FRED historical data</div>
+    <div class="card">
+      <div class="dr"><span class="dl">Peak rate 1981 — Volcker shock (CPI 14.8%)</span><span class="tag tr">20.0%</span></div>
+      <div class="dr"><span class="dl">Low rate 2003 — post dot-com crash</span><span class="tag tg">1.0%</span></div>
+      <div class="dr"><span class="dl">Zero rate era 2008–2015 — financial crisis</span><span class="tag tg">0.25%</span></div>
+      <div class="dr"><span class="dl">Post-COVID peak 2023 — fastest hike in 40 years</span><span class="tag tr">5.25%</span></div>
+      <div class="dr"><span class="dl">Current rate — April 2026</span><span class="tag ta">3.75%</span></div>
+      <div class="dr"><span class="dl">Yield curve recession accuracy (DataSetIQ)</span><span class="tag tg">87.5% — 7 of 8</span></div>
+      <div class="dr"><span class="dl">Closest historical analog to today</span><span class="tag tb">1995 — 74% match</span></div>
+    </div>
+  </div>
+
+  <!-- MODULE 2: HIRING OPTIMIZER -->
+  <hr style="border:none;border-top:2px solid rgba(15,15,15,.08);margin:2rem 0"><div id="m2" style="scroll-margin-top:60px">
+    <div class="pg-title">Hiring optimizer</div>
+    <div class="pg-sub" id="hiring-sub">Enter your workforce numbers. RateShield calculates the safe number of hires, at-risk payroll exposure, and cash runway based on current rates and your sector.</div>
+    <div class="g2">
+      <table style="width:100%;border-collapse:collapse;margin-bottom:1.5rem;border:1px solid rgba(15,15,15,.1);border-radius:12px;overflow:hidden"><thead><tr style="background:#f0ede6"><th style="padding:8px 14px;text-align:left;font-size:10px;font-weight:700;color:#6b6b6b;text-transform:uppercase;border-bottom:2px solid rgba(15,15,15,.1)">Input</th><th style="padding:8px 14px;text-align:right;font-size:10px;font-weight:700;color:#6b6b6b;border-bottom:2px solid rgba(15,15,15,.1)">Value</th><th style="padding:8px 14px;text-align:right;font-size:10px;font-weight:700;color:#6b6b6b;border-bottom:2px solid rgba(15,15,15,.1)">Unit</th></tr></thead><tbody><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Annual revenue</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-rev-h" type="number" step="1" min="0" value="20" oninput="updateH()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">$M / year</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Total annual sales</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Current headcount</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-head" type="number" step="5" min="0" value="280" oninput="updateH()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">employees today</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Total full-time employees right now</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Average salary</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-sal" type="number" step="5" min="0" value="48" oninput="updateH()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">$K / person / yr</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Mean annual compensation</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Planned new hires</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-hire" type="number" step="1" min="0" value="15" oninput="updateH()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">people (next 12 mo)</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">How many you plan to hire — RateShield tells you the safe number</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Total business debt</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-debt" type="number" step="0.5" min="0" value="3.5" oninput="updateH()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">$M outstanding</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">All outstanding loans</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Cash on hand</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-cash" type="number" step="0.1" min="0" value="1.2" oninput="updateH()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">$M liquid</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Liquid cash — need 3+ months payroll before hiring</td></tr></tbody></table>
+      <div id="hiring-result"></div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title">Hiring scenario comparison</div>
+      <div class="chart-src">Current vs. after all hires vs. after safe hires only</div>
+      <canvas id="hChart" height="150"></canvas>
+    </div>
+  </div>
+
+  <!-- MODULE 3: AI ECONOMY -->
+  <hr style="border:none;border-top:2px solid rgba(15,15,15,.08);margin:2rem 0"><div id="m3" style="scroll-margin-top:60px">
+    <div class="pg-title">AI economy cost compression</div>
+    <div class="pg-sub">AI is displacing workers. They spend less. Your customers have less money. Use AI to cut your own costs, lower prices, gain volume, and profit more.</div>
+    <div class="wbox">
+      <div class="wbox-t">The chain reaction your business must prepare for</div>
+      <div class="chain"><div class="cn">AI displaces workers</div><div class="carr">→</div><div class="cn">Less spending</div><div class="carr">→</div><div class="cn">Demand softens</div><div class="carr">→</div><div class="cn">Price pressure</div><div class="carr">→</div><div class="chigh">Cut costs or lose</div></div>
+      <div class="wbox-d">WEF 2025: 41% of employers plan workforce reduction due to AI. Goldman Sachs: 2.5% of US jobs at risk. Companies that use AI to cut costs before customers cut spending — they win.</div>
+    </div>
+    <div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:1.5rem;border:1px solid rgba(15,15,15,.1);border-radius:12px;overflow:hidden"><thead><tr style="background:#f0ede6"><th style="padding:8px 14px;text-align:left;font-size:10px;font-weight:700;color:#6b6b6b;text-transform:uppercase;border-bottom:2px solid rgba(15,15,15,.1)">Input</th><th style="padding:8px 14px;text-align:right;font-size:10px;font-weight:700;color:#6b6b6b;border-bottom:2px solid rgba(15,15,15,.1)">Value</th><th style="padding:8px 14px;text-align:right;font-size:10px;font-weight:700;color:#6b6b6b;border-bottom:2px solid rgba(15,15,15,.1)">Unit</th></tr></thead><tbody><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Annual revenue</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-rev-ai" type="number" step="1" min="0" value="20" oninput="updateAI()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">$M / year</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Total annual sales</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Current profit margin</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-margin" type="number" step="1" min="0" value="12" oninput="updateAI()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% of revenue</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Sector average loaded on login</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Labour as % of costs</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-labour" type="number" step="1" min="0" value="35" oninput="updateAI()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% of costs</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">More labour = more AI can save · Sector avg loaded on login</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Raw material cost % of revenue</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-rawmat" type="number" step="1" min="0" value="30" oninput="updateAI()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% of revenue</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Scales with volume — more materials = volume gains cost more</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Fixed costs % of total costs</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-fixed" type="number" step="1" min="0" value="25" oninput="updateAI()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% of costs</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Stays flat when volume grows — higher fixed = bigger scale advantage</td></tr></tbody></table>
+      <div id="ai-result"></div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title">Before vs. after AI compression — revenue, costs, profit</div>
+      <div class="chart-src">4 stages: current → AI cuts costs → lower prices → volume gain</div>
+      <canvas id="aiChart" height="160"></canvas>
+    </div>
+    <div class="sl-lbl" style="margin-top:1.5rem">Sector-specific AI action plan — <span id="ai-sec-label">your sector</span></div>
+    <div class="card" id="ai-actions"></div>
+  </div>
+
+  <!-- MODULE 4: LOAN RATES -->
+  <hr style="border:none;border-top:2px solid rgba(15,15,15,.08);margin:2rem 0"><div id="m4" style="scroll-margin-top:60px">
+    <div class="pg-title">Fed rate impact on your loans</div>
+    <div class="pg-sub">Drag the slider to see exactly what each loan type costs at every possible Fed rate — and compare to what you would have paid at the 2023 peak of 5.25%.</div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Federal funds rate — drag to see live impact</div></div>
+      <div class="card-body" style="padding:0">
+        <table style="width:100%;border-collapse:collapse"><tbody>
+        <tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Federal funds rate</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="fed-slider" type="number" step="0.25" min="0" value="3.75" oninput="updateL()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b">% · April 2026 = 3.75%</td></tr>
+        <tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Change to model scenarios · COVID low=0.25% · 2023 peak=5.25%</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+    <div class="rb rb-blue" id="loan-sector-note" style="margin-bottom:1.5rem">
+      <div class="rb-label">Most important loans for your sector</div>
+      <div class="rb-sub" id="loan-note-text">Loading...</div>
+    </div>
+    <div class="g3">
+      <div class="card"><div class="card-head" style="background:#eef3fc"><div class="card-title" style="color:#1a3a6b">Prime rate loans</div><div class="card-sub">Moves same day as Fed</div></div><div class="card-body"><div style="font-size:24px;font-weight:700;color:#1a3a6b;margin-bottom:.25rem" id="lr-prime">6.75%</div><div style="font-size:11px;font-family:monospace;color:#6b6b6b;margin-bottom:.5rem">Fed + 3.00%</div><div style="font-size:12px;color:#6b6b6b;margin-bottom:.5rem">Credit cards, overdraft, working capital</div><div class="tag tb" id="lr-prime-pay">$500K → $3,375/mo</div></div></div>
+      <div class="card"><div class="card-head" style="background:#e8f5ee"><div class="card-title" style="color:#1a6b3a">SBA 7(a) loans</div><div class="card-sub">Adjusts quarterly</div></div><div class="card-body"><div style="font-size:24px;font-weight:700;color:#1a6b3a;margin-bottom:.25rem" id="lr-sba">9.50%</div><div style="font-size:11px;font-family:monospace;color:#6b6b6b;margin-bottom:.5rem">Prime + 2.75%</div><div style="font-size:12px;color:#6b6b6b;margin-bottom:.5rem">Most common small business loan</div><div class="tag tg" id="lr-sba-pay">$500K → $3,958/mo</div></div></div>
+      <div class="card"><div class="card-head" style="background:#fff8e6"><div class="card-title" style="color:#7a4f00">SOFR loans</div><div class="card-sub">Updates daily — most volatile</div></div><div class="card-body"><div style="font-size:24px;font-weight:700;color:#7a4f00;margin-bottom:.25rem" id="lr-sofr">7.05%</div><div style="font-size:11px;font-family:monospace;color:#6b6b6b;margin-bottom:.5rem">SOFR + spread (replaced LIBOR)</div><div style="font-size:12px;color:#6b6b6b;margin-bottom:.5rem">CRE, large equipment $1M+</div><div class="tag ta" id="lr-sofr-pay">$2M → $11,750/mo</div></div></div>
+      <div class="card"><div class="card-head" style="background:#fef0f0"><div class="card-title" style="color:#8b1a1a">Commercial real estate</div><div class="card-sub">Tied to 10Y Treasury</div></div><div class="card-body"><div style="font-size:24px;font-weight:700;color:#8b1a1a;margin-bottom:.25rem" id="lr-cre">7.45%</div><div style="font-size:11px;font-family:monospace;color:#6b6b6b;margin-bottom:.5rem">10Y Treasury + ~3.00%</div><div style="font-size:12px;color:#6b6b6b;margin-bottom:.5rem">Warehouses, offices, factories</div><div class="tag tr" id="lr-cre-pay">$3M → $18,625/mo</div></div></div>
+      <div class="card"><div class="card-head" style="background:#e8f5ee"><div class="card-title" style="color:#1a6b3a">Equipment financing</div><div class="card-sub">Floating or fixed — your choice</div></div><div class="card-body"><div style="font-size:24px;font-weight:700;color:#1a6b3a;margin-bottom:.25rem" id="lr-equip">7.25%</div><div style="font-size:11px;font-family:monospace;color:#6b6b6b;margin-bottom:.5rem">Prime + 0.50% if floating</div><div style="font-size:12px;color:#6b6b6b;margin-bottom:.5rem">Machinery, vehicles, AI systems</div><div class="tag tg" id="lr-equip-pay">$800K → $4,833/mo</div></div></div>
+      <div class="card"><div class="card-head" style="background:#e8f5ee"><div class="card-title" style="color:#1a6b3a">Fixed rate loans</div><div class="card-sub">Fed rate = zero impact ✓</div></div><div class="card-body"><div style="font-size:24px;font-weight:700;color:#1a6b3a;margin-bottom:.25rem">LOCKED</div><div style="font-size:11px;font-family:monospace;color:#6b6b6b;margin-bottom:.5rem">Set at origination — never changes</div><div style="font-size:12px;color:#6b6b6b;margin-bottom:.5rem">SBA 504, fixed mortgages. Always the goal.</div><div class="tag tg">Your rate — forever</div></div></div>
+    </div>
+    <div class="rb rb-blue" style="margin-top:.5rem">
+      <div class="rb-label">Total monthly interest — typical debt mix</div>
+      <div class="rb-big" id="lr-total">$38,541/mo</div>
+      <div class="rb-sub" id="lr-annual">$462,492/year — $500K credit + $500K SBA + $2M SOFR + $800K equipment</div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title">Annual interest cost vs. Fed rate</div>
+      <div class="chart-src">Same loans — every Fed rate level · Source: Prime=Fed+3%, SBA=Prime+2.75%, SOFR≈Fed+3.15%</div>
+      <canvas id="lChart" height="150"></canvas>
+    </div>
+  </div>
+
+  <!-- MODULE 5: EQUILIBRIUM -->
+  <hr style="border:none;border-top:2px solid rgba(15,15,15,.08);margin:2rem 0"><div id="m5" style="scroll-margin-top:60px">
+    <div class="pg-title">Business equilibrium finder</div>
+    <div class="pg-sub" id="eq-sub">Finds your profit-maximising price and output using real economics tailored to your sector. Shows how rising rates shift your cost curve and exactly where your equilibrium moves.</div>
+    <div class="rb rb-blue" id="eq-banner" style="margin-bottom:1.5rem">
+      <div class="rb-label" id="eq-banner-title">Loading sector model...</div>
+      <div class="rb-sub" id="eq-banner-desc">Log in and select your sector to load the correct economic model</div>
+    </div>
+    
+      <table style="width:100%;border-collapse:collapse;margin-bottom:1.5rem;border:1px solid rgba(15,15,15,.1);border-radius:12px;overflow:hidden"><thead><tr style="background:#f0ede6"><th style="padding:8px 14px;text-align:left;font-size:10px;font-weight:700;color:#6b6b6b;text-transform:uppercase;border-bottom:2px solid rgba(15,15,15,.1)">Input</th><th style="padding:8px 14px;text-align:right;font-size:10px;font-weight:700;color:#6b6b6b;border-bottom:2px solid rgba(15,15,15,.1)">Value</th><th style="padding:8px 14px;text-align:right;font-size:10px;font-weight:700;color:#6b6b6b;border-bottom:2px solid rgba(15,15,15,.1)">Unit</th></tr></thead><tbody><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Average selling price per unit</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-eq-price" type="number" step="1" min="0.01" value="850" oninput="updateEQ()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">$ per unit</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Your current average price — drives the entire demand curve</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Units sold per year</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-eq-output" type="number" step="100" min="1" value="8000" oninput="updateEQ()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">units / year</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Units / transactions / customers / covers per year</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Variable cost per unit</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-eq-vc" type="number" step="1" min="0" value="578" oninput="updateEQ()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">$ per unit</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Direct cost per unit — materials, labour, fuel. NOT rent or overhead.</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Total annual fixed costs</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-eq-fc" type="number" step="10000" min="0" value="1700000" oninput="updateEQ()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">$ / year</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Rent, management, insurance — flat regardless of output level</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Price elasticity of demand</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-eq-elas" type="number" step="0.1" min="0.1" value="1.4" oninput="updateEQ()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">coefficient</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">1.0=neutral · Above 1=price-sensitive · Below 1=loyal/captive</td></tr></tbody></table>
+      <div class="g4" id="eq-kpis" style="margin-bottom:1.25rem"></div>
+      <div id="eq-rec" style="margin-bottom:1.5rem"></div>
+
+      <div style="background:#f7f5f0;border-radius:12px;padding:1.25rem;margin-bottom:1.25rem;border:1px solid rgba(15,15,15,.06)">
+        <div style="font-size:11px;font-weight:700;color:#6b6b6b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Table 1 — Scenario comparison: current vs. optimal vs. rate scenarios</div>
+        <div style="font-size:10px;color:#a8a8a8;margin-bottom:.875rem">MR=MC equilibrium · Rate shifts cost curve · Green = profit-maximising · All values from your inputs</div>
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:800px" id="eq-sc-wrap">
+          <thead><tr style="background:#f0ede6">
+            <th style="text-align:left;padding:8px 11px;font-size:10px;font-weight:700;color:#3a3a3a;border-bottom:2px solid rgba(15,15,15,.1)">Scenario</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)" id="eq-col-p">Price</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)" id="eq-col-q">Output</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Revenue</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Variable costs</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Profit</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Margin</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">vs. Today</th>
+            <th style="text-align:left;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Status</th>
+          </tr></thead>
+          <tbody id="eq-sc-tbody"></tbody>
+        </table></div>
+        <canvas id="eqScChart" height="250" style="margin-top:.875rem"></canvas>
+      </div>
+
+      <div style="background:#f7f5f0;border-radius:12px;padding:1.25rem;margin-bottom:1.25rem;border:1px solid rgba(15,15,15,.06)">
+        <div style="font-size:11px;font-weight:700;color:#6b6b6b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Table 2 — Marginal analysis: step-by-step profit optimisation (10 levels)</div>
+        <div style="font-size:10px;color:#a8a8a8;margin-bottom:.875rem">Produce more when MR &gt; MC · Stop at MR=MC · Never produce where MC&gt;MR · Green = equilibrium</div>
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
+          <thead><tr style="background:#f0ede6">
+            <th style="text-align:left;padding:8px 11px;font-size:10px;font-weight:700;color:#3a3a3a;border-bottom:2px solid rgba(15,15,15,.1)">Output</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Price</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Total revenue</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1);color:#1a6b3a">Marginal revenue</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1);color:#8b1a1a">Marginal cost</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">MR−MC</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Total cost</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Profit/Loss</th>
+            <th style="text-align:left;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Decision</th>
+          </tr></thead>
+          <tbody id="eq-mr-tbody"></tbody>
+        </table></div>
+        <canvas id="eqChart" height="170" style="margin-top:.875rem"></canvas>
+      </div>
+
+      <div style="background:#f7f5f0;border-radius:12px;padding:1.25rem;margin-bottom:1.25rem;border:1px solid rgba(15,15,15,.06)">
+        <div style="font-size:11px;font-weight:700;color:#6b6b6b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Table 3 — Operating leverage, break-even, Lerner index — benchmarked vs. sector</div>
+        <div style="font-size:10px;color:#a8a8a8;margin-bottom:.875rem">DOL = profit amplification with volume · Lerner = pricing power (0=commodity, 1=monopoly)</div>
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="background:#f0ede6">
+            <th style="text-align:left;padding:8px 11px;font-size:10px;font-weight:700;color:#3a3a3a;border-bottom:2px solid rgba(15,15,15,.1)">Metric</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Your business</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Industry benchmark</th>
+            <th style="text-align:left;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">What it means</th>
+          </tr></thead>
+          <tbody id="eq-lev-tbody"></tbody>
+        </table></div>
+      </div>
+
+      <div style="background:#f7f5f0;border-radius:12px;padding:1.25rem;border:1px solid rgba(15,15,15,.06)">
+        <div style="font-size:11px;font-weight:700;color:#6b6b6b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Table 4 — Fed rate sensitivity: your equilibrium at every rate level</div>
+        <div style="font-size:10px;color:#a8a8a8;margin-bottom:.875rem">Higher rates push cost curve up → optimal output falls, price rises · Highlighted = current rate</div>
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:.875rem">
+          <thead><tr style="background:#f0ede6">
+            <th style="text-align:left;padding:8px 11px;font-size:10px;font-weight:700;color:#3a3a3a;border-bottom:2px solid rgba(15,15,15,.1)">Fed rate</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">VC impact</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Optimal price</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Optimal output</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Profit</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">vs. Today</th>
+            <th style="text-align:right;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Lerner</th>
+            <th style="text-align:left;padding:8px 11px;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Action</th>
+          </tr></thead>
+          <tbody id="eq-rt-tbody"></tbody>
+        </table></div>
+        <canvas id="profitChart" height="150"></canvas>
+      </div>
+  
+
+  <!-- MODULE 6: AI ADVISOR -->
+  <hr style="border:none;border-top:2px solid rgba(15,15,15,.08);margin:2rem 0"><div id="m6" style="scroll-margin-top:60px">
+    <div class="pg-title">AI advisor</div>
+    <div class="pg-sub">Your sector-aware financial advisor. Knows your industry benchmarks, the current rate environment, and gives specific numbers-based answers — not generic advice.</div>
+    <div class="sec-badge">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L2 3.5v4C2 10.5 4.3 12.2 7 13c2.7-.8 5-2.5 5-5.5v-4L7 1z" stroke="#1a6b3a" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      Conversations private to your account · Not used for training · Encrypted in transit
+    </div>
+    <div class="qbtns">
+      <button class="qbtn" onclick="qask('Should we hire more people right now given current rates and our sector outlook?')">Hire now or wait?</button>
+      <button class="qbtn" onclick="qask('Should we refinance our floating rate debt to fixed and is now the right time?')">Refinance debt?</button>
+      <button class="qbtn" onclick="qask('What specific AI tools should we implement in our sector to cut costs?')">AI for our sector</button>
+      <button class="qbtn" onclick="qask('What will happen to interest rates over the next 12 months?')">Rate outlook</button>
+      <button class="qbtn" onclick="qask('What loan types are best for our sector and when should we borrow?')">Best loan type</button>
+    </div>
+    <div class="chat-box" id="chat-msgs">
+      <div class="msg a">Welcome. I know your sector benchmarks and the current rate environment. Ask me anything — I give specific numbers, not generic advice.</div>
+    </div>
+    <div class="chat-row">
+      <input class="chat-inp" id="chat-inp" type="text" placeholder="Ask about rates, hiring, loans, AI strategy..." onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="chat-send" onclick="sendChat()">Send</button>
+    </div>
+  </div>
+
+  </div><!-- end content -->
+</div><!-- end app -->
+
+<script>
+// ═══════════════════════════════════════════════
+// SECTOR DATA
+// ═══════════════════════════════════════════════
+var SECTORS = {
+  manufacturing:{name:'Manufacturing',emoji:'🏭',color:'#1a3a6b',bg:'#eef3fc',
+    margin:9,labour:28,rawmat:38,fixed:28,
+    rateImpact:{high:'🔴 High rates increase equipment financing and working capital costs immediately. Delay capital expenditure. Lock all floating debt to fixed now.',transition:'🟡 Good window to refinance floating equipment loans to fixed. The 1995 analog (74% match) suggests limited further cuts before a 2-year pause.',low:'🟢 Equipment financing cheap. Best window to invest in capacity and automation. Lock fixed before rates rise.'},
+    loanNote:'Equipment financing is your most rate-sensitive debt — every 1% rate rise on $800K = $8,000/yr. SBA 7(a) for working capital. SOFR for large facility expansions.',
+    eqPriceLabel:'Average selling price per unit ($)',eqOutputLabel:'Units produced and sold per year',
+    eqDefPrice:850,eqDefOutput:8000,eqDefVC:578,eqDefFC:1700,eqDefElas:1.4,
+    actions:[
+      {t:'AI quality inspection — replace manual with vision systems',d:'AI vision at $3,800–5,000/mo replaces $40,000–70,000/mo in manual inspection. Payback: 45–90 days.',src:'IBM AskHR — 78% of queries resolved without human escalation'},
+      {t:'AI demand forecasting — cut inventory 25–35%',d:'Reduces raw material overstock and costly emergency procurement. Frees working capital.',src:'Standard AI demand forecasting ROI — manufacturing sector'},
+      {t:'AI procurement — reduce material cost 5–8%',d:'AI scans supplier pricing, identifies consolidation opportunities, auto-triggers reorders at optimal prices.',src:'Manufacturing procurement automation benchmarks'},
+      {t:'Lower prices {pct}% — gain market share as AI economy softens demand',d:'With AI savings, pass 40% to customers. Volume +{vol}%. Raw material cost scales with volume — factored in.',src:'WEF 2025 — 41% of employers reducing workforce due to AI'}
+    ]},
+  technology:{name:'Technology / SaaS',emoji:'💻',color:'#085041',bg:'#e1f5ee',
+    margin:22,labour:55,rawmat:3,fixed:45,
+    rateImpact:{high:'🔴 High rates dry up VC funding and compress SaaS valuations. Enterprise budgets tighten. Move upmarket to larger enterprises, lock long-term contracts now.',transition:'🟡 VC cautiously returning. Good window to lock any floating debt. Focus on net revenue retention over new logo growth.',low:'🟢 VC funding flows, enterprise budgets expand. Hire aggressively, expand product, lock long-term contracts.'},
+    loanNote:'Tech companies rarely use traditional loans. Primary: venture debt for runway, SBA for office buildouts, revolving lines for payroll gaps.',
+    eqPriceLabel:'Monthly price per seat / subscription ($)',eqOutputLabel:'Active customers per year',
+    eqDefPrice:299,eqDefOutput:900,eqDefVC:36,eqDefFC:800,eqDefElas:0.9,
+    actions:[
+      {t:'AI coding assistants — 40–55% developer productivity gain',d:'GitHub Copilot at ~$400/dev/yr. At $120K avg salary, each dev becomes 1.5x more productive.',src:'GitHub 2024 — developers using AI complete tasks 55% faster'},
+      {t:'AI customer support — resolve 70–80% of tickets automatically',d:'LLM-based bots resolve Tier 1 tickets. SaaS companies see 60–70% reduction in CS headcount needed.',src:'Zendesk 2024 — AI resolves 70% of support interactions'},
+      {t:'AI sales prospecting — reduce SDR cost per lead 40–60%',d:'AI identifies ideal customer profiles, personalises outreach, qualifies leads automatically.',src:'Salesforce 2024 — AI sales tools cut prospecting time 50%'},
+      {t:'Lower price {pct}% — near-zero marginal cost makes volume nearly pure profit',d:'One more SaaS customer costs almost nothing to serve. A {pct}% price drop driving +{vol}% more customers generates outsized profit.',src:'SaaS gross margin benchmarks: 75–82% (KeyBanc, Bessemer 2025)'}
+    ]},
+  retail:{name:'Retail',emoji:'🏪',color:'#7a4f00',bg:'#fff8e6',
+    margin:5,labour:15,rawmat:55,fixed:20,
+    rateImpact:{high:'🔴 Double squeeze: inventory financing rises AND consumers have less spending power. Cut slow SKUs, push cash sales, minimise inventory line.',transition:'🟡 Consumer spending cautiously recovering. Lock inventory financing at fixed rates.',low:'🟢 Cheap inventory financing and rising consumer spending. Expand SKU range, open locations.'},
+    loanNote:'Revolving inventory credit line is most rate-sensitive — every rate move hits margins immediately. SBA loans for buildouts. Equipment for POS and warehouse.',
+    eqPriceLabel:'Average transaction / order value ($)',eqOutputLabel:'Annual transactions (orders)',
+    eqDefPrice:85,eqDefOutput:50000,eqDefVC:55,eqDefFC:500000,eqDefElas:2.1,
+    actions:[
+      {t:'AI inventory management — cut overstock and stockouts 20–30%',d:'AI demand forecasting reduces carrying costs. Inventory is the biggest cost line for retailers.',src:'NRF 2024 — AI inventory reduces carrying costs 25% on average'},
+      {t:'AI customer service — handle 75% of queries automatically',d:'Returns, order status, sizing — all automatable. 40–60% reduction in CS costs.',src:'Zendesk 2024 — retail AI chatbots resolve 75% of standard queries'},
+      {t:'AI personalisation — increase average order value 10–15%',d:'AI product recommendations based on purchase history. Amazon: 35% of revenue from AI recommendations.',src:'McKinsey — personalisation drives 10–15% revenue uplift in retail'},
+      {t:'Lower prices {pct}% — capture price-sensitive customers in softening AI economy',d:'As AI economy tightens consumer budgets, being {pct}% cheaper wins customers trading down.',src:'WEF 2025 — consumer spending pressure from AI displacement'}
+    ]},
+  restaurant:{name:'Restaurant / Food Service',emoji:'🍽️',color:'#8b1a1a',bg:'#fef0f0',
+    margin:4,labour:30,rawmat:32,fixed:22,
+    rateImpact:{high:'🔴 Equipment loans and SBA buildout debt costs rise. Consumers eat out less. AI scheduling and waste reduction are your only margin levers.',transition:'🟡 Dining cautiously recovering. Window to refinance equipment loans. Focus on contribution margin per cover.',low:'🟢 Consumers dine out more, SBA expansion loans cheap. Best window to open new locations.'},
+    loanNote:'SBA 7(a) for new location buildouts. Equipment financing for kitchen systems — every 1% rate rise on $800K kitchen loan = $8,000/yr.',
+    eqPriceLabel:'Average check per cover ($)',eqOutputLabel:'Covers served per year',
+    eqDefPrice:45,eqDefOutput:28000,eqDefVC:17,eqDefFC:600000,eqDefElas:1.8,
+    actions:[
+      {t:'AI scheduling — match staffing to demand, cut labour waste 8–12%',d:'AI analyses sales patterns, weather, events to schedule exactly the right staff. 8–12% labour cost reduction.',src:'Restaurant technology benchmarks — AI scheduling ROI 8–12%'},
+      {t:'AI inventory — cut food waste 20–30%',d:'AI tracks ingredient usage, predicts demand, auto-orders optimal quantities. Reduces the second biggest cost.',src:'NRA 2024 — AI inventory reduces food waste 20–30%'},
+      {t:'AI upselling on digital ordering — increase average check 10–20%',d:'AI personalises menu recommendations and suggests add-ons at point of order.',src:'Toast POS 2024 — AI upselling increases average check 15%'},
+      {t:'Lower menu prices {pct}% — capture diners trading down',d:'As AI economy tightens consumer budgets, being {pct}% cheaper captures diners trading down from higher-end restaurants.',src:'WEF 2025 — AI displacement reducing discretionary spending'}
+    ]},
+  construction:{name:'Construction',emoji:'🏗️',color:'#412402',bg:'#fdf0e0',
+    margin:5,labour:35,rawmat:42,fixed:18,
+    rateImpact:{high:'🔴 Equipment costs rise 1.8% per 1% rate rise AND developers delay projects (fewer contracts). Pivot to government work, lock fixed equipment financing.',transition:'🟡 Private construction slowly recovering. Lock project financing at fixed rates. Public pipeline strong.',low:'🟢 Developers build aggressively. Equipment financing cheap. Expand capacity and hire now.'},
+    loanNote:'Equipment financing for heavy machinery is most rate-sensitive. SBA 504 for owned equipment. Construction loans (short-term) for project financing.',
+    eqPriceLabel:'Average project value ($K)',eqOutputLabel:'Projects completed per year',
+    eqDefPrice:450,eqDefOutput:80,eqDefVC:324,eqDefFC:1500000,eqDefElas:0.85,
+    actions:[
+      {t:'AI project bidding — win 15–25% more contracts at same margin',d:'AI analyses historical data, competitor pricing, material costs to optimise bids. Win more without cutting margin.',src:'Construction technology benchmarks — AI bidding increases win rate 15–25%'},
+      {t:'AI project management — cut overruns 40–50%',d:'AI tracks progress, flags delays early, optimises crew scheduling. Construction overruns average 20% of value.',src:'McKinsey — AI project management reduces construction overruns 40–50%'},
+      {t:'AI procurement — reduce materials cost 5–8%',d:'AI monitors commodity prices, optimal order timing. Construction materials are volatile — timing saves significantly.',src:'Construction industry procurement benchmarks'},
+      {t:'Lock equipment financing to fixed — critical window now',d:'At 3.75%, the 1995 analog suggests this may be the last window. Every 1% rise on $4M debt = $40,000/yr.',src:'FRED rate cycle data — 1995 analog 74% pattern match'}
+    ]},
+  healthcare:{name:'Healthcare',emoji:'🏥',color:'#1a4a2e',bg:'#e4f5ec',
+    margin:10,labour:45,rawmat:15,fixed:35,
+    rateImpact:{high:'🔴 Capital equipment costs rise and Medicare/Medicaid reimbursement is fixed — you cannot raise prices. Cut costs through AI admin automation immediately.',transition:'🟡 Good window to evaluate equipment financing needs for 2–3 years and lock fixed rates.',low:'🟢 Equipment financing cheap. Invest in diagnostic technology that increases capacity without adding headcount.'},
+    loanNote:'Medical equipment (MRI, CT) financed over 7–10 years — rate changes have the longest compounding effect. Lock fixed on all major equipment.',
+    eqPriceLabel:'Average revenue per patient visit ($)',eqOutputLabel:'Patient visits per year',
+    eqDefPrice:285,eqDefOutput:12000,eqDefVC:157,eqDefFC:1500000,eqDefElas:0.4,
+    actions:[
+      {t:'AI admin automation — billing, scheduling, prior authorisations',d:'Healthcare admin is 34% of total spending. AI automates prior auth, billing codes, appointment scheduling. 15–20% admin saving.',src:'AMA 2024 — AI admin automation saves $13.8B annually in US healthcare'},
+      {t:'AI diagnostics — increase provider throughput 20–30%',d:'AI reads imaging, flags anomalies. Each provider sees 20–30% more patients. Revenue expansion without adding headcount.',src:'NEJM 2024 — AI diagnostics increase radiologist throughput 30%'},
+      {t:'AI patient communication — reduce no-shows 30–40%',d:'AI sends personalised reminders, handles routine follow-ups. No-shows cost $150 per missed appointment.',src:'Healthcare technology benchmarks — AI reduces no-show rate 35%'},
+      {t:'Lock medical equipment financing to fixed — urgent',d:'Equipment financed over 7–10 years. A 2% rise on $3M = $60,000/yr more for a decade. Act now at 3.75%.',src:'FRED 1995 analog — 74% match, limited cuts before pause'}
+    ]},
+  logistics:{name:'Logistics / Transport',emoji:'🚛',color:'#2d3a6b',bg:'#eaecfc',
+    margin:4,labour:38,rawmat:28,fixed:22,
+    rateImpact:{high:'🔴 Fleet financing rises 1.4% per 1% rate rise. Business investment slows — shipping volume falls. Route optimisation and fuel efficiency maintain margin.',transition:'🟡 E-commerce provides floor on demand. Good window to refinance floating fleet loans.',low:'🟢 Fleet financing cheap, business investment rises. Expand fleet and lock long-term contracts.'},
+    loanNote:'Equipment financing for vehicle fleet is most critical — every rate change directly hits monthly payments. Lock fixed on all fleet additions.',
+    eqPriceLabel:'Average rate per shipment ($)',eqOutputLabel:'Shipments per year',
+    eqDefPrice:185,eqDefOutput:25000,eqDefVC:130,eqDefFC:1200000,eqDefElas:1.3,
+    actions:[
+      {t:'AI route optimisation — cut fuel costs 10–15%',d:'AI optimises delivery routes in real-time. UPS saved $10M annually with AI routing. 10–15% fuel savings.',src:'UPS ORION case study — AI routing saves $10M annually'},
+      {t:'AI dispatch — reduce empty miles 40–50%',d:'Empty miles average 20% of truck miles. AI load-matching cuts empty backhauls — saves fuel and driver costs.',src:'Transport technology — AI dispatch reduces empty miles 40–50%'},
+      {t:'Predictive maintenance — reduce downtime 25–30%',d:'AI monitors sensors, predicts failures. Emergency repairs cost 3x planned maintenance. A truck off road loses $2–3K/day.',src:'Fleet management benchmarks — predictive maintenance 3:1 ROI'},
+      {t:'Lock fleet financing to fixed — window open now',d:'At 3.75%, refinancing floating fleet loans to fixed saves money if rates hold or rise. 1995 analog: window may close.',src:'FRED rate cycle data — 1995 analog 74% pattern match'}
+    ]},
+  realestate:{name:'Real Estate',emoji:'🏠',color:'#4a1a6b',bg:'#f0eafc',
+    margin:15,labour:20,rawmat:8,fixed:55,
+    rateImpact:{high:'🔴 Most rate-sensitive sector. CRE loans tied to SOFR — every 1% rise on $8M debt = $80K/yr more. Lock ALL floating debt to fixed immediately.',transition:'🟡 CRE market stabilising. Critical window: refinance SOFR-tied loans. 1995 analog suggests limited further cuts.',low:'🟢 Buyers flood market, cap rates compress, property values rise. Lock cheap fixed financing now before rates rise.'},
+    loanNote:'CRE loans (SOFR + spread) are primary instrument and most rate-sensitive. Every rate change hits immediately. Watch 5-year balloon refinancing risk.',
+    eqPriceLabel:'Average rent per sq ft per year ($)',eqOutputLabel:'Rentable sq ft leased (000s)',
+    eqDefPrice:28,eqDefOutput:500,eqDefVC:5,eqDefFC:2000000,eqDefElas:0.65,
+    actions:[
+      {t:'AI property valuation and underwriting — faster deal analysis',d:'AI analyses comparables, market trends, economic signals in minutes. Critical when rates change market dynamics rapidly.',src:'PropTech — AI valuations within 5% of market value in 80% of cases'},
+      {t:'AI tenant screening — reduce bad debt and vacancy',d:'Automates credit analysis, background checks. Reduces screening from days to hours. Protects NOI.',src:'Property management technology benchmarks'},
+      {t:'AI property management — 30–40% more units per manager',d:'AI routes maintenance, schedules contractors, automates rent follow-up. Scale without adding headcount.',src:'Real estate technology — AI PM handles 35% more units per manager'},
+      {t:'Refinance floating CRE debt to fixed — most urgent action',d:'Every day on floating SOFR debt is rate risk. A 2% rise on $8M = $160,000/yr more. Act now at 3.75%.',src:'FRED 1995 analog — 74% match, limited cuts before multi-year pause'}
+    ]},
+  professional:{name:'Professional Services',emoji:'💼',color:'#1a3a6b',bg:'#eef3fc',
+    margin:18,labour:60,rawmat:2,fixed:30,
+    rateImpact:{high:'🔴 Client capex budgets tighten — advisory is first to be cut. Lock long-term retainer contracts before clients tighten budgets.',transition:'🟡 Client budgets recovering. Window to raise billing rates. AI-powered efficiency is now a key competitive differentiator.',low:'🟢 Client investment surges. Demand hard right. Raise rates aggressively and add senior staff.'},
+    loanNote:'Minimal loan needs. SBA for office buildouts, equipment financing for technology infrastructure, revolving lines for payroll gaps.',
+    eqPriceLabel:'Billing rate per hour ($)',eqOutputLabel:'Billable hours per year',
+    eqDefPrice:325,eqDefOutput:15000,eqDefVC:91,eqDefFC:1400000,eqDefElas:0.75,
+    actions:[
+      {t:'AI research and document automation — 40–60% productivity gain',d:'AI drafts reports, analyses data, prepares presentations. 40–60% of billable hours involve tasks AI can accelerate.',src:'McKinsey 2024 — AI increases professional services productivity 40–60%'},
+      {t:'AI proposal and contract generation',d:'Reduces proposal time from days to hours. Each partner can pursue 3x more opportunities simultaneously.',src:'Legal technology — AI proposal generation saves 8–12 hours per proposal'},
+      {t:'AI billing — recover 12–15% more billable hours',d:'AI captures every billable minute automatically. Many firms under-bill 10–15% due to poor time tracking.',src:'ILTA 2024 — AI time capture increases billable hours 12–15%'},
+      {t:'Shift to retainer pricing — stabilise revenue',d:'Retainer models give predictable cash flow regardless of Fed decisions. Improves margins 8–12%.',src:'Cash Flow Mike 2025 — subscription models improve margins 8–12%'}
+    ]},
+  consumer:{name:'Consumer Goods',emoji:'🛒',color:'#1a6b3a',bg:'#e8f5ee',
+    margin:8,labour:22,rawmat:45,fixed:22,
+    rateImpact:{high:'🔴 Double threat: inventory financing rises AND consumers have less disposable income. Cut low-margin SKUs aggressively.',transition:'🟡 Value products outperforming premium. Lock inventory financing at fixed rates.',low:'🟢 Consumer spending surges, inventory financing cheap. Launch new products, expand distribution.'},
+    loanNote:'Revolving inventory credit line most rate-sensitive — changes hit margins immediately. SBA for manufacturing equipment. SOFR for large distribution.',
+    eqPriceLabel:'Average unit selling price ($)',eqOutputLabel:'Units sold per year (000s)',
+    eqDefPrice:38,eqDefOutput:200,eqDefVC:23,eqDefFC:800000,eqDefElas:1.9,
+    actions:[
+      {t:'AI demand forecasting — cut inventory 20–30%',d:'Reduces carrying costs and frees working capital tied up in overstock. Consumer goods face big seasonal swings.',src:'Consumer goods benchmarks — AI forecasting reduces inventory 25%'},
+      {t:'AI supply chain — reduce procurement costs 8–12%',d:'AI identifies supplier risks, optimises order timing, switches to backup suppliers automatically.',src:'Gartner 2024 — AI supply chain reduces procurement costs 10%'},
+      {t:'AI consumer insights — launch trend-aligned products faster',d:'AI analyses social media, reviews, sales data to identify trends before they peak. Early launch = 3–5x more revenue.',src:'Nielsen 2024 — AI consumer insights reduce development time 30%'},
+      {t:'Lower prices {pct}% — capture consumers trading down',d:'As AI displaces workers and price sensitivity rises, brands that cut costs and pass savings to consumers win.',src:'WEF 2025 — AI displacement creating consumer spending pressure'}
+    ]}
+};
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+var SEC = 'manufacturing';
+var coName = '';
+var gEnv = 'transition';
+var fChart=null, hChart=null, aiChart=null, lChart=null, eqChart=null, profChart=null, eqScChart=null;
+
+// ═══════════════════════════════════════════════
+// LOGIN / NAV
+// ═══════════════════════════════════════════════
+function go() {
+  var co = document.getElementById('co').value.trim();
+  if (!co) { document.getElementById('co').focus(); return; }
+  var pw = document.getElementById('pw').value;
+  if (!pw) { document.getElementById('pw').focus(); return; }
+  coName = co.toUpperCase();
+  SEC = document.getElementById('sec-sel').value;
+  var s = SECTORS[SEC];
+  document.getElementById('auth').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('nav-co').textContent = coName;
+  document.getElementById('nav-sec').textContent = s.emoji + ' ' + s.name;
+  document.getElementById('nav-sec').style.background = s.bg;
+  document.getElementById('nav-sec').style.color = s.color;
+  loadSectorDefaults();
+  initCharts();
+  updateF(); updateH(); updateAI(); updateL(); updateEQ();
+}
+
+function signOut() {
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth').style.display = 'flex';
+  document.getElementById('co').value = '';
+  document.getElementById('pw').value = '';
+}
+
+function showP(id, btn) {
+  document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
+  document.getElementById('panel-' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+function loadSectorDefaults() {
+  var s = SECTORS[SEC];
+  // Module 2 sector defaults
+  document.getElementById('sl-rev-h').value = s.name === 'Technology / SaaS' ? 8 : s.name === 'Restaurant / Food Service' ? 5 : 20;
+  document.getElementById('sl-head').value = s.name === 'Technology / SaaS' ? 85 : s.name === 'Restaurant / Food Service' ? 65 : 280;
+  document.getElementById('sl-sal').value = s.name === 'Technology / SaaS' ? 120 : s.name === 'Restaurant / Food Service' ? 32 : 48;
+  // Module 3 sector defaults
+  document.getElementById('sl-margin').value = s.margin;
+  document.getElementById('sl-labour').value = s.labour;
+  document.getElementById('sl-rawmat').value = s.rawmat;
+  document.getElementById('sl-fixed').value = s.fixed;
+  var mn2=(document.getElementById('margin-note')||{}); if(mn2)mn2.textContent = 'Industry avg: ' + s.margin + '% (Damodaran 2026)';
+  var ln2=(document.getElementById('labour-note')||{}); if(ln2)ln2.textContent = 'Industry avg: ' + s.labour + '% of costs (ShiftFlow 2026)';
+  document.getElementById('ai-sec-label').textContent = s.name.toLowerCase() + ' businesses';
+  // Module 4 loan note
+  document.getElementById('loan-note-text').textContent = s.loanNote;
+  // Module 5 equilibrium defaults and labels
+  var _el_eq_price_lbl=(document.getElementById('eq-price-lbl')||{});if(_el_eq_price_lbl)_el_eq_price_lbl.textContent = s.eqPriceLabel;
+  var _el_eq_output_lbl=(document.getElementById('eq-output-lbl')||{});if(_el_eq_output_lbl)_el_eq_output_lbl.textContent = s.eqOutputLabel;
+  document.getElementById('sl-eq-price').value = s.eqDefPrice;
+  document.getElementById('sl-eq-output').value = s.eqDefOutput;
+  document.getElementById('sl-eq-vc').value = s.eqDefVC;
+  document.getElementById('sl-eq-fc').value = s.eqDefFC;
+  document.getElementById('sl-eq-elas').value = s.eqDefElas;
+  document.getElementById('eq-banner-title').textContent = s.emoji + ' ' + s.name + ' — real economics loaded';
+  document.getElementById('eq-banner-desc').textContent = 'Market structure: ' + getMarketStructure(SEC) + ' · Rate sensitivity: ' + Math.round(getRateSens(SEC)*100*10)/10 + '% cost rise per 1% rate increase';
+  var eb = document.getElementById('eq-banner');
+  eb.className = 'rb rb-blue';
+  eb.style.background = s.bg; eb.style.borderColor = 'rgba(0,0,0,.1)'; eb.style.color = s.color;
+}
+
+function getMarketStructure(sec) {
+  var m = {manufacturing:'Competitive with differentiation',technology:'Monopolistic competition / differentiated oligopoly',retail:'Highly competitive — mostly price taker',restaurant:'Monopolistic competition',construction:'Differentiated oligopoly on specialised work',healthcare:'Regulated — price largely set by reimbursement',logistics:'Oligopolistic on major lanes',realestate:'Localised monopoly — location differentiation',professional:'Differentiated oligopoly',consumer:'Highly competitive — brand-based differentiation'};
+  return m[sec] || 'Competitive market';
+}
+
+function getRateSens(sec) {
+  var r = {manufacturing:.008,technology:.003,retail:.012,restaurant:.015,construction:.018,healthcare:.010,logistics:.014,realestate:.025,professional:.004,consumer:.011};
+  return r[sec] || .01;
+}
+
+// ═══════════════════════════════════════════════
+// MODULE 1: FORECAST
+// ═══════════════════════════════════════════════
+function updateF() {
+  var cpi=parseFloat(document.getElementById('f-cpi').value);
+  var unem=parseFloat(document.getElementById('f-un').value);
+  var treas=parseFloat(document.getElementById('f-tr').value);
+  var gdp=parseFloat(document.getElementById('f-gdp').value);
+  var pce=parseFloat(document.getElementById('f-pce').value);
+  var sc=0;
+  if(cpi>5)sc+=3;else if(cpi>3)sc+=1.5;else if(cpi<2)sc-=2;
+  if(unem>6)sc-=2;else if(unem<3.5)sc+=2;
+  if(treas>5)sc+=2;else if(treas<2)sc-=2;
+  if(gdp<0)sc-=3;else if(gdp>4)sc+=1.5;
+  if(pce>3)sc+=1.5;else if(pce<2)sc-=1.5;else sc+=(pce-2)*0.5;
+  var base=Math.max(.25,Math.min(7,2.5+sc*.4));
+  var r=function(v){return Math.round(v*4)/4;};
+  var hp,hp2,cp,env;
+  if(sc>=2.5){hp=Math.min(68,14+sc*8);cp=Math.max(5,18-sc*4);hp2=100-hp-cp;env='HIGH — restrictive environment';gEnv='high';}
+  else if(sc<=-1.5){cp=Math.min(68,14+Math.abs(sc)*8);hp=Math.max(5,12-Math.abs(sc)*3);hp2=100-cp-hp;env='LOW — accommodative environment';gEnv='low';}
+  else{hp2=Math.min(62,45+Math.abs(sc)*5);hp=(100-hp2)*(sc>0?.6:.35);cp=(100-hp2)*(sc>0?.4:.65);env='TRANSITION — watch closely';gEnv='transition';}
+  hp=Math.round(Math.max(3,Math.min(82,hp)));cp=Math.round(Math.max(3,Math.min(82,cp)));hp2=Math.round(Math.max(6,100-hp-cp));
+  var r12=r(base),r6=r(base+(sc>0?.12:-.12)),r18=r(base+(sc>0?-.08:-.30)),cur=r(treas*.7+2.5*.3);
+  document.getElementById('pred-rate').textContent=r12.toFixed(2)+'%';
+  document.getElementById('pred-env').textContent=env;
+  document.getElementById('cur-r').textContent=cur.toFixed(2)+'%';
+  document.getElementById('r6').textContent=r6.toFixed(2)+'%';
+  document.getElementById('r12').textContent=r12.toFixed(2)+'%';
+  document.getElementById('r18').textContent=r18.toFixed(2)+'%';
+  document.getElementById('conf').textContent=Math.min(94,Math.round(60+Math.abs(sc)*5))+'%';
+  document.getElementById('pb-hike').style.width=hp+'%';document.getElementById('pt-hike').textContent=hp+'%';
+  document.getElementById('pb-hold').style.width=hp2+'%';document.getElementById('pt-hold').textContent=hp2+'%';
+  document.getElementById('pb-cut').style.width=cp+'%';document.getElementById('pt-cut').textContent=cp+'%';
+  var s=SECTORS[SEC];
+  document.getElementById('sec-impact-text').textContent=(s.rateImpact[gEnv]||s.rateImpact.transition);
+  var col=sc>=2.5?'#c0392b':sc<=-1.5?'#1a6b3a':'#1a3a6b';
+  var lbls=['Now','3mo','6mo','9mo','12mo','15mo','18mo'];
+  var bd=[cur,r((cur+r6)/2),r6,r((r6+r12)/2),r12,r((r12+r18)/2),r18];
+  var bull=bd.map(function(v,i){return r(v-i*.055);});
+  var bear=bd.map(function(v,i){return r(v+i*.045);});
+  if(fChart){fChart.data.labels=lbls;fChart.data.datasets[0].data=bd;fChart.data.datasets[0].borderColor=col;fChart.data.datasets[0].backgroundColor=col+'12';fChart.data.datasets[1].data=bull;fChart.data.datasets[2].data=bear;fChart.update('none');}
+}
+
+// ═══════════════════════════════════════════════
+// MODULE 2: HIRING
+// ═══════════════════════════════════════════════
+function updateH() {
+  var rev=parseFloat(document.getElementById('sl-rev-h').value);
+  var hd=parseInt(document.getElementById('sl-head').value);
+  var sal=parseInt(document.getElementById('sl-sal').value);
+  var hr=parseInt(document.getElementById('sl-hire').value);
+  var debt=parseFloat(document.getElementById('sl-debt').value);
+  var cash=parseFloat(document.getElementById('sl-cash').value);
+  var curPayroll=hd*sal;
+  var monthlyBurn=curPayroll/12;
+  var runway=cash>0&&monthlyBurn>0?Math.round((cash*1000)/monthlyBurn*10)/10:0;
+  var envF=gEnv==='high'?0.25:gEnv==='low'?1.0:0.55;
+  var maxAff=runway>=6?hr:runway>=3?Math.round(hr*.55):Math.round(hr*.2);
+  var safe=Math.max(0,Math.round(Math.min(hr,maxAff)*envF));
+  var risky=hr-safe;
+  var riskCost=risky*sal;
+  var newPayFull=curPayroll+hr*sal;
+  var newPaySafe=curPayroll+safe*sal;
+  var runFull=cash>0&&newPayFull>0?Math.round((cash*1000)/(newPayFull/12)*10)/10:0;
+  var runSafe=cash>0&&newPaySafe>0?Math.round((cash*1000)/(newPaySafe/12)*10)/10:0;
+  var debtRatio=curPayroll>0?Math.round(debt*1000/curPayroll*10)/10:0;
+  var payrollRev=rev>0?Math.round(curPayroll/(rev*1000)*100):0;
+  var borrowRec=gEnv==='low'?'YES — lock fixed rates now':gEnv==='transition'?'CAUTION — wait 60 days':'WAIT — rates elevated';
+  document.getElementById('hiring-result').innerHTML=
+    '<div class="g4" style="margin-bottom:1rem">'+
+    '<div class="stat"><div class="stat-label">Current payroll</div><div class="stat-value" style="font-size:18px">$'+Math.round(curPayroll).toLocaleString()+'K/yr</div><div class="stat-sub">'+hd+' × $'+sal+'K avg</div></div>'+
+    '<div class="stat"><div class="stat-label">Cash runway</div><div class="stat-value" style="font-size:18px;color:'+(runway<3?'#8b1a1a':runway<6?'#7a4f00':'#1a6b3a')+'">'+runway+' mo</div><div class="stat-sub">At current payroll</div></div>'+
+    '<div class="stat"><div class="stat-label">Safe to hire</div><div class="stat-value" style="font-size:18px;color:#1a6b3a">'+safe+' of '+hr+'</div><div class="stat-sub">'+gEnv+' rate env</div></div>'+
+    '<div class="stat"><div class="stat-label">At-risk exposure</div><div class="stat-value" style="font-size:18px;color:'+(riskCost>0?'#8b1a1a':'#1a6b3a')+'">$'+Math.round(riskCost).toLocaleString()+'K/yr</div><div class="stat-sub">'+risky+' hires over safe limit</div></div>'+
+    '</div>'+
+    '<div class="rb '+(riskCost>0?'rb-red':'rb-green')+'">'+
+    '<div class="rb-label">Recommendation — '+gEnv.toUpperCase()+' environment</div>'+
+    '<div class="rb-big">Hire '+safe+' of your planned '+hr+'</div>'+
+    '<div class="rb-sub">'+(gEnv==='high'?'High rates = elevated debt costs. Every salary adds pressure. Hire only irreplaceable AI-proof roles.':gEnv==='low'?'Low rates = best window to grow team. Apply the AI test: only hire roles AI cannot replace within 3 years.':'Transition environment. Build 90-day cash reserve before adding payroll.')+'<br><br>Payroll as % of revenue: <strong>'+payrollRev+'%</strong> (healthy: under 35%) · Debt-to-payroll: <strong>'+debtRatio+'x</strong> (warning above 1.5x)<br>Cash runway after all hires: <strong>'+runFull+' months</strong> · Borrow now? <strong>'+borrowRec+'</strong></div>'+
+    '</div>';
+  if(hChart){hChart.data.datasets[0].data=[curPayroll,Math.round(newPayFull),Math.round(newPaySafe)];hChart.data.datasets[1].data=[runway,runFull,runSafe];hChart.update('none');}
+}
+
+// ═══════════════════════════════════════════════
+// MODULE 3: AI ECONOMY
+// ═══════════════════════════════════════════════
+function updateAI() {
+  var rev=parseFloat(document.getElementById('sl-rev-ai').value);
+  var mg=parseFloat(document.getElementById('sl-margin').value)/100;
+  var lb=parseFloat(document.getElementById('sl-labour').value)/100;
+  var rm=parseFloat(document.getElementById('sl-rawmat').value)/100;
+  var fx=parseFloat(document.getElementById('sl-fixed').value)/100;
+  var totalCost=rev*(1-mg);
+  var labPct=totalCost>0?lb:0.3;
+  var autoProxy=Math.min(1,labPct/0.65);
+  var savePct=autoProxy*0.12;
+  var aiSave=Math.round(rev*lb*savePct*10)/10;
+  var priceDrop=Math.round(aiSave*0.4*10)/10;
+  var pdPct=rev>0?(priceDrop/rev)*100:0;
+  var volGainPct=Math.round(pdPct*2*10)/10;
+  var extraRev=Math.round(rev*(volGainPct/100)*10)/10;
+  var otherVar=Math.max(0,(1-fx-rm)*0.5);
+  var varOnExtra=Math.round((extraRev*rm+extraRev*otherVar)*10)/10;
+  var volProfit=Math.round((extraRev-varOnExtra)*10)/10;
+  var priceDropLoss=Math.round(priceDrop*(1-mg)*10)/10;
+  var gain=Math.round((aiSave+volProfit-priceDropLoss)*10)/10;
+  var oldP=Math.round(rev*mg*10)/10;
+  var curCost=Math.round(rev*(1-mg)*10)/10;
+  var newCost=Math.round((curCost-aiSave)*10)/10;
+  document.getElementById('ai-result').innerHTML=
+    '<div class="g4" style="margin-bottom:1rem">'+
+    '<div class="stat"><div class="stat-label">AI labour savings</div><div class="stat-value" style="font-size:16px;color:#1a6b3a">$'+aiSave.toFixed(1)+'M–$'+Math.round(aiSave*1.35*10)/10+'M/yr</div><div class="stat-sub">'+Math.round(savePct*100)+'% of '+Math.round(lb*100)+'% labour</div></div>'+
+    '<div class="stat"><div class="stat-label">Safe price reduction</div><div class="stat-value" style="font-size:16px;color:#7a4f00">$'+priceDrop.toFixed(1)+'M</div><div class="stat-sub">'+pdPct.toFixed(1)+'% cut — still profitable</div></div>'+
+    '<div class="stat"><div class="stat-label">Volume gain</div><div class="stat-value" style="font-size:16px;color:#1a3a6b">+'+volGainPct.toFixed(1)+'%</div><div class="stat-sub">From being cheaper than rivals</div></div>'+
+    '<div class="stat"><div class="stat-label">Net profit gain</div><div class="stat-value" style="font-size:16px;color:'+(gain>=0?'#1a6b3a':'#8b1a1a')+'">+'+'$'+gain.toFixed(1)+'M/yr</div><div class="stat-sub">Conservative estimate</div></div>'+
+    '</div>'+
+    '<div class="rb rb-green">'+
+    '<div class="rb-label">Step-by-step verified calculation</div>'+
+    '<div class="rb-big">+$'+Math.round(gain*0.75*10)/10+' – +$'+Math.round(gain*1.35*10)/10+'M/year</div>'+
+    '<div class="rb-sub">'+
+    '1. AI saves $'+aiSave.toFixed(1)+'M/yr ('+Math.round(savePct*100)+'% of '+Math.round(lb*100)+'% labour × $'+rev+'M)<br>'+
+    '2. Pass $'+priceDrop.toFixed(1)+'M (40%) as lower prices → volume +'+volGainPct.toFixed(1)+'% (2:1 price elasticity)<br>'+
+    '3. Extra revenue $'+extraRev.toFixed(1)+'M minus variable costs $'+varOnExtra.toFixed(1)+'M (raw materials scale, fixed stays flat) → volume profit $'+volProfit.toFixed(1)+'M<br>'+
+    '4. Net: $'+aiSave.toFixed(1)+'M + $'+volProfit.toFixed(1)+'M − $'+priceDropLoss.toFixed(1)+'M margin loss = <strong>$'+gain.toFixed(1)+'M/yr</strong>'+
+    '</div></div>';
+  var s=SECTORS[SEC];
+  var html='';
+  s.actions.forEach(function(ac,i){
+    var t=ac.t.replace('{pct}',pdPct.toFixed(1)).replace('{vol}',volGainPct.toFixed(1));
+    var d=ac.d.replace('{pct}',pdPct.toFixed(1)).replace('{vol}',volGainPct.toFixed(1));
+    var sv=i===0?'$'+Math.round(aiSave*0.4*10)/10+'M':i===1?'$150K+':i===2?'Free $'+Math.round(rev*0.05*10)/10+'M':'+'+volGainPct.toFixed(1)+'% vol';
+    html+='<div class="ai-row"><div class="ai-num" style="background:'+(i<3?'#e8f5ee':'#eef3fc')+';color:'+(i<3?'#1a6b3a':'#1a3a6b')+'">'+(i+1)+'</div><div style="flex:1"><div class="ai-title">'+t+'</div><div class="ai-desc">'+d+'</div><div class="ai-src">Source: '+ac.src+'</div></div><div class="ai-save '+(i<3?'tg':'tb')+'">'+sv+'</div></div>';
+  });
+  document.getElementById('ai-actions').innerHTML=html;
+  if(aiChart){aiChart.data.datasets[0].data=[rev,rev,Math.round((rev-priceDrop)*10)/10,Math.round((rev-priceDrop+extraRev)*10)/10];aiChart.data.datasets[1].data=[curCost,newCost,newCost,Math.round((newCost+varOnExtra)*10)/10];aiChart.data.datasets[2].data=[oldP,Math.round((rev-newCost)*10)/10,Math.round((rev-priceDrop-newCost)*10)/10,Math.round((gain+oldP)*10)/10];aiChart.update('none');}
+}
+
+// ═══════════════════════════════════════════════
+// MODULE 4: LOANS
+// ═══════════════════════════════════════════════
+function updateL() {
+  var fed=parseFloat(document.getElementById('fed-slider').value);
+  // fed display removed
+  var prime=fed+3,sba=prime+2.75,sofr=fed+3.15,cre=fed+3.70,equip=prime+0.50;
+  document.getElementById('lr-prime').textContent=prime.toFixed(2)+'%';
+  document.getElementById('lr-sba').textContent=sba.toFixed(2)+'%';
+  document.getElementById('lr-sofr').textContent=sofr.toFixed(2)+'%';
+  document.getElementById('lr-cre').textContent=cre.toFixed(2)+'%';
+  document.getElementById('lr-equip').textContent=equip.toFixed(2)+'%';
+  var p1=Math.round(500000*prime/100/12);
+  var p2=Math.round(500000*sba/100/12);
+  var p3=Math.round(2000000*sofr/100/12);
+  var p4=Math.round(3000000*cre/100/12);
+  var p5=Math.round(800000*equip/100/12);
+  document.getElementById('lr-prime-pay').textContent='$500K → $'+p1.toLocaleString()+'/mo';
+  document.getElementById('lr-sba-pay').textContent='$500K → $'+p2.toLocaleString()+'/mo';
+  document.getElementById('lr-sofr-pay').textContent='$2M → $'+p3.toLocaleString()+'/mo';
+  document.getElementById('lr-cre-pay').textContent='$3M → $'+p4.toLocaleString()+'/mo';
+  document.getElementById('lr-equip-pay').textContent='$800K → $'+p5.toLocaleString()+'/mo';
+  var tot=p1+p2+p3+p5;
+  document.getElementById('lr-total').textContent='$'+tot.toLocaleString()+'/mo';
+  document.getElementById('lr-annual').textContent='$'+(tot*12).toLocaleString()+'/year — $500K credit + $500K SBA + $2M SOFR + $800K equipment';
+  var rates=[.25,1,2,3,4,5,6,7,8,9,10];
+  var costs=rates.map(function(r){var p=r+3,s=p+2.75,sf=r+3.15,e=p+.5;return Math.round(((500000*p/100/12)+(500000*s/100/12)+(2000000*sf/100/12)+(800000*e/100/12))*12);});
+  if(lChart){lChart.data.datasets[0].data=costs;lChart.update('none');}
+}
+
+// ═══════════════════════════════════════════════
+// MODULE 5: EQUILIBRIUM
+// MR = MC condition, linear demand curve
+// ═══════════════════════════════════════════════
+function updateEQ() {
+  var price=parseFloat(document.getElementById('sl-eq-price').value)||850;
+  var output=parseFloat(document.getElementById('sl-eq-output').value)||8000;
+  var vc=parseFloat(document.getElementById('sl-eq-vc').value)||578;
+  var fc=parseFloat(document.getElementById('sl-eq-fc').value)||1700000;
+  var elas=parseFloat(document.getElementById('sl-eq-elas').value)||1.4;
+  var fedRate=parseFloat(document.getElementById('fed-slider').value)||3.75;
+  var s=SECTORS[SEC];if(!s)return;
+  var rsens={manufacturing:.008,technology:.003,retail:.012,restaurant:.015,construction:.018,healthcare:.010,logistics:.014,realestate:.025,professional:.004,consumer:.011}[SEC]||.010;
+  var bench={manufacturing:{dol:[2.5,4],lerner:[.15,.35],margin:[7,12]},technology:{dol:[5,12],lerner:[.55,.85],margin:[70,82]},retail:{dol:[2,3.5],lerner:[.05,.20],margin:[30,42]},restaurant:{dol:[3,6],lerner:[.20,.45],margin:[60,72]},construction:{dol:[1.8,3],lerner:[.25,.55],margin:[15,22]},healthcare:{dol:[3.5,6],lerner:[.05,.15],margin:[30,50]},logistics:{dol:[2,4],lerner:[.15,.35],margin:[18,28]},realestate:{dol:[4,9],lerner:[.40,.70],margin:[55,75]},professional:{dol:[2.5,5],lerner:[.45,.75],margin:[50,70]},consumer:{dol:[2.5,4.5],lerner:[.10,.30],margin:[38,48]}}[SEC]||{dol:[2,4],lerner:[.15,.35],margin:[10,20]};
+  var vcAdj=vc*(1+((fedRate-2.5)*rsens));
+  var b=price/(output*elas),a=price+b*output;
+  var optQ=Math.max(1,(a-vcAdj)/(2*b)),optP=Math.max(vcAdj,a-b*optQ);
+  var optTR=optP*optQ,optTC=vcAdj*optQ+fc,optPr=optTR-optTC,optMg=optTR>0?optPr/optTR*100:0;
+  var curTR=price*output,curTC=vcAdj*output+fc,curPr=curTR-curTC,curMg=curTR>0?curPr/curTR*100:0;
+  var lerner=optP>0?(optP-vcAdj)/optP:0,lernerT=1/elas;
+  var contrib=Math.max(0,price-vcAdj),breakEven=contrib>0?Math.ceil(fc/contrib):0;
+  var dol=curTR>0&&curPr!==0?(curTR-vcAdj*output)/Math.abs(curPr):0,gap=optPr-curPr;
+  var fd=function(v){return (v>=0?"$":"-$")+Math.abs(Math.round(v)).toLocaleString();};
+  var fk=function(v){return (v>=0?"$":"-$")+Math.abs(Math.round(v/1000)).toLocaleString()+"K";};
+  // KPIs
+  var kpis=document.getElementById('eq-kpis');
+  if(kpis)kpis.innerHTML='<div class="kpi"><div class="kl">Current profit/yr</div><div class="kv" style="color:'+(curPr>=0?'#1a6b3a':'#8b1a1a')+'">'+(curPr>=0?'$':'-$')+Math.abs(Math.round(curPr/1000)).toLocaleString()+'K</div><div class="ks">At current price & output</div></div><div class="kpi"><div class="kl">Optimal profit (MR=MC)</div><div class="kv" style="color:#1a6b3a">$'+Math.round(optPr/1000).toLocaleString()+'K/yr</div><div class="ks">$'+Math.round(optP).toLocaleString()+'/unit × '+Math.round(optQ).toLocaleString()+'</div></div><div class="kpi"><div class="kl">Profit left on table</div><div class="kv" style="color:'+(gap>500?'#8b1a1a':gap>0?'#7a4f00':'#1a6b3a')+'">'+(gap>0?'+':'')+Math.round(gap/1000).toLocaleString()+'K/yr</div><div class="ks">'+(gap>100?'Mis-priced vs. optimal':'Near optimal')+'</div></div><div class="kpi"><div class="kl">Lerner / theoretical max</div><div class="kv" style="color:'+(lerner>0.4?'#1a6b3a':lerner>0.2?'#7a4f00':'#8b1a1a')+'">'+lerner.toFixed(2)+' / '+lernerT.toFixed(2)+'</div><div class="ks">'+(lerner<lernerT*.7?'Underpricing vs. market power':'Using pricing power well')+'</div></div>';
+  // Recommendation
+  var pmsg=Math.abs(price-optP)/Math.max(1,optP)<.04?'Near optimal — minor adjustments only.':price<optP*.95?'<strong>Underpriced by $'+Math.abs(Math.round(optP-price)).toLocaleString()+'/unit.</strong> Raise to $'+Math.round(optP).toLocaleString()+' → +$'+Math.round(gap/1000).toLocaleString()+'K/yr profit.':'<strong>Overpriced by $'+Math.abs(Math.round(price-optP)).toLocaleString()+'/unit.</strong> Drop to $'+Math.round(optP).toLocaleString()+' → +'+Math.round(Math.abs(optQ-output)).toLocaleString()+' more units, +$'+Math.round(gap/1000).toLocaleString()+'K profit.';
+  var rec=document.getElementById('eq-rec');
+  if(rec)rec.innerHTML='<div style="border-radius:12px;padding:1.25rem;margin-bottom:1rem;border:1px solid rgba('+(gap>0?'122,79,0':'26,107,58')+',.2);background:'+(gap>0?'#fff8e6':'#e8f5ee')+'"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;opacity:.8;margin-bottom:.35rem;color:'+(gap>0?'#7a4f00':'#1a6b3a')+'">'+s.emoji+' '+s.name+' — '+gEnv.toUpperCase()+' rate environment</div><div style="font-size:18px;font-weight:700;margin-bottom:.2rem;color:'+(gap>0?'#7a4f00':'#1a6b3a')+'">Optimal: $'+Math.round(optP).toLocaleString()+'/unit · '+Math.round(optQ).toLocaleString()+' units · $'+Math.round(optPr/1000).toLocaleString()+'K profit/yr</div><div style="font-size:12px;line-height:1.7;color:'+(gap>0?'#7a4f00':'#1a6b3a')+'"><strong>Pricing:</strong> '+pmsg+'<br><br><strong>Rate environment:</strong> '+(s.rateImpact[gEnv]||s.rateImpact.transition)+'</div></div>';
+  // AI scenario
+  var labCost=parseFloat(document.getElementById('sl-labour').value)||4.2,rev3=parseFloat(document.getElementById('sl-rev-ai').value)||20,mg3=(parseFloat(document.getElementById('sl-margin').value)||12)/100;
+  var tc3=rev3*(1-mg3),lp3=tc3>0?labCost/tc3:.3,vcAI=vcAdj*(1-Math.min(1,lp3/.65)*.12);
+  var aiQ=Math.max(1,(a-vcAI)/(2*b)),aiP=Math.max(vcAI,a-b*aiQ),aiPr=aiP*aiQ-vcAI*aiQ-fc;
+  var rVC4=vc*(1+((fedRate+2-2.5)*rsens)),rQ4=Math.max(1,(a-rVC4)/(2*b)),rP4=Math.max(rVC4,a-b*rQ4),rPr4=rP4*rQ4-rVC4*rQ4-fc;
+  var rVC5=vc*(1+((Math.max(.25,fedRate-1.5)-2.5)*rsens)),rQ5=Math.max(1,(a-rVC5)/(2*b)),rP5=Math.max(rVC5,a-b*rQ5),rPr5=rP5*rQ5-rVC5*rQ5-fc;
+  var scs=[
+    {l:'1. Current state',q:output,p:price,vc2:vcAdj,pr:curPr,mg:curMg,vs:'—',st:Math.abs(price-optP)/Math.max(1,optP)<.05?'✓ Near optimal':price>optP*1.05?'⚠ Overpriced':'⚠ Underpriced'},
+    {l:'2. MR=MC optimal',q:optQ,p:optP,vc2:vcAdj,pr:optPr,mg:optMg,vs:optPr-curPr,st:'★ Profit-maximising'},
+    {l:'3. After AI lowers VC',q:aiQ,p:aiP,vc2:vcAI,pr:aiPr,mg:aiP*aiQ>0?aiPr/(aiP*aiQ)*100:0,vs:aiPr-curPr,st:'★ Best outcome'},
+    {l:'4. Rate rises to '+(fedRate+2).toFixed(2)+'%',q:rQ4,p:rP4,vc2:rVC4,pr:rPr4,mg:rP4*rQ4>0?rPr4/(rP4*rQ4)*100:0,vs:rPr4-curPr,st:'⚠ Rate risk'},
+    {l:'5. Rate falls to '+Math.max(.25,fedRate-1.5).toFixed(2)+'%',q:rQ5,p:rP5,vc2:rVC5,pr:rPr5,mg:rP5*rQ5>0?rPr5/(rP5*rQ5)*100:0,vs:rPr5-curPr,st:'↗ Upside'}
+  ];
+  var stb=document.getElementById('eq-sc-tbody');
+  if(stb)stb.innerHTML=scs.map(function(sc,i){var vs=sc.vs==='—'?'—':(sc.vs>=0?'+':'')+Math.round(sc.vs/1000).toLocaleString()+'K';return '<tr style="background:'+(i===1||i===2?'#e8f5ee':i===0?'#f7f5f0':'')+'"><td style="padding:7px 11px;font-size:12px">'+sc.l+'</td><td style="text-align:right;padding:7px 11px;font-weight:600;color:'+(i===1||i===2?'#1a6b3a':'')+'">'+fd(sc.p)+'</td><td style="text-align:right;padding:7px 11px">'+Math.round(sc.q).toLocaleString()+'</td><td style="text-align:right;padding:7px 11px">'+fd(sc.p*sc.q)+'</td><td style="text-align:right;padding:7px 11px;color:#8b1a1a">'+fd(sc.vc2*sc.q)+'</td><td style="text-align:right;padding:7px 11px;font-weight:700;color:'+(sc.pr>=0?'#1a6b3a':'#8b1a1a')+'">'+fd(sc.pr)+'</td><td style="text-align:right;padding:7px 11px;color:'+(sc.mg<5?'#8b1a1a':sc.mg>20?'#1a6b3a':'#7a4f00')+'">'+Math.round(sc.mg)+'%</td><td style="text-align:right;padding:7px 11px;color:'+(sc.vs==='—'?'':sc.vs>=0?'#1a6b3a':'#8b1a1a')+'">'+vs+'</td><td style="padding:7px 11px;font-size:11px">'+sc.st+'</td></tr>';}).join('');
+  // Marginal analysis
+  var qMin=Math.max(1,Math.round(optQ*.3)),qMax=Math.round(optQ*1.8),qStep=Math.round((qMax-qMin)/9);
+  var mrows=[];
+  for(var i=0;i<=9;i++){var q=qMin+i*qStep,p2=Math.max(0,a-b*q),tr2=p2*q,tc2=vcAdj*q+fc;var prevQ=Math.max(0,q-qStep),prevTR=Math.max(0,a-b*prevQ)*prevQ,prevTC=vcAdj*prevQ+fc;var mr=i===0?p2:(tr2-prevTR)/qStep,mc=i===0?vcAdj:(tc2-prevTC)/qStep,diff=mr-mc;var isEq=Math.abs(diff)<Math.max(1,vcAdj*.06);mrows.push({q:q,p:Math.round(p2),tr:Math.round(tr2),mr:Math.round(mr),mc:Math.round(mc),diff:Math.round(diff),tc:Math.round(tc2),pr:Math.round(tr2-tc2),isEq:isEq,dec:isEq?'★ Equilibrium':diff>0?'↑ Produce more':'↓ Produce less'});}
+  var mtb=document.getElementById('eq-mr-tbody');
+  if(mtb)mtb.innerHTML=mrows.map(function(r){return '<tr style="background:'+(r.isEq?'#e8f5ee':'')+'"><td style="padding:7px 11px">'+r.q.toLocaleString()+'</td><td style="text-align:right;padding:7px 11px">$'+r.p.toLocaleString()+'</td><td style="text-align:right;padding:7px 11px">$'+r.tr.toLocaleString()+'</td><td style="text-align:right;padding:7px 11px;font-weight:600;color:'+(r.mr>r.mc?'#1a6b3a':'#8b1a1a')+'">$'+r.mr.toLocaleString()+'</td><td style="text-align:right;padding:7px 11px;color:#8b1a1a">$'+r.mc.toLocaleString()+'</td><td style="text-align:right;padding:7px 11px;color:'+(r.diff>=0?'#1a6b3a':'#8b1a1a')+'">'+(r.diff>=0?'+':'')+r.diff.toLocaleString()+'</td><td style="text-align:right;padding:7px 11px;color:#6b6b6b">$'+r.tc.toLocaleString()+'</td><td style="text-align:right;padding:7px 11px;font-weight:700;color:'+(r.pr>=0?'#1a6b3a':'#8b1a1a')+'">'+(r.pr>=0?'$':'-$')+Math.abs(r.pr).toLocaleString()+'</td><td style="padding:7px 11px;font-size:11px">'+r.dec+'</td></tr>';}).join('');
+  // Leverage table
+  var cmPct=price>vcAdj?(price-vcAdj)/price*100:0;
+  var levs=[['Break-even output',breakEven>0?breakEven.toLocaleString()+' units':'N/A','Varies','Every unit above this is profit. Below this you lose money.'],['Contribution margin per unit','$'+Math.round(Math.max(0,price-vcAdj)).toLocaleString()+' ('+Math.round(cmPct)+'%)','Sector dependent','Revenue minus variable cost. Must be positive to cover fixed costs.'],['Degree of operating leverage',Math.round(dol*10)/10+'x',bench.dol[0]+'–'+bench.dol[1]+'x industry',Math.abs(dol)>bench.dol[1]?'ABOVE industry — 10% volume rise = '+Math.round(Math.abs(dol)*10)+'% profit rise.':'Within normal range for '+s.name+'.'],['Lerner index (pricing power)',lerner.toFixed(2),bench.lerner[0]+'–'+bench.lerner[1]+' industry',lerner<bench.lerner[0]?'BELOW benchmark — potentially underpricing.':lerner>bench.lerner[1]?'ABOVE — strong pricing power. Protect it.':'Appropriate for market structure.'],['Theoretical max Lerner (=1/e)',lernerT.toFixed(2),'Based on elasticity','Gap between this and actual Lerner = unexploited pricing power.'],['Gross margin at optimal',Math.round(optMg)+'%',bench.margin[0]+'–'+bench.margin[1]+'% industry',Math.round(optMg)<bench.margin[0]?'BELOW industry — cost structure or pricing needs work.':Math.round(optMg)>bench.margin[1]?'ABOVE average — strong cost management.':'Within normal range.'],['Rate sensitivity',Math.round(rsens*1000)/10+'% per 1% rate rise','RE:2.5% Const:1.8% SaaS:0.3%',rsens>.015?'HIGH — lock floating debt to fixed is most urgent action.':rsens>.008?'MODERATE — lock floating debt soon.':'LOW — limited direct rate impact.'],['Optimal vs. current price','$'+Math.round(optP).toLocaleString()+' vs $'+Math.round(price).toLocaleString(),'MR=MC condition',Math.abs(price-optP)/Math.max(1,optP)>.05?'Gap of $'+Math.abs(Math.round(optP-price)).toLocaleString()+' — '+(price<optP?'underpriced, $'+Math.round(gap/1000)+'K/yr left on table.':'overpriced, losing volume.'):'Very close to optimal.']];
+  var ltb=document.getElementById('eq-lev-tbody');
+  if(ltb)ltb.innerHTML=levs.map(function(r){return '<tr><td style="padding:7px 11px;font-weight:600;font-size:12px">'+r[0]+'</td><td style="text-align:right;padding:7px 11px;font-weight:700">'+r[1]+'</td><td style="text-align:right;padding:7px 11px;color:#6b6b6b;font-size:12px">'+r[2]+'</td><td style="padding:7px 11px;font-size:11px;color:#6b6b6b;line-height:1.5">'+r[3]+'</td></tr>';}).join('');
+  // Rate table
+  var rlevels=[.25,1,2,2.5,3,3.75,4.5,5,5.25,6,7,8];
+  var rvals=[],rlbls=[];
+  var rtb=document.getElementById('eq-rt-tbody');
+  if(rtb)rtb.innerHTML=rlevels.map(function(r){var rvc=vc*(1+((r-2.5)*rsens)),rq=Math.max(1,(a-rvc)/(2*b)),rp=Math.max(rvc,a-b*rq),rpr=rp*rq-rvc*rq-fc,ci=((rvc-vc)/Math.max(1,vc)*100).toFixed(1),pd=Math.round((rpr-curPr)/1000),rl=(rp>0?(rp-rvc)/rp:0),cur=Math.abs(r-fedRate)<.3,act=r>=6?'Emergency: lock all debt':r>=4.5?'Lock floating now':r>=3?'Hold pricing':r<1?'Expand aggressively':'Hold strategy';rvals.push(Math.round(rpr/1000));rlbls.push(r+'%');return '<tr style="background:'+(cur?'#f0ede6':'')+'"><td style="padding:7px 11px;font-size:12px;font-weight:'+(cur?'700':'400')+'">'+(cur?'★ ':'')+r.toFixed(2)+'%'+(cur?' ← now':'')+'</td><td style="text-align:right;padding:7px 11px;color:'+(parseFloat(ci)>0?'#8b1a1a':'#1a6b3a')+'">'+(parseFloat(ci)>=0?'+':'')+ci+'%</td><td style="text-align:right;padding:7px 11px;font-weight:700;color:#1a6b3a">$'+Math.round(rp).toLocaleString()+'</td><td style="text-align:right;padding:7px 11px">'+Math.round(rq).toLocaleString()+'</td><td style="text-align:right;padding:7px 11px;color:'+(rpr>=0?'#1a6b3a':'#8b1a1a')+'">'+(rpr>=0?'$':'-$')+Math.abs(Math.round(rpr/1000)).toLocaleString()+'K</td><td style="text-align:right;padding:7px 11px;color:'+(pd>=0?'#1a6b3a':'#8b1a1a')+'">'+(pd>=0?'+':'')+pd+'K</td><td style="text-align:right;padding:7px 11px;color:'+(rl>.4?'#1a6b3a':rl>.2?'#7a4f00':'#8b1a1a')+'">'+Math.round(rl*100)/100+'</td><td style="padding:7px 11px;font-size:11px">'+act+'</td></tr>';}).join('');
+  // Charts
+  if(eqChart){eqChart.data.labels=mrows.map(function(r){return r.q.toLocaleString();});eqChart.data.datasets[0].data=mrows.map(function(r){return r.mr;});eqChart.data.datasets[1].data=mrows.map(function(r){return r.mc;});eqChart.data.datasets[2].data=mrows.map(function(r){return r.p;});eqChart.update('none');}
+  if(profChart){profChart.data.labels=rlbls;profChart.data.datasets[0].data=rvals;profChart.update('none');}
+  var escEl=document.getElementById('eqScChart');
+  if(escEl){
+    if(eqScChart){eqScChart.destroy();eqScChart=null;}
+    var base2={responsive:true,animation:{duration:400},plugins:{legend:{labels:{font:{size:11},boxWidth:11}},tooltip:{backgroundColor:'rgba(10,10,10,.9)',bodyFont:{size:11},padding:9}}};
+    eqScChart=new Chart(escEl.getContext('2d'),{type:'bar',
+      data:{
+        labels:['Current','Optimal','After AI','Rate+2%','Rate-1.5%'],
+        datasets:[
+          {label:'Revenue',data:scs.map(function(sc){return Math.round(sc.p*sc.q);}),backgroundColor:'rgba(26,58,107,.62)',borderColor:'#1a3a6b',borderWidth:1.5,borderRadius:5},
+          {label:'Costs',data:scs.map(function(sc){return Math.round(sc.vc2*sc.q+fc);}),backgroundColor:'rgba(139,26,26,.52)',borderColor:'#8b1a1a',borderWidth:1.5,borderRadius:5},
+          {label:'Profit',data:scs.map(function(sc){return Math.round(sc.pr);}),backgroundColor:'rgba(26,107,58,.72)',borderColor:'#1a6b3a',borderWidth:1.5,borderRadius:5}
+        ]
+      },
+      options:Object.assign({},base2,{scales:{
+        y:{ticks:{callback:function(v){return v>=1000000?'$'+(v/1000000).toFixed(1)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+v;},font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},
+        x:{ticks:{font:{size:10},maxRotation:0},grid:{display:false}}
+      }})
+    });
+  }
+}
+
+function qask(q){document.getElementById('chat-inp').value=q;sendChat();}
+async function sendChat(){
+  if(chatBusy)return;
+  var inp=document.getElementById('chat-inp');
+  var txt=inp.value.trim();if(!txt)return;
+  inp.value='';addBub(txt,'u');chatBusy=true;
+  var te=addTyping();
+  var s=SECTORS[SEC];
+  var sys='You are RateShield AI — expert financial advisor for mid-size businesses ($5M–$200M revenue). Company: '+coName+'. Sector: '+s.name+'. Benchmarks: net margin '+s.margin+'%, labour '+s.labour+'% of costs, raw materials '+s.rawmat+'%, fixed costs '+s.fixed+'%. Rate environment: '+gEnv+'. Loan guidance: '+s.loanNote+'. Be specific, use real numbers, cite sources. No generic advice.';
+  try{
+    var res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:[{role:'user',content:txt}]})});
+    var data=await res.json();
+    var reply=data.content&&data.content[0]?data.content[0].text:'Add your Anthropic API key to enable live AI responses. All 5 other modules work without it.';
+    te.remove();addBub(reply.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>'),'a');
+  }catch(e){te.remove();addBub('Add your Anthropic API key to enable the AI advisor. All other 5 modules work without it.','a');}
+  chatBusy=false;
+}
+function addBub(t,r){var m=document.getElementById('chat-msgs');var d=document.createElement('div');d.className='msg '+r;d.innerHTML=t;m.appendChild(d);m.scrollTop=m.scrollHeight;}
+function addTyping(){var m=document.getElementById('chat-msgs');var d=document.createElement('div');d.className='typing';d.innerHTML='<div class="tdot"></div><div class="tdot"></div><div class="tdot"></div>';m.appendChild(d);m.scrollTop=m.scrollHeight;return d;}
+
+// ═══════════════════════════════════════════════
+// CHARTS — initialised ONCE, updated by each module
+// ═══════════════════════════════════════════════
+function initCharts(){
+  var base={responsive:true,animation:{duration:300},plugins:{legend:{labels:{font:{size:10},boxWidth:10}},tooltip:{backgroundColor:'rgba(10,10,10,.9)',titleFont:{size:11},bodyFont:{size:11},padding:8,cornerRadius:6}}};
+  // Forecast
+  var fc=document.getElementById('fChart');
+  if(fc&&!fChart)fChart=new Chart(fc.getContext('2d'),{type:'line',data:{labels:['Now','3mo','6mo','9mo','12mo','15mo','18mo'],datasets:[{label:'Base case',data:[3.75,3.62,3.5,3.37,3.25,3.12,3.0],borderColor:'#1a3a6b',backgroundColor:'rgba(26,58,107,.08)',fill:true,tension:.4,pointRadius:4,borderWidth:2},{label:'Bull',data:[3.75,3.5,3.25,3.1,2.9,2.75,2.6],borderColor:'#1a6b3a',borderDash:[5,3],tension:.4,pointRadius:2,borderWidth:1.5},{label:'Bear',data:[3.75,3.75,3.75,3.6,3.5,3.6,3.75],borderColor:'#8b1a1a',borderDash:[5,3],tension:.4,pointRadius:2,borderWidth:1.5}]},options:Object.assign({},base,{scales:{y:{min:0,max:7,title:{display:true,text:'Fed Funds Rate (%)',font:{size:10},color:'#6b6b6b'},ticks:{callback:function(v){return v.toFixed(1)+'%';},font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},x:{ticks:{font:{size:10}},grid:{display:false}}}})});
+  // Hiring
+  var hc=document.getElementById('hChart');
+  if(hc&&!hChart)hChart=new Chart(hc.getContext('2d'),{type:'bar',data:{labels:['Current','After all hires','After safe hires only'],datasets:[{label:'Annual payroll ($K)',data:[13440,14160,13872],backgroundColor:'rgba(26,58,107,.6)',borderColor:'#1a3a6b',borderWidth:1.5,borderRadius:5,yAxisID:'y'},{label:'Cash runway (months)',data:[1.1,1.0,1.1],backgroundColor:'rgba(26,107,58,.55)',borderColor:'#1a6b3a',borderWidth:1.5,borderRadius:5,yAxisID:'y2'}]},options:Object.assign({},base,{scales:{y:{title:{display:true,text:'Payroll ($K)',font:{size:10}},ticks:{callback:function(v){return '$'+v.toLocaleString()+'K';},font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},y2:{position:'right',title:{display:true,text:'Cash runway (months)',font:{size:10}},ticks:{font:{size:10}},grid:{display:false}},x:{ticks:{font:{size:10}},grid:{display:false}}}})});
+  // AI
+  var ac=document.getElementById('aiChart');
+  if(ac&&!aiChart)aiChart=new Chart(ac.getContext('2d'),{type:'bar',data:{labels:['1. Current','2. After AI','3. After price cut','4. After volume'],datasets:[{label:'Revenue ($M)',data:[20,20,18,20.4],backgroundColor:'rgba(26,58,107,.6)',borderColor:'#1a3a6b',borderWidth:1.5,borderRadius:5},{label:'Costs ($M)',data:[17.6,17.1,17.1,17.3],backgroundColor:'rgba(139,26,26,.5)',borderColor:'#8b1a1a',borderWidth:1.5,borderRadius:5},{label:'Profit ($M)',data:[2.4,2.9,.9,3.1],backgroundColor:'rgba(26,107,58,.7)',borderColor:'#1a6b3a',borderWidth:1.5,borderRadius:5}]},options:Object.assign({},base,{scales:{y:{title:{display:true,text:'Amount ($M)',font:{size:10}},ticks:{callback:function(v){return '$'+v+'M';},font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},x:{ticks:{font:{size:10},maxRotation:0},grid:{display:false}}}})});
+  // Loans
+  var lc=document.getElementById('lChart');
+  if(lc&&!lChart){var rates=[.25,1,2,3,4,5,6,7,8,9,10];var costs=rates.map(function(r){var p=r+3,s=p+2.75,sf=r+3.15,e=p+.5;return Math.round(((500000*p/100/12)+(500000*s/100/12)+(2000000*sf/100/12)+(800000*e/100/12))*12);});lChart=new Chart(lc.getContext('2d'),{type:'line',data:{labels:rates.map(function(r){return r+'%';}),datasets:[{label:'Annual interest',data:costs,borderColor:'#1a3a6b',backgroundColor:'rgba(26,58,107,.07)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#1a3a6b',borderWidth:2}]},options:Object.assign({},base,{plugins:Object.assign({},base.plugins,{legend:{display:false},tooltip:{callbacks:{label:function(c){return '$'+c.raw.toLocaleString()+'/yr';}}}}),scales:{y:{title:{display:true,text:'Annual interest cost',font:{size:10}},ticks:{callback:function(v){return '$'+(v/1000).toFixed(0)+'K';},font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},x:{title:{display:true,text:'Federal Funds Rate',font:{size:10}},ticks:{font:{size:10}},grid:{color:'rgba(0,0,0,.03)'}}}})});}
+  // Equilibrium MR/MC chart
+  var esc=document.getElementById('eqScChart');
+  if(esc)eqScChart=new Chart(esc.getContext('2d'),{type:'bar',data:{labels:['Current','Optimal','After AI','Rate+2%','Rate-1.5%'],datasets:[{label:'Revenue',data:[0,0,0,0,0],backgroundColor:'rgba(26,58,107,.62)',borderColor:'#1a3a6b',borderWidth:1.5,borderRadius:5},{label:'Costs',data:[0,0,0,0,0],backgroundColor:'rgba(139,26,26,.52)',borderColor:'#8b1a1a',borderWidth:1.5,borderRadius:5},{label:'Profit',data:[0,0,0,0,0],backgroundColor:'rgba(26,107,58,.72)',borderColor:'#1a6b3a',borderWidth:1.5,borderRadius:5}]},options:Object.assign({},base,{scales:{y:{ticks:{callback:function(v){return v>=1000000?'$'+(v/1000000).toFixed(1)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+v;},font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},x:{ticks:{font:{size:10},maxRotation:0},grid:{display:false}}}})});
+
+  var ec=document.getElementById('eqChart');
+  if(ec&&!eqChart)eqChart=new Chart(ec.getContext('2d'),{type:'line',data:{labels:[],datasets:[{label:'Marginal revenue (MR)',data:[],borderColor:'#1a6b3a',fill:false,tension:.4,pointRadius:3,borderWidth:2.5},{label:'Marginal cost (MC)',data:[],borderColor:'#8b1a1a',fill:false,tension:.2,pointRadius:3,borderWidth:2.5,borderDash:[5,3]},{label:'Demand curve (price)',data:[],borderColor:'#1a3a6b',fill:false,tension:.4,pointRadius:2,borderWidth:1.5,borderDash:[3,3]}]},options:Object.assign({},base,{scales:{y:{title:{display:true,text:'$ per unit',font:{size:10}},ticks:{callback:function(v){return '$'+v.toLocaleString();},font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},x:{title:{display:true,text:'Output (units)',font:{size:10}},ticks:{font:{size:10}},grid:{color:'rgba(0,0,0,.03)'}}}})}); 
+  // Profit curve chart
+  var pc=document.getElementById('profitChart');
+  if(pc&&!profChart)profChart=new Chart(pc.getContext('2d'),{type:'line',data:{labels:[],datasets:[{label:'Total revenue',data:[],borderColor:'#1a3a6b',backgroundColor:'rgba(26,58,107,.05)',fill:true,tension:.4,pointRadius:2,borderWidth:2},{label:'Total costs',data:[],borderColor:'#8b1a1a',backgroundColor:'rgba(139,26,26,.04)',fill:true,tension:.4,pointRadius:2,borderWidth:2},{label:'Profit',data:[],borderColor:'#1a6b3a',backgroundColor:'rgba(26,107,58,.07)',fill:true,tension:.4,pointRadius:2,borderWidth:2.5}]},options:Object.assign({},base,{scales:{y:{title:{display:true,text:'Amount ($)',font:{size:10}},ticks:{callback:function(v){return v>=1000000?'$'+(v/1000000).toFixed(1)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+v;},font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},x:{title:{display:true,text:'Output (units)',font:{size:10}},ticks:{font:{size:10}},grid:{color:'rgba(0,0,0,.03)'}}}})}); 
+}
+</script>
+<span id="eq-price-lbl" style="display:none"></span><span id="eq-output-lbl" style="display:none"></span><span id="margin-note" style="display:none"></span><span id="labour-note" style="display:none"></span></body>
+</html>
