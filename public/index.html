@@ -7,7 +7,49 @@
 <title>RateShield AI</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
+/* ── LANDING PAGE ─────────────────────────────── */
+.landing{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0a0a0a;padding:2rem;text-align:center}
+.landing-logo{font-size:36px;font-weight:700;color:#fff;margin-bottom:.5rem}.landing-logo span{color:#4ade80}
+.landing-tag{font-size:15px;color:rgba(255,255,255,.45);margin-bottom:.5rem;line-height:1.6}
+.landing-sub{font-size:13px;color:rgba(255,255,255,.3);margin-bottom:2.5rem;max-width:460px}
+.landing-trial{background:linear-gradient(135deg,#1a6b3a,#0f4a28);border:none;border-radius:12px;padding:16px 40px;font-size:16px;font-weight:700;color:#fff;cursor:pointer;font-family:'Outfit',sans-serif;margin-bottom:1rem;width:100%;max-width:360px;letter-spacing:.01em}
+.landing-trial:hover{background:linear-gradient(135deg,#2d9b57,#1a6b3a)}
+.landing-trial-note{font-size:12px;color:rgba(255,255,255,.3);margin-bottom:2rem}
+.landing-btns{display:flex;gap:12px;width:100%;max-width:360px}
+.landing-btn{flex:1;border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:all .2s}
+.landing-btn-signin{background:transparent;border:1px solid rgba(255,255,255,.2);color:#fff}
+.landing-btn-signin:hover{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.05)}
+.landing-btn-signup{background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:#4ade80}
+.landing-btn-signup:hover{background:rgba(74,222,128,.2)}
+.landing-features{display:flex;gap:24px;margin-top:3rem;flex-wrap:wrap;justify-content:center;max-width:600px}
+.landing-feat{font-size:12px;color:rgba(255,255,255,.3);display:flex;align-items:center;gap:6px}
+.landing-feat::before{content:'✓';color:#4ade80;font-weight:700}
+
+/* ── AUTH MODAL ───────────────────────────────── */
+.auth-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:1000;align-items:center;justify-content:center;padding:1rem}
+.auth-modal-bg.active{display:flex}
+.auth-modal{background:#111;border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:2.5rem;width:100%;max-width:400px}
+.auth-modal-title{font-size:22px;font-weight:700;color:#fff;margin-bottom:.25rem}
+.auth-modal-sub{font-size:13px;color:rgba(255,255,255,.4);margin-bottom:1.75rem}
+.auth-modal-label{font-size:11px;font-weight:600;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.4rem;display:block;margin-top:1rem}
+.auth-modal-label:first-of-type{margin-top:0}
+.auth-modal-input{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px 16px;font-size:14px;color:#fff;font-family:'Outfit',sans-serif;outline:none}
+.auth-modal-input:focus{border-color:#4ade80}
+.auth-modal-input::placeholder{color:rgba(255,255,255,.25)}
+.auth-modal-btn{width:100%;background:#1a6b3a;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:600;color:#fff;cursor:pointer;font-family:'Outfit',sans-serif;margin-top:1.25rem}
+.auth-modal-btn:hover{background:#2d9b57}
+.auth-modal-btn:disabled{opacity:.5;cursor:not-allowed}
+.auth-modal-err{font-size:12px;color:#ff6b6b;margin-top:.75rem;text-align:center;min-height:18px}
+.auth-modal-switch{font-size:12px;color:rgba(255,255,255,.35);text-align:center;margin-top:1rem}
+.auth-modal-switch a{color:#4ade80;cursor:pointer;text-decoration:none}
+.auth-modal-close{position:absolute;top:1rem;right:1rem;background:none;border:none;color:rgba(255,255,255,.4);font-size:20px;cursor:pointer;line-height:1}
+.auth-modal{position:relative}
+
+/* ── TRIAL BADGE ──────────────────────────────── */
+.trial-badge{background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.25);border-radius:20px;padding:3px 10px;font-size:11px;color:#4ade80;font-weight:600;margin-left:6px}
+</style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Outfit',sans-serif;background:#f0ede6;color:#0f0f0f;font-size:15px}
 .auth{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0a}
@@ -268,14 +310,59 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
 <body>
 
 <!-- AUTH -->
-<div class="auth" id="auth">
-  <div class="auth-card">
-    <div class="auth-logo">Rate<span>Shield</span> AI</div>
-    <span class="auth-tag">Business Intelligence Platform — 6 Modules</span>
-    <label class="auth-label">Company name</label>
-    <input class="auth-input" id="co" type="text" placeholder="e.g. SMITH MIDLAND CORP" onkeydown="if(event.key==='Enter')go()" oninput="checkLogin()"/>
-    <label class="auth-label">Industry sector</label>
-    <select class="auth-input sec-select" id="sec-sel" onchange="if(typeof applySector==='function' && document.getElementById('app').style.display==='block') applySector(this.value)">
+<!-- LANDING PAGE -->
+<div class="landing" id="landing">
+  <div class="landing-logo">Rate<span>Shield</span> AI</div>
+  <div class="landing-tag">CFO-level financial intelligence — no CFO required</div>
+  <div class="landing-sub">Rate sensitivity, hiring capacity, AI savings, debt exposure, and pricing equilibrium — all tailored to your sector.</div>
+
+  <button class="landing-trial" onclick="startFreeTrial()">Start 7-Day Free Trial</button>
+  <div class="landing-trial-note">No credit card required · Full access for 7 days</div>
+
+  <div class="landing-btns">
+    <button class="landing-btn landing-btn-signin" onclick="showAuthModal('signin')">Sign In</button>
+    <button class="landing-btn landing-btn-signup" onclick="showAuthModal('signup')">Sign Up</button>
+  </div>
+
+  <div class="landing-features">
+    <div class="landing-feat">6 financial modules</div>
+    <div class="landing-feat">10 industry sectors</div>
+    <div class="landing-feat">IS-LM rate framework</div>
+    <div class="landing-feat">AI Executive Advisor</div>
+    <div class="landing-feat">Real benchmark data</div>
+  </div>
+</div>
+
+<!-- SIGN IN MODAL -->
+<div class="auth-modal-bg" id="modal-signin">
+  <div class="auth-modal">
+    <button class="auth-modal-close" onclick="closeModal()">✕</button>
+    <div class="auth-modal-title">Welcome back</div>
+    <div class="auth-modal-sub">Sign in to your RateShield account</div>
+    <label class="auth-modal-label">Email</label>
+    <input class="auth-modal-input" id="signin-email" type="email" placeholder="you@company.com" onkeydown="if(event.key==='Enter')doSignIn()"/>
+    <label class="auth-modal-label">Password</label>
+    <input class="auth-modal-input" id="signin-pw" type="password" placeholder="Your password" onkeydown="if(event.key==='Enter')doSignIn()"/>
+    <div class="auth-modal-err" id="signin-err"></div>
+    <button class="auth-modal-btn" id="signin-btn" onclick="doSignIn()">Sign In →</button>
+    <div class="auth-modal-switch">Don't have an account? <a onclick="showAuthModal('signup')">Sign up free</a></div>
+  </div>
+</div>
+
+<!-- SIGN UP MODAL -->
+<div class="auth-modal-bg" id="modal-signup">
+  <div class="auth-modal">
+    <button class="auth-modal-close" onclick="closeModal()">✕</button>
+    <div class="auth-modal-title">Create account</div>
+    <div class="auth-modal-sub">Start your 7-day free trial — no card needed</div>
+    <label class="auth-modal-label">Company name</label>
+    <input class="auth-modal-input" id="signup-co" type="text" placeholder="e.g. SMITH MIDLAND CORP" onkeydown="if(event.key==='Enter')doSignUp()"/>
+    <label class="auth-modal-label">Email</label>
+    <input class="auth-modal-input" id="signup-email" type="email" placeholder="you@company.com" onkeydown="if(event.key==='Enter')doSignUp()"/>
+    <label class="auth-modal-label">Password</label>
+    <input class="auth-modal-input" id="signup-pw" type="password" placeholder="Create a password (min 6 chars)" onkeydown="if(event.key==='Enter')doSignUp()"/>
+    <label class="auth-modal-label">Industry sector</label>
+    <select class="auth-modal-input" id="signup-sec">
       <option value="manufacturing">🏭 Manufacturing</option>
       <option value="technology">💻 Technology / SaaS</option>
       <option value="retail">🏪 Retail</option>
@@ -287,11 +374,36 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
       <option value="professional">💼 Professional Services</option>
       <option value="consumer">🛒 Consumer Goods</option>
     </select>
-    <label class="auth-label">Password</label>
-    <input class="auth-input" id="pw" type="password" placeholder="Any password" onkeydown="if(event.key==='Enter')go()" oninput="checkLogin()"/>
+    <div class="auth-modal-err" id="signup-err"></div>
+    <button class="auth-modal-btn" id="signup-btn" onclick="doSignUp()">Create Account →</button>
+    <div class="auth-modal-switch">Already have an account? <a onclick="showAuthModal('signin')">Sign in</a></div>
+  </div>
+</div>
 
-    <button class="auth-btn" id="login-btn" onclick="go()" disabled style="opacity:.5;cursor:not-allowed">Access platform →</button>
-    <div class="auth-note">Enter company name · Select sector · Enter password to unlock</div>
+<!-- TRIAL SETUP (no email needed) -->
+<div class="auth-modal-bg" id="modal-trial">
+  <div class="auth-modal">
+    <button class="auth-modal-close" onclick="closeModal()">✕</button>
+    <div class="auth-modal-title">Start free trial</div>
+    <div class="auth-modal-sub">7 days full access — no credit card required</div>
+    <label class="auth-modal-label">Company name</label>
+    <input class="auth-modal-input" id="trial-co" type="text" placeholder="e.g. SMITH MIDLAND CORP" onkeydown="if(event.key==='Enter')doTrial()"/>
+    <label class="auth-modal-label">Industry sector</label>
+    <select class="auth-modal-input" id="trial-sec">
+      <option value="manufacturing">🏭 Manufacturing</option>
+      <option value="technology">💻 Technology / SaaS</option>
+      <option value="retail">🏪 Retail</option>
+      <option value="restaurant">🍽️ Restaurant / Food Service</option>
+      <option value="construction">🏗️ Construction</option>
+      <option value="healthcare">🏥 Healthcare</option>
+      <option value="logistics">🚛 Logistics / Transport</option>
+      <option value="realestate">🏠 Real Estate</option>
+      <option value="professional">💼 Professional Services</option>
+      <option value="consumer">🛒 Consumer Goods</option>
+    </select>
+    <div class="auth-modal-err" id="trial-err"></div>
+    <button class="auth-modal-btn" id="trial-btn" onclick="doTrial()">Launch Platform →</button>
+    <div class="auth-modal-switch">Already have an account? <a onclick="showAuthModal('signin')">Sign in</a></div>
   </div>
 </div>
 
@@ -309,6 +421,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
     </div>
     <div class="nav-right">
       <div class="nav-co" id="nav-co">—</div>
+      <span class="trial-badge" id="trial-badge" style="display:none">FREE TRIAL</span>
       <div class="nav-sec" id="nav-sec">Sector</div>
       <button class="nav-out" onclick="signOut()">Sign out</button>
     </div>
@@ -1596,19 +1709,163 @@ function createOrUpdateChart(existingRef, canvasId, config) {
   }
 }
 
-function go() {
-  var co = document.getElementById('co').value.trim();
-  if (!co) { document.getElementById('co').focus(); return; }
-  var pw = document.getElementById('pw').value;
-  if (!pw) { document.getElementById('pw').focus(); return; }
-  coName = co.toUpperCase();
-  var secSel = document.getElementById('sec-sel');
-  SEC = secSel ? secSel.value : 'manufacturing';
-  // Show app first — browser must paint before canvases have real dimensions
-  var auth = document.getElementById('auth'); if (auth) auth.style.display = 'none';
-  var app  = document.getElementById('app');  if (app)  app.style.display  = 'block';
+// ═══════════════════════════════════════════════
+// SUPABASE AUTH
+// Replace these two values with your own from supabase.com
+// ═══════════════════════════════════════════════
+var SUPABASE_URL = 'YOUR_SUPABASE_URL';
+var SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+var supabase = null;
+
+// Initialize Supabase only if keys are set
+if (SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+// ─── MODAL HELPERS ──────────────────────────────
+function showAuthModal(type) {
+  closeModal();
+  if (type === 'trial') {
+    document.getElementById('modal-trial').classList.add('active');
+    setTimeout(function(){ document.getElementById('trial-co').focus(); }, 100);
+  } else if (type === 'signin') {
+    document.getElementById('modal-signin').classList.add('active');
+    setTimeout(function(){ document.getElementById('signin-email').focus(); }, 100);
+  } else if (type === 'signup') {
+    document.getElementById('modal-signup').classList.add('active');
+    setTimeout(function(){ document.getElementById('signup-co').focus(); }, 100);
+  }
+}
+
+function closeModal() {
+  document.querySelectorAll('.auth-modal-bg').forEach(function(m){ m.classList.remove('active'); });
+}
+
+function startFreeTrial() {
+  showAuthModal('trial');
+}
+
+// Close modal on background click
+document.addEventListener('click', function(e) {
+  if (e.target.classList.contains('auth-modal-bg')) closeModal();
+});
+
+// ─── TRIAL (no account needed) ──────────────────
+function doTrial() {
+  var co = document.getElementById('trial-co').value.trim();
+  var sec = document.getElementById('trial-sec').value;
+  var err = document.getElementById('trial-err');
+  if (!co) { err.textContent = 'Please enter your company name.'; return; }
+  err.textContent = '';
+  var btn = document.getElementById('trial-btn');
+  btn.textContent = 'Launching...'; btn.disabled = true;
+
+  // Store trial start in localStorage
+  var trialData = { co: co.toUpperCase(), sec: sec, started: Date.now(), isTrial: true };
+  localStorage.setItem('rs_trial', JSON.stringify(trialData));
+
+  closeModal();
+  launchApp(co.toUpperCase(), sec, true);
+}
+
+// ─── SIGN UP ────────────────────────────────────
+function doSignUp() {
+  var co    = document.getElementById('signup-co').value.trim();
+  var email = document.getElementById('signup-email').value.trim();
+  var pw    = document.getElementById('signup-pw').value;
+  var sec   = document.getElementById('signup-sec').value;
+  var err   = document.getElementById('signup-err');
+
+  if (!co)    { err.textContent = 'Please enter your company name.'; return; }
+  if (!email) { err.textContent = 'Please enter your email.'; return; }
+  if (!pw || pw.length < 6) { err.textContent = 'Password must be at least 6 characters.'; return; }
+  err.textContent = '';
+
+  var btn = document.getElementById('signup-btn');
+  btn.textContent = 'Creating account...'; btn.disabled = true;
+
+  // If Supabase not configured, fall back to trial mode
+  if (!supabase) {
+    var trialData = { co: co.toUpperCase(), sec: sec, started: Date.now(), isTrial: false };
+    localStorage.setItem('rs_user', JSON.stringify(trialData));
+    closeModal();
+    launchApp(co.toUpperCase(), sec, false);
+    btn.textContent = 'Create Account →'; btn.disabled = false;
+    return;
+  }
+
+  supabase.auth.signUp({
+    email: email,
+    password: pw,
+    options: { data: { company: co.toUpperCase(), sector: sec } }
+  }).then(function(result) {
+    btn.textContent = 'Create Account →'; btn.disabled = false;
+    if (result.error) { err.textContent = result.error.message; return; }
+    localStorage.setItem('rs_user', JSON.stringify({ co: co.toUpperCase(), sec: sec, email: email, isTrial: false }));
+    closeModal();
+    launchApp(co.toUpperCase(), sec, false);
+  });
+}
+
+// ─── SIGN IN ────────────────────────────────────
+function doSignIn() {
+  var email = document.getElementById('signin-email').value.trim();
+  var pw    = document.getElementById('signin-pw').value;
+  var err   = document.getElementById('signin-err');
+
+  if (!email) { err.textContent = 'Please enter your email.'; return; }
+  if (!pw)    { err.textContent = 'Please enter your password.'; return; }
+  err.textContent = '';
+
+  var btn = document.getElementById('signin-btn');
+  btn.textContent = 'Signing in...'; btn.disabled = true;
+
+  // If Supabase not configured, check localStorage
+  if (!supabase) {
+    var saved = localStorage.getItem('rs_user');
+    if (saved) {
+      var u = JSON.parse(saved);
+      closeModal();
+      launchApp(u.co || 'MY COMPANY', u.sec || 'manufacturing', false);
+    } else {
+      err.textContent = 'No account found. Please sign up first.';
+    }
+    btn.textContent = 'Sign In →'; btn.disabled = false;
+    return;
+  }
+
+  supabase.auth.signInWithPassword({ email: email, password: pw }).then(function(result) {
+    btn.textContent = 'Sign In →'; btn.disabled = false;
+    if (result.error) { err.textContent = result.error.message; return; }
+    var meta = result.data.user.user_metadata || {};
+    var co  = meta.company  || email.split('@')[0].toUpperCase();
+    var sec = meta.sector   || 'manufacturing';
+    closeModal();
+    launchApp(co, sec, false);
+  });
+}
+
+// ─── LAUNCH APP ─────────────────────────────────
+function launchApp(co, sec, isTrial) {
+  coName = co;
+  SEC = sec;
+  var landing = document.getElementById('landing'); if (landing) landing.style.display = 'none';
+  var app = document.getElementById('app'); if (app) app.style.display = 'block';
   var navCo = document.getElementById('nav-co'); if (navCo) navCo.textContent = coName;
-  // Wait two animation frames so the DOM fully paints before Chart.js measures canvas size
+  var badge = document.getElementById('trial-badge');
+  if (badge) badge.style.display = isTrial ? 'inline-block' : 'none';
+
+  // Check trial expiry (7 days)
+  if (isTrial) {
+    var trialData = JSON.parse(localStorage.getItem('rs_trial') || '{}');
+    var daysLeft = Math.ceil((7 * 24 * 60 * 60 * 1000 - (Date.now() - (trialData.started || Date.now()))) / (24 * 60 * 60 * 1000));
+    if (daysLeft <= 0) {
+      alert('Your 7-day free trial has ended. Please sign up to continue.');
+      signOut(); return;
+    }
+    if (badge) badge.textContent = daysLeft + 'D TRIAL LEFT';
+  }
+
   requestAnimationFrame(function() {
     requestAnimationFrame(function() {
       initCharts();
@@ -1618,12 +1875,40 @@ function go() {
   });
 }
 
-function signOut() {
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('auth').style.display = 'flex';
-  document.getElementById('co').value = '';
-  document.getElementById('pw').value = '';
+// Keep go() as alias for backward compat but now just triggers trial
+function go() {
+  doTrial();
 }
+
+function signOut() {
+  if (supabase) supabase.auth.signOut();
+  localStorage.removeItem('rs_trial');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('landing').style.display = 'flex';
+}
+
+// ─── AUTO LOGIN on page load ─────────────────────
+window.addEventListener('load', function() {
+  // Check if user has active session
+  if (supabase) {
+    supabase.auth.getSession().then(function(result) {
+      if (result.data && result.data.session) {
+        var meta = result.data.session.user.user_metadata || {};
+        launchApp(meta.company || 'MY COMPANY', meta.sector || 'manufacturing', false);
+      }
+    });
+  }
+  // Check for active trial in localStorage
+  var trial = localStorage.getItem('rs_trial');
+  if (trial) {
+    var t = JSON.parse(trial);
+    var expired = Date.now() - (t.started || 0) > 7 * 24 * 60 * 60 * 1000;
+    if (!expired) launchApp(t.co, t.sec, true);
+    else localStorage.removeItem('rs_trial');
+  }
+});
+
+function checkLogin(){} // stub — no longer needed
 
 function showP(id, btn) {
   document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
