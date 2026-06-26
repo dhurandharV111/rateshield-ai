@@ -49,7 +49,7 @@
 
 /* ── TRIAL BADGE ──────────────────────────────── */
 .trial-badge{background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.25);border-radius:20px;padding:3px 10px;font-size:11px;color:#4ade80;font-weight:600;margin-left:6px}
-</style>
+/* ── MAIN APP CSS ─────────────────────────────── */
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Outfit',sans-serif;background:#f0ede6;color:#0f0f0f;font-size:15px}
 .auth{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0a}
@@ -1248,19 +1248,6 @@ function safeVal(id, def, min, max) {
   return v;
 }
 
-// ── Login validation
-function checkLogin() {
-  var co = document.getElementById('co');
-  var pw = document.getElementById('pw');
-  var btn = document.getElementById('login-btn');
-  if(!co || !pw || !btn) return;
-  var valid = co.value.trim().length > 0 && pw.value.length > 0;
-  btn.disabled = !valid;
-  btn.style.opacity = valid ? '1' : '0.5';
-  btn.style.cursor = valid ? 'pointer' : 'not-allowed';
-}
-
-
 // ── Populate analyst panel tables
 function updateAnalystPanels() {
   // M1 — macro signal interpretation
@@ -1751,6 +1738,19 @@ document.addEventListener('click', function(e) {
 });
 
 // ─── TRIAL (no account needed) ──────────────────
+function trialHash(started) {
+  // Simple tamper-detection — combines start time with a secret salt
+  // Not cryptographically secure but prevents casual localStorage editing
+  var salt = 'rs2026xk9';
+  var raw = started + salt;
+  var h = 0;
+  for (var i = 0; i < raw.length; i++) {
+    h = ((h << 5) - h) + raw.charCodeAt(i);
+    h |= 0;
+  }
+  return h.toString(36);
+}
+
 function doTrial() {
   var co = document.getElementById('trial-co').value.trim();
   var sec = document.getElementById('trial-sec').value;
@@ -1760,8 +1760,9 @@ function doTrial() {
   var btn = document.getElementById('trial-btn');
   btn.textContent = 'Launching...'; btn.disabled = true;
 
-  // Store trial start in localStorage
+  // Store trial with tamper-detection hash
   var trialData = { co: co.toUpperCase(), sec: sec, started: Date.now(), isTrial: true };
+  trialData.hash = trialHash(trialData.started);
   localStorage.setItem('rs_trial', JSON.stringify(trialData));
 
   closeModal();
@@ -1898,17 +1899,19 @@ window.addEventListener('load', function() {
       }
     });
   }
-  // Check for active trial in localStorage
+  // Check for active trial in localStorage with tamper detection
   var trial = localStorage.getItem('rs_trial');
   if (trial) {
     var t = JSON.parse(trial);
+    var validHash = t.hash && t.hash === trialHash(t.started);
     var expired = Date.now() - (t.started || 0) > 7 * 24 * 60 * 60 * 1000;
-    if (!expired) launchApp(t.co, t.sec, true);
+    if (validHash && !expired) launchApp(t.co, t.sec, true);
     else localStorage.removeItem('rs_trial');
   }
 });
 
-function checkLogin(){} // stub — no longer needed
+// keep go() as alias — triggers trial flow
+function go() { doTrial(); }
 
 function showP(id, btn) {
   document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
@@ -2610,7 +2613,29 @@ function sendChat(){
     }
   })();
 }
-function addBub(t,r){var m=document.getElementById('chat-msgs');var d=document.createElement('div');d.className='msg '+r;d.innerHTML=t;m.appendChild(d);m.scrollTop=m.scrollHeight;}
+function addBub(t,r){
+  var m=document.getElementById('chat-msgs');
+  var d=document.createElement('div');
+  d.className='msg '+r;
+  if(r==='u'){
+    // User input — never trust, use textContent to prevent XSS
+    d.textContent=t;
+  } else {
+    // AI response — sanitize: allow only safe tags (a, strong, br)
+    var safe=t
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/&lt;strong&gt;/g,'<strong>')
+      .replace(/&lt;\/strong&gt;/g,'</strong>')
+      .replace(/&lt;br&gt;/g,'<br>')
+      .replace(/&lt;a href="([^"]*)"([^>]*)&gt;/g,'<a href="$1" target="_blank" rel="noopener">')
+      .replace(/&lt;\/a&gt;/g,'</a>');
+    d.innerHTML=safe;
+  }
+  m.appendChild(d);
+  m.scrollTop=m.scrollHeight;
+}
 function addTyping(){var m=document.getElementById('chat-msgs');var d=document.createElement('div');d.className='typing';d.innerHTML='<div class="tdot"></div><div class="tdot"></div><div class="tdot"></div>';m.appendChild(d);m.scrollTop=m.scrollHeight;return d;}
 
 // ═══════════════════════════════════════════════
