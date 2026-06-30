@@ -1706,7 +1706,7 @@ var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 var supabase = null;
 
 // Initialize Supabase only if keys are set
-if (SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+if (SUPABASE_URL !== 'YOUR_SUPABASE_URL' && window.supabase) {
   supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
@@ -1870,9 +1870,27 @@ function launchApp(co, sec, isTrial) {
 
   requestAnimationFrame(function() {
     requestAnimationFrame(function() {
-      initCharts();
-      applySector(SEC);
-      setTimeout(function() { initSimulator(); }, 200);
+      try {
+        if (window.Chart) initCharts();
+      } catch (e) {
+        console.warn('Chart initialization failed.', e);
+      }
+
+      try {
+        applySector(SEC);
+      } catch (e) {
+        console.warn('applySector failed; continuing to simulator init.', e);
+      }
+
+      setTimeout(function() {
+        try {
+          initSimulator();
+          updateAll();
+          resizeAllCharts();
+        } catch (e) {
+          console.warn('Simulator/update failed.', e);
+        }
+      }, 300);
     });
   });
 }
@@ -3126,14 +3144,23 @@ function runScenario(key) {
   var basMar = baselineMargin;
 
   // ── Run all modules with new values
-  updateF(); updateH(); updateAI(); updateL(); updateEQ(); updateCEO();
+  // Each call is isolated so a single module failing doesn't stop the
+  // simulator metrics below from being calculated and displayed.
+  [updateF, updateH, updateAI, updateL, updateEQ, updateCEO].forEach(function(fn) {
+    try { fn(); } catch (e) { console.warn(fn.name + ' failed inside runScenario.', e); }
+  });
 
   // ── Calculate scenario metrics for display
-  var predRate = calcPredRate(sc.cpi, sc.un, sc.tr, sc.gdp, sc.pce);
-  var safeHires = calcSafeHires(sc);
-  var aiGain = calcAIGain(sc, basRev, basLab);
-  var monthlyInt = calcMonthlyInt(sc.fed);
-  var optPrice = calcOptPrice(sc);
+  // Each calc is isolated with a safe fallback so one bad calc can't blank the whole panel.
+  function safeCalc(fn, fallback) {
+    try { var v = fn(); return (typeof v === 'number' && !isNaN(v)) ? v : fallback; }
+    catch (e) { console.warn((fn.name || 'calc') + ' failed inside runScenario.', e); return fallback; }
+  }
+  var predRate  = safeCalc(function(){ return calcPredRate(sc.cpi, sc.un, sc.tr, sc.gdp, sc.pce); }, 3.75);
+  var safeHires = safeCalc(function(){ return calcSafeHires(sc); }, 0);
+  var aiGain    = safeCalc(function(){ return calcAIGain(sc, basRev, basLab); }, 0);
+  var monthlyInt= safeCalc(function(){ return calcMonthlyInt(sc.fed); }, 0);
+  var optPrice  = safeCalc(function(){ return calcOptPrice(sc); }, 0);
 
   // Store base metrics for delta comparison
   if(key === 'base' || !baseMetrics) {
@@ -3176,7 +3203,11 @@ function runScenario(key) {
   setMetric('sm-price', 'sm-price-d', optPrice,   baseMetrics.price, function(v){return '$'+Math.round(v).toLocaleString();}, true);
 
   // ── Update charts
-  updateSimCharts();
+  try {
+    if (window.Chart) updateSimCharts();
+  } catch (e) {
+    console.warn('Scenario charts failed; metrics still updated.', e);
+  }
   if (typeof updateAnalystPanels === 'function') updateAnalystPanels();
   if (typeof updateAnalystCharts === 'function') updateAnalystCharts();
 }
@@ -3344,7 +3375,11 @@ function updateSimCharts() {
 function initSimulator() {
   // Delay to ensure all module renders complete and canvases have physical size
   setTimeout(function() {
-    runScenario(currentScenario || 'base');
+    try {
+      runScenario(currentScenario || 'base');
+    } catch (e) {
+      console.warn('runScenario failed inside initSimulator.', e);
+    }
   }, 200);
 }
 
@@ -3354,4 +3389,3 @@ function initSimulator() {
 
 </body>
 </html>
-
