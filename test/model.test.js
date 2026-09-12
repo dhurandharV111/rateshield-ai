@@ -56,6 +56,54 @@ test('runwayForChart caps Infinity at CONFIG.runway.displayCap', () => {
   assert.equal(Model.runwayForChart(4.26), 4.3);
 });
 
+test('monthlyNetBurnK = monthly costs − monthly revenue (costs = revenue × (1 − margin))', () => {
+  // $20M revenue, 10% margin → costs $18M → burn = (18 − 20)/12 = −$166.7K/mo (generating cash)
+  near(Model.monthlyNetBurnK(20, 10), (18000 - 20000) / 12);
+  near(Model.monthlyNetBurnK(20, -5), (21000 - 20000) / 12); // loss year burns $83.3K/mo
+  assert.equal(Model.monthlyNetBurnK(20, 0), 0);
+});
+
+test('payrollCoverageMonths = cash ÷ monthly payroll (liquidity buffer)', () => {
+  near(Model.payrollCoverageMonths(1.2, 100), 12);
+  assert.equal(Model.payrollCoverageMonths(1.2, 0), Infinity);
+  assert.equal(Model.payrollCoverageMonths(0, 100), 0);
+});
+
+test('liquidity: a profitable business is cash-flow positive with unbounded runway, but finite payroll coverage', () => {
+  const l = Model.liquidity({ cashM: 1.2, revenueM: 20, marginPct: 10, headcount: 280, salaryK: 48 });
+  assert.equal(l.cashFlowPositive, true);
+  assert.equal(l.runwayMonths, Infinity);
+  near(l.monthlyPayrollK, 280 * 48 / 12);
+  near(l.payrollCoverageMonths, 1200 / (280 * 48 / 12));
+  near(l.monthlyRevenueK, 20000 / 12);
+  near(l.monthlyCostsK, 18000 / 12);
+});
+
+test('liquidity: a loss-making business has runway = cash ÷ net burn, not cash ÷ payroll', () => {
+  const l = Model.liquidity({ cashM: 1.2, revenueM: 20, marginPct: -5, headcount: 280, salaryK: 48 });
+  assert.equal(l.cashFlowPositive, false);
+  near(l.monthlyNetBurnK, 1000 / 12);
+  near(l.runwayMonths, 1200 / (1000 / 12)); // 14.4 months
+  assert.ok(l.runwayMonths > l.payrollCoverageMonths, 'net-burn runway must not be confused with payroll coverage');
+});
+
+test('liquidity: added hires raise costs and can turn a marginal business cash-negative', () => {
+  const before = Model.liquidity({ cashM: 1.0, revenueM: 10, marginPct: 2, headcount: 100, salaryK: 60 });
+  const after = Model.liquidity({ cashM: 1.0, revenueM: 10, marginPct: 2, headcount: 100, salaryK: 60, addedHeadcount: 10 });
+  assert.equal(before.cashFlowPositive, true);
+  assert.equal(after.cashFlowPositive, false); // +$600K payroll > $200K profit
+  assert.ok(isFinite(after.runwayMonths));
+  near(after.monthlyPayrollK, 110 * 60 / 12);
+});
+
+test('formatRunway / formatMonths', () => {
+  assert.equal(Model.formatRunway(Infinity), 'Cash-flow positive');
+  assert.equal(Model.formatRunway(4.26), '4.3 mo');
+  assert.equal(Model.formatRunway(4.26, ''), '4.3');
+  assert.equal(Model.formatMonths(Infinity), '∞');
+  assert.equal(Model.formatMonths(7.04), '7');
+});
+
 test('aiSavings: labour cost = revenue × (1 − margin) × labour share; × sector automatable share', () => {
   const r = Model.aiSavings({ revenueM: 20, marginPct: 10, labourPctOfCosts: 30, sector: 'manufacturing' });
   near(r.totalCostsM, 18);

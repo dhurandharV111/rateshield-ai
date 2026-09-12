@@ -104,6 +104,27 @@ test('Workforce, Executive Health, CEO Summary and Scenario Simulator quote iden
   });
 });
 
+test('runway is net-burn based: profitable business shows "Cash-flow positive" plus payroll coverage; loss year shows months', () => {
+  const { window, errors } = boot('manufacturing');
+  setVal(window, 'sl-margin-h', '9');
+  const hr = txt(window, 'hiring-result');
+  assert.ok(hr.includes('Cash-flow positive'), 'workforce module shows cash-flow positive');
+  assert.ok(/Payroll coverage: [\d.]+ months/.test(hr), 'workforce module shows payroll coverage');
+  assert.equal(txt(window, 'hm-liq'), 'CF positive');
+  assert.ok(txt(window, 'ceo-content').includes('cash-flow positive'));
+  assert.equal(window.RS_METRICS.workforce.runwayMonths, Infinity);
+  // now a loss year: runway must be cash ÷ net burn, finite, and NOT cash ÷ payroll
+  setVal(window, 'sl-margin-h', '-5');
+  const M = window.RS_METRICS.workforce;
+  assert.ok(isFinite(M.runwayMonths) && M.runwayMonths > 0);
+  assert.ok(M.runwayMonths > M.payrollCoverageMonths, 'net-burn runway exceeds payroll coverage when the loss is smaller than payroll');
+  assert.ok(/[\d.]+ mo/.test(txt(window, 'hiring-result')));
+  assert.ok(!txt(window, 'hiring-result').includes('Cash-flow positive'));
+  // margin typed in the Workforce table is the same value as the AI module's margin
+  assert.equal(window.document.getElementById('sl-margin').value, '-5');
+  assert.deepEqual(errors, []);
+});
+
 test('negative margin renders without NaN and the simulator does not floor it to +2%', () => {
   const { window, errors } = boot('manufacturing');
   setVal(window, 'sl-margin', '-25');

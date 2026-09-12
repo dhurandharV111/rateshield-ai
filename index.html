@@ -572,7 +572,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
     <div class="pg-title">Workforce Capacity</div>
     <div class="pg-sub" id="hiring-sub">Enter your numbers. Get one answer: how many people you can safely hire right now — and what happens to your cash if you hire more.</div>
     <div class="g2">
-      <table style="width:100%;border-collapse:collapse;margin-bottom:1.5rem;border:1px solid rgba(15,15,15,.1);border-radius:12px;overflow:hidden"><thead><tr style="background:#f0ede6"><th style="padding:8px 14px;text-align:left;font-size:10px;font-weight:700;color:#6b6b6b;text-transform:uppercase;border-bottom:2px solid rgba(15,15,15,.1)">Input</th><th style="padding:8px 14px;text-align:right;font-size:10px;font-weight:700;color:#6b6b6b;border-bottom:2px solid rgba(15,15,15,.1)">Value</th><th style="padding:8px 14px;text-align:right;font-size:10px;font-weight:700;color:#6b6b6b;border-bottom:2px solid rgba(15,15,15,.1)">Unit</th></tr></thead><tbody><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Annual revenue</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-rev-h" type="number" step="1" min="0" value="20" oninput="updateH();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">$M / year</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Total annual sales</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Current headcount</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-head" type="number" step="5" min="0" value="280" oninput="updateH();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">employees today</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Total full-time employees right now</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Average salary</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-sal" type="number" step="5" min="0" value="48" oninput="updateH();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">$K / person / yr</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Mean annual compensation</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Planned new hires</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-hire" type="number" step="1" min="0" value="15" oninput="updateH();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">people (next 12 mo)</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">RateShield tells you the safe number to hire</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Total business debt</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-debt" type="number" step="0.5" min="0" value="3.5" oninput="updateH();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">$M outstanding</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">All outstanding loans</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Cash on hand</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-cash" type="number" step="0.1" min="0" value="1.2" oninput="updateH();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">$M liquid</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Liquid cash — need 3+ months payroll before hiring</td></tr></tbody></table>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:1.5rem;border:1px solid rgba(15,15,15,.1);border-radius:12px;overflow:hidden"><thead><tr style="background:#f0ede6"><th style="padding:8px 14px;text-align:left;font-size:10px;font-weight:700;color:#6b6b6b;text-transform:uppercase;border-bottom:2px solid rgba(15,15,15,.1)">Input</th><th style="padding:8px 14px;text-align:right;font-size:10px;font-weight:700;color:#6b6b6b;border-bottom:2px solid rgba(15,15,15,.1)">Value</th><th style="padding:8px 14px;text-align:right;font-size:10px;font-weight:700;color:#6b6b6b;border-bottom:2px solid rgba(15,15,15,.1)">Unit</th></tr></thead><tbody><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Annual revenue</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-rev-h" type="number" step="1" min="0" value="20" oninput="updateH();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">$M / year</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Total annual sales</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Current headcount</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-head" type="number" step="5" min="0" value="280" oninput="updateH();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">employees today</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Total full-time employees right now</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Average salary</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-sal" type="number" step="5" min="0" value="48" oninput="updateH();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">$K / person / yr</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Mean annual compensation</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Planned new hires</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-hire" type="number" step="1" min="0" value="15" oninput="updateH();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">people (next 12 mo)</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">RateShield tells you the safe number to hire</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Total business debt</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-debt" type="number" step="0.5" min="0" value="3.5" oninput="updateH();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">$M outstanding</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">All outstanding loans</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Cash on hand</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-cash" type="number" step="0.1" min="0" value="1.2" oninput="updateH();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">$M liquid</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Liquid cash — need 3+ months payroll before hiring</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Operating margin</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-margin-h" type="number" step="1" min="-99" value="12" oninput="updateH();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% of revenue</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Sets net cash burn (costs − revenue) · negative for a loss year · same value as AI Advantage</td></tr></tbody></table>
       <div id="hiring-result"></div>
     </div>
     
@@ -580,15 +580,16 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
 <div class="adv-only">
   <div class="analyst-panel">
     <div class="analyst-panel-title">Analyst Notes — Hiring Safety Calculation</div>
-    <div class="analyst-formula">Safe hires = min(planned_hires, affordable_hires) × environment_factor</div>
-    <div class="analyst-formula">Cash runway (months) = (cash_reserves × 1000) ÷ monthly_payroll_burn</div>
-    <div class="analyst-formula">Monthly burn = (headcount × avg_salary_$K × 1000) ÷ 12</div>
+    <div class="analyst-formula">Safe hires = min(planned_hires, affordable_hires) × environment_factor × sector_factor × profit_boost</div>
+    <div class="analyst-formula">Net monthly burn = monthly_operating_costs − monthly_revenue, where costs = revenue × (1 − margin)</div>
+    <div class="analyst-formula">Cash runway (months) = (cash_reserves × 1000) ÷ net_monthly_burn — "Cash-flow positive" when burn ≤ 0</div>
+    <div class="analyst-formula">Payroll coverage (months) = (cash_reserves × 1000) ÷ monthly_payroll, monthly_payroll = (headcount × avg_salary_$K) ÷ 12</div>
     <div class="analyst-formula">Debt/payroll ratio = (total_debt × 1M) ÷ (headcount × salary_$K × 1000)</div>
     <table class="analyst-table">
       <thead><tr><th>Variable</th><th>Value</th><th>Threshold</th><th>Status</th></tr></thead>
       <tbody id="m2-analyst-tbody"></tbody>
     </table>
-    <p class="analyst-note">Environment factor: HIGH rate environment = 0.25× (max 25% of planned hires). TRANSITION = 0.55×. LOW = 1.0× (full planned hires safe). Affordable hires = max hires before cash runway drops below 3 months. Debt/payroll above 1.5× = high risk; above 2.5× = critical.</p>
+    <p class="analyst-note">Environment factor: HIGH rate environment = 0.25× (max 25% of planned hires). TRANSITION = 0.55×. LOW = 1.0× (full planned hires safe). Affordable hires = the share of the plan cash runway can support (6+ months = all, 3–6 = 55%, under 3 = 20%); a cash-flow-positive business is gated by profit capacity instead. Debt/payroll above 1.5× = high risk; above 2.5× = critical.</p>
           <div class="analyst-chart-box">
             <div class="chart-title">Cash runway vs planned hires</div>
             <canvas id="m2AnalystChart" height="190"></canvas>
@@ -1023,6 +1024,37 @@ var Model = {
   runwayForChart: function(months) {
     return isFinite(months) ? Math.round(months * 10) / 10 : CONFIG.runway.displayCap;
   },
+  // Net cash burn = total monthly operating costs − monthly revenue, where total
+  // costs = revenue × (1 − margin). Positive = consuming cash; ≤ 0 = cash-flow positive.
+  monthlyNetBurnK: function(revenueM, marginPct) {
+    var monthlyRevK = revenueM * 1000 / 12;
+    var monthlyCostK = revenueM * 1000 * (1 - marginPct / 100) / 12;
+    return monthlyCostK - monthlyRevK;
+  },
+  // Liquidity buffer: how many months of payroll the cash balance covers.
+  payrollCoverageMonths: function(cashM, monthlyPayrollK) {
+    if (!(monthlyPayrollK > 0)) return Infinity;
+    if (!(cashM > 0)) return 0;
+    return cashM * 1000 / monthlyPayrollK;
+  },
+  // Everything a panel needs to talk about cash: runway on NET burn plus payroll
+  // coverage. addedHeadcount models "after these hires" (extra payroll is extra cost).
+  liquidity: function(o) {
+    var added = o.addedHeadcount || 0;
+    var payrollK = Model.monthlyPayrollK(o.headcount + added, o.salaryK);
+    var netBurnK = Model.monthlyNetBurnK(o.revenueM, o.marginPct) + Model.monthlyPayrollK(added, o.salaryK);
+    var runway = Model.runwayMonths(o.cashM, netBurnK);
+    return { monthlyRevenueK: o.revenueM * 1000 / 12, monthlyCostsK: o.revenueM * 1000 * (1 - o.marginPct / 100) / 12 + Model.monthlyPayrollK(added, o.salaryK),
+             monthlyNetBurnK: netBurnK, runwayMonths: runway, cashFlowPositive: !(netBurnK > 0),
+             monthlyPayrollK: payrollK, payrollCoverageMonths: Model.payrollCoverageMonths(o.cashM, payrollK) };
+  },
+  formatRunway: function(months, suffix) {
+    if (!isFinite(months)) return 'Cash-flow positive';
+    return (Math.round(months * 10) / 10) + (suffix === undefined ? ' mo' : suffix);
+  },
+  formatMonths: function(months) {
+    return isFinite(months) ? (Math.round(months * 10) / 10) + '' : '∞';
+  },
 
   // ── AI savings ───────────────────────────────────────────────────
   // Labour cost = total costs × labour share, where total costs = revenue × (1 − margin).
@@ -1396,8 +1428,8 @@ function updateHealth() {
   var elas  = safeVal('sl-eq-elas', 1.4, 0.1, 5);
   var margin= safeVal('sl-margin', 12, -99, 99);
 
-  var moBurn = Model.monthlyPayrollK(head, sal);
-  var runway = Model.runwayMonths(cash, moBurn);
+  var liq = Model.liquidity({ cashM: cash, revenueM: rev, marginPct: margin, headcount: head, salaryK: sal });
+  var runway = liq.runwayMonths;
   var debtRatio = (head*sal) > 0 ? debt*1000/(head*sal) : 0;
   var aiSave = Model.aiSavings({ revenueM: rev, marginPct: margin, labourPctOfCosts: lab, sector: SEC }).savingsM;
   var pr = Model.optimalPricing({ price: price, output: output, vc: vc, fc: fc, elas: elas, fed: fed, sector: SEC, env: gEnv });
@@ -1443,7 +1475,9 @@ function updateHealth() {
     if(el) { el.parentElement.className = 'health-metric ' + cls; el.textContent = val; }
   }
   setHM('hm-score', pts+'/100', scoreClass2);
-  setHM('hm-liq',   runway > 99 ? '∞' : runway.toFixed(1)+'mo', liqClass);
+  setHM('hm-liq',   liq.cashFlowPositive ? 'CF positive' : runway.toFixed(1)+'mo', liqClass);
+  var hmLiqSub = document.getElementById('hm-liq') && document.getElementById('hm-liq').parentElement.querySelector('.health-metric-sub');
+  if(hmLiqSub) hmLiqSub.textContent = liq.cashFlowPositive ? 'Payroll cover '+Model.formatMonths(liq.payrollCoverageMonths)+' mo' : 'Cash runway';
   setHM('hm-hire',  debtRatio > 1.5 ? 'High' : debtRatio > 0.8 ? 'Med' : 'Low', hireClass);
   setHM('hm-debt',  debtRatio.toFixed(1)+'x', debtClass);
   setHM('hm-ai',    '$'+aiSave.toFixed(1)+'M', aiClass);
@@ -1500,10 +1534,10 @@ function updateAnalystPanels() {
   var debt = safeVal('sl-debt',3.5,0,9999);
   var cash = safeVal('sl-cash',1.2,0,9999);
   var mgn2 = safeVal('sl-margin',12,-99,99);
-  var moBurnK = Model.monthlyPayrollK(hd, sal);
-  var moBurn = moBurnK*1000;
-  var runwayN = Model.runwayMonths(cash, moBurnK);
-  var runway = isFinite(runwayN) ? runwayN.toFixed(1) : '∞';
+  var liq2 = Model.liquidity({ cashM: cash, revenueM: rev, marginPct: mgn2, headcount: hd, salaryK: sal });
+  var moBurn = liq2.monthlyPayrollK*1000;
+  var runwayN = liq2.runwayMonths;
+  var runway = Model.formatRunway(runwayN, '');
   var debtPay = hd*sal*1000;
   var dRatio = debtPay > 0 ? (debt*1000000/debtPay).toFixed(2) : '0';
   var sh2 = Model.safeHires({ planned: hr, runwayMonths: runwayN, env: gEnv, sector: SEC, annualPayrollK: hd*sal, annualProfitK: rev*1000*(mgn2/100), salaryK: sal });
@@ -1512,8 +1546,10 @@ function updateAnalystPanels() {
   var m2tb = document.getElementById('m2-analyst-tbody');
   if(m2tb) {
     m2tb.innerHTML = [
-      ['Monthly payroll burn', '$'+Math.round(moBurn/1000)+'K/mo', '$'+Math.round(moBurn*1.1/1000)+'K/mo after hires', runwayN > 3 ? '🟢 Safe' : '🔴 Risk'],
-      ['Cash runway', runway+' months', '6+ months = safe hire zone', runwayN >= 6 ? '🟢 Safe' : runwayN >= 3 ? '🟡 Caution' : '🔴 Danger'],
+      ['Monthly payroll', '$'+Math.round(moBurn/1000)+'K/mo', '$'+Math.round(moBurn*1.1/1000)+'K/mo after hires', liq2.payrollCoverageMonths > 3 ? '🟢 Safe' : '🔴 Risk'],
+      ['Net monthly burn', (liq2.monthlyNetBurnK>0?'$'+Math.round(liq2.monthlyNetBurnK)+'K/mo':'−$'+Math.round(-liq2.monthlyNetBurnK)+'K/mo (generating cash)'), 'costs − revenue', liq2.cashFlowPositive ? '🟢 Cash-flow positive' : '🔴 Burning cash'],
+      ['Cash runway', liq2.cashFlowPositive ? 'Cash-flow positive' : runway+' months', '6+ months = safe hire zone', runwayN >= 6 ? '🟢 Safe' : runwayN >= 3 ? '🟡 Caution' : '🔴 Danger'],
+      ['Payroll coverage', Model.formatMonths(liq2.payrollCoverageMonths)+' months', 'liquidity buffer: cash ÷ monthly payroll', liq2.payrollCoverageMonths >= 6 ? '🟢 Strong' : liq2.payrollCoverageMonths >= 3 ? '🟡 Adequate' : '🔴 Thin'],
       ['Debt / annual payroll', dRatio+'×', '<1.0× safe · >1.5× risk', parseFloat(dRatio) < 1.0 ? '🟢 Safe' : parseFloat(dRatio) < 1.5 ? '🟡 Caution' : '🔴 High risk'],
       ['Rate environment factor', Math.round(envF*100)+'%', 'HIGH=25% · TRANS=55% · LOW=100%', gEnv==='low' ? '🟢 Hire freely' : gEnv==='high' ? '🔴 Restrict' : '🟡 Cautious'],
       ['Safe hire count', safeH+' of '+hr+' planned', 'min(planned, affordable) × env × sector × profit factors', safeH === hr ? '🟢 All safe' : '🟡 Partial']
@@ -1581,9 +1617,8 @@ function updateAnalystPanels() {
   var aRev2=safeVal('sl-rev-ai',20,0.1,999), lb2=safeVal('sl-labour',35,0,99), mg6=safeVal('sl-margin',12,-99,99);
   setM6('m6-an-ai', '~$'+Model.aiSavings({ revenueM: aRev2, marginPct: mg6, labourPctOfCosts: lb2, sector: SEC }).savingsM.toFixed(1)+'M/yr estimated');
   var cash2=safeVal('sl-cash',1.2,0,9999), hd2=Math.round(safeVal('sl-head',280,1,9999)), sal2=Math.round(safeVal('sl-sal',48,1,999));
-  var rwy2n = Model.runwayMonths(cash2, Model.monthlyPayrollK(hd2, sal2));
-  var rwy2 = isFinite(rwy2n) ? rwy2n.toFixed(1) : '∞';
-  setM6('m6-an-hire', rwy2+' months cash runway');
+  var liq6 = Model.liquidity({ cashM: cash2, revenueM: aRev2, marginPct: mg6, headcount: hd2, salaryK: sal2 });
+  setM6('m6-an-hire', (liq6.cashFlowPositive ? 'Cash-flow positive' : Model.formatMonths(liq6.runwayMonths)+' months cash runway')+' · payroll coverage '+Model.formatMonths(liq6.payrollCoverageMonths)+' months');
   var fed2=safeVal('fed-slider',3.75,0,15);
   var dm2 = getDebtMix();
   var totInt = Math.round((dm2.credit*(fed2+3)/100)+(dm2.sba*(fed2+5.75)/100)+(dm2.sofr*(fed2+3.15)/100)+(dm2.equip*(fed2+3.5)/100)+(dm2.fixedAmt*dm2.fixedRate/100));
@@ -1673,16 +1708,18 @@ function updateAnalystCharts() {
     var cash= safeVal('sl-cash',1.2,0,9999);
     var scenarios = ['No new hires','25% of plan','50% of plan','75% of plan','All hires'];
     var pcts = [0, 0.25, 0.5, 0.75, 1.0];
+    // Payroll coverage (cash ÷ monthly payroll) is always finite, so it charts cleanly
+    // even for a cash-flow-positive business whose net-burn runway is unbounded.
     var runways = pcts.map(function(p){
-      return Model.runwayForChart(Model.runwayMonths(cash, Model.monthlyPayrollK(hd + Math.round(hr*p), sal)));
+      return Model.runwayForChart(Model.payrollCoverageMonths(cash, Model.monthlyPayrollK(hd + Math.round(hr*p), sal)));
     });
     var rwColors = runways.map(function(r){ return r>=6?'rgba(26,107,58,.7)':r>=3?'rgba(122,79,0,.7)':'rgba(139,26,26,.7)'; });
     if (!m2AC) {
       m2AC = new Chart(m2c.getContext('2d'), {
         type:'bar',
-        data:{labels:scenarios, datasets:[{label:'Cash runway (months)', data:runways, backgroundColor:rwColors, borderColor:rwColors.map(function(c2){return c2.replace(/[\d.]+\)$/,'1)');}), borderWidth:1.5, borderRadius:4}]},
+        data:{labels:scenarios, datasets:[{label:'Payroll coverage (months)', data:runways, backgroundColor:rwColors, borderColor:rwColors.map(function(c2){return c2.replace(/[\d.]+\)$/,'1)');}), borderWidth:1.5, borderRadius:4}]},
         options:Object.assign({},baseOpts,{plugins:Object.assign({},baseOpts.plugins,{legend:{display:false}}),
-          scales:{y:{title:{display:true,text:'Months of cash runway',font:{size:10}},
+          scales:{y:{title:{display:true,text:'Months of payroll covered by cash',font:{size:10}},
             ticks:{font:{size:10}}, grid:{color:'rgba(0,0,0,.04)'},
             annotations:{line6:{type:'line',yMin:6,yMax:6,borderColor:'#1a6b3a',borderWidth:1.5,borderDash:[4,3]}}},
             x:{ticks:{font:{size:10},maxRotation:0}, grid:{display:false}}}})
@@ -1813,7 +1850,8 @@ function updateAnalystCharts() {
     var cash6 = safeVal('sl-cash',1.2,0,9999);
     var hd6   = Math.round(safeVal('sl-head',280,1,9999));
     var sal6  = Math.round(safeVal('sl-sal',48,1,999));
-    var runway6 = Model.runwayMonths(cash6, Model.monthlyPayrollK(hd6, sal6));
+    var rev6h = safeVal('sl-rev-h',20,0.1,999), mg6h = safeVal('sl-margin',12,-99,99);
+    var runway6 = Model.liquidity({ cashM: cash6, revenueM: rev6h, marginPct: mg6h, headcount: hd6, salaryK: sal6 }).runwayMonths;
     var hireRisk = Math.min(100,Math.round(Math.max(0,(6-Math.min(runway6, CONFIG.runway.displayCap))/6*100)));
     var debt6 = safeVal('sl-debt',3.5,0,9999);
     var debtRatio6 = hd6*sal6>0 ? debt6*1000/(hd6*sal6) : 0;
@@ -2242,7 +2280,7 @@ function trackModuleVisit(moduleId) {
 // ─── INPUT SAVE / RESTORE ───────────────────────────
 var INPUT_IDS = [
   'f-cpi','f-un','f-tr','f-gdp','f-pce',
-  'sl-rev-h','sl-head','sl-sal','sl-hire','sl-debt','sl-cash',
+  'sl-rev-h','sl-head','sl-sal','sl-hire','sl-debt','sl-cash','sl-margin-h',
   'sl-rev-ai','sl-margin','sl-labour','sl-rawmat','sl-fixed',
   'cd-cash','cd-opex','cd-buffer','cd-checking','cd-mmf','cd-tbill','cd-cd',
   'fed-slider','sl-debt-fixed-pct','sl-debt-fixed-rate',
@@ -2253,6 +2291,7 @@ var INPUT_IDS = [
 // sync so editing the value in one place cannot leave another panel stale.
 var SHARED_INPUT_GROUPS = [
   ['sl-rev-h', 'sl-rev-ai'],
+  ['sl-margin-h', 'sl-margin'],
   ['sl-cash', 'cd-cash']
 ];
 
@@ -2292,7 +2331,7 @@ function refreshForInput(id) {
     updates = [updateL, updateH, updateHealth];
   } else if (id === 'sl-rev-h' || id === 'sl-rev-ai') {
     updates = [updateH, updateAI, updateEQ, updateCEO, updateHealth];
-  } else if (id === 'sl-margin') {
+  } else if (id === 'sl-margin' || id === 'sl-margin-h') {
     updates = [updateAI, updateH, updateEQ, updateCEO, updateHealth];
   } else if (id === 'sl-labour') {
     updates = [updateAI, updateEQ, updateCEO, updateHealth];
@@ -2375,6 +2414,7 @@ function restoreInputs(values) {
   // Old saves may contain different copies of the same business value.
   syncSharedInput('sl-rev-h');
   syncSharedInput('sl-cash');
+  syncSharedInput('sl-margin');
   // Refresh every dependent result, including forecast, health and CEO cards.
   try { updateAll(); } catch(e) { console.warn('restoreInputs refresh failed:', e); }
 }
@@ -2476,6 +2516,7 @@ function loadSectorDefaults() {
   // M3 — AI / cost structure
   setEl('sl-rev-ai', revDefaults[SEC] || 20);
   setEl('sl-margin', s.margin);
+  setEl('sl-margin-h', s.margin);
   setEl('sl-labour', s.labour);
   setEl('sl-rawmat', s.rawmat);
   setEl('sl-fixed',  s.fixed);
@@ -2602,14 +2643,15 @@ function updateH() {
   var debt=safeVal('sl-debt',3.5,0,9999);
   var cash=safeVal('sl-cash',1.2,0,9999);
   var curPayroll=hd*sal;
-  var monthlyBurn=Model.monthlyPayrollK(hd, sal);
-  var runwayN=Model.runwayMonths(cash, monthlyBurn);
+  var mgnH = safeVal('sl-margin', 12, -99, 99);
+  var liqH=Model.liquidity({ cashM: cash, revenueM: rev, marginPct: mgnH, headcount: hd, salaryK: sal });
+  var monthlyBurn=liqH.monthlyPayrollK;
+  var runwayN=liqH.runwayMonths;
   var runway=Model.runwayForChart(runwayN);
   var secHireLabel={manufacturing:'Capital-intensive — moderate hiring caution',technology:'High-growth sector — elevated hiring capacity',retail:'Margin-thin — conservative hiring threshold',restaurant:'High turnover sector — extra runway required',construction:'Cyclical demand — strict cash gate',healthcare:'Regulated revenue — stable hiring base',logistics:'Volume-driven — moderate capacity',realestate:'Fixed-cost heavy — protect cash buffer',professional:'Utilisation-driven — hire toward billable capacity',consumer:'Consumer demand risk — lean hiring stance'}[SEC]||'';
   // Healthy payroll % benchmarks by sector
   var payrollBench={manufacturing:'20–28%',technology:'40–55%',retail:'12–18%',restaurant:'28–35%',construction:'28–38%',healthcare:'38–48%',logistics:'32–42%',realestate:'12–20%',professional:'50–65%',consumer:'15–22%'}[SEC]||'under 35%';
   // Profitability gate: a profitable business funds payroll from revenue, not from its cash balance.
-  var mgnH = safeVal('sl-margin', 12, -99, 99);
   var annualProfitK = rev*1000*(mgnH/100);
   var sh = Model.safeHires({ planned: hr, runwayMonths: runwayN, env: gEnv, sector: SEC, annualPayrollK: curPayroll, annualProfitK: annualProfitK, salaryK: sal });
   var secHireM = sh.sectorFactor;
@@ -2619,9 +2661,10 @@ function updateH() {
   var riskCost=risky*sal;
   var newPayFull=curPayroll+hr*sal;
   var newPaySafe=curPayroll+safe*sal;
-  var runFull=Model.runwayForChart(Model.runwayMonths(cash, newPayFull/12));
-  var runSafe=Model.runwayForChart(Model.runwayMonths(cash, newPaySafe/12));
-  RS_METRICS.workforce = { safeHires: safe, runwayMonths: runwayN };
+  var liqFull=Model.liquidity({ cashM: cash, revenueM: rev, marginPct: mgnH, headcount: hd, salaryK: sal, addedHeadcount: hr });
+  var liqSafe=Model.liquidity({ cashM: cash, revenueM: rev, marginPct: mgnH, headcount: hd, salaryK: sal, addedHeadcount: safe });
+  var runFull=liqFull.runwayMonths, runSafe=liqSafe.runwayMonths;
+  RS_METRICS.workforce = { safeHires: safe, runwayMonths: runwayN, payrollCoverageMonths: liqH.payrollCoverageMonths };
   var debtRatio=curPayroll>0?Math.round(debt*1000/curPayroll*10)/10:0;
   var payrollRev=rev>0?Math.round(curPayroll/(rev*1000)*100):0;
   var borrowRec=gEnv==='low'?'YES — lock fixed rates now':gEnv==='transition'?'CAUTION — wait 60 days':'WAIT — rates elevated';
@@ -2642,7 +2685,7 @@ function updateH() {
   if(hiringResultEl) hiringResultEl.innerHTML=
     '<div class="g4" style="margin-bottom:1rem">'+
     '<div class="stat"><div class="stat-label">Current payroll</div><div class="stat-value" style="font-size:18px">$'+Math.round(curPayroll).toLocaleString()+'K/yr</div><div class="stat-sub">'+hd+' × $'+sal+'K avg</div></div>'+
-    '<div class="stat"><div class="stat-label">Cash vs. payroll</div><div class="stat-value" style="font-size:18px;color:'+(annualProfitK>0?'#1a6b3a':runway<3?'#8b1a1a':runway<6?'#7a4f00':'#1a6b3a')+'">'+runway+' mo</div><div class="stat-sub">'+(annualProfitK>0?'stress test \u2014 profitable':'if revenue stopped')+'</div></div>'+
+    '<div class="stat"><div class="stat-label">Cash runway</div><div class="stat-value" style="font-size:18px;color:'+(liqH.cashFlowPositive?'#1a6b3a':runwayN<3?'#8b1a1a':runwayN<6?'#7a4f00':'#1a6b3a')+'">'+(liqH.cashFlowPositive?'Cash-flow positive':Model.formatMonths(runwayN)+' mo')+'</div><div class="stat-sub">'+(liqH.cashFlowPositive?'Payroll coverage: '+Model.formatMonths(liqH.payrollCoverageMonths)+' months':'net burn $'+Math.round(liqH.monthlyNetBurnK)+'K/mo \u00b7 payroll cover '+Model.formatMonths(liqH.payrollCoverageMonths)+' mo')+'</div></div>'+
     '<div class="stat"><div class="stat-label">Safe to hire</div><div class="stat-value" style="font-size:18px;color:#1a6b3a">'+safe+' of '+hr+'</div><div class="stat-sub">'+gEnv+' env · '+Math.round(secHireM*100)+'% sector factor</div></div>'+
     '<div class="stat"><div class="stat-label">At-risk exposure</div><div class="stat-value" style="font-size:18px;color:'+(riskCost>0?'#8b1a1a':'#1a6b3a')+'">$'+Math.round(riskCost).toLocaleString()+'K/yr</div><div class="stat-sub">'+risky+' hires over safe limit</div></div>'+
     '</div>'+
@@ -2652,9 +2695,9 @@ function updateH() {
     '<div class="rb '+(riskCost>0?'rb-red':'rb-green')+'">'+
     '<div class="rb-label">Recommendation — '+gEnv.toUpperCase()+' environment · '+SECTORS[SEC].name+'</div>'+
     '<div class="rb-big">Hire '+safe+' of your planned '+hr+'</div>'+
-    '<div class="rb-sub">'+(gEnv==='high'?'High rates = elevated debt costs. Every salary adds pressure. Hire only irreplaceable AI-proof roles.':gEnv==='low'?'Low rates = best window to grow team. Apply the AI test: only hire roles AI cannot replace within 3 years.':'Transition environment. Build 90-day cash reserve before adding payroll.')+'<br><br>Payroll as % of revenue: <strong>'+payrollRev+'%</strong> (sector healthy: <strong>'+payrollBench+'</strong>) · Debt-to-payroll: <strong>'+debtRatio+'x</strong> (warning above 1.5x)<br>'+(annualProfitK>0 ? 'Operating profit: <strong>$'+Math.round(annualProfitK).toLocaleString()+'K/yr</strong> \u2014 covers payroll <strong>'+(Math.round(profitCoverage*10)/10)+'x</strong>. All '+hr+' hires consume <strong>'+Math.round(hr*sal/annualProfitK*100)+'%</strong> of earnings.' : 'Cash runway after all hires: <strong>'+runFull+' months</strong>')+' \u00b7 Borrow now? <strong>'+borrowRec+'</strong></div>'+
+    '<div class="rb-sub">'+(gEnv==='high'?'High rates = elevated debt costs. Every salary adds pressure. Hire only irreplaceable AI-proof roles.':gEnv==='low'?'Low rates = best window to grow team. Apply the AI test: only hire roles AI cannot replace within 3 years.':'Transition environment. Build 90-day cash reserve before adding payroll.')+'<br><br>Payroll as % of revenue: <strong>'+payrollRev+'%</strong> (sector healthy: <strong>'+payrollBench+'</strong>) · Debt-to-payroll: <strong>'+debtRatio+'x</strong> (warning above 1.5x)<br>'+(annualProfitK>0 ? 'Operating profit: <strong>$'+Math.round(annualProfitK).toLocaleString()+'K/yr</strong> \u2014 covers payroll <strong>'+(Math.round(profitCoverage*10)/10)+'x</strong>. All '+hr+' hires consume <strong>'+Math.round(hr*sal/annualProfitK*100)+'%</strong> of earnings.' : 'Cash runway after all hires: <strong>'+(liqFull.cashFlowPositive?'still cash-flow positive':Model.formatMonths(runFull)+' months')+'</strong> (payroll coverage '+Model.formatMonths(liqFull.payrollCoverageMonths)+' months)')+' \u00b7 Borrow now? <strong>'+borrowRec+'</strong></div>'+
     '</div>';
-  if(hChart){hChart.data.datasets[0].data=[curPayroll,Math.round(newPayFull),Math.round(newPaySafe)];hChart.data.datasets[1].data=[runway,runFull,runSafe];hChart.update('none');}
+  if(hChart){hChart.data.datasets[0].data=[curPayroll,Math.round(newPayFull),Math.round(newPaySafe)];hChart.data.datasets[1].data=[Model.runwayForChart(liqH.payrollCoverageMonths),Model.runwayForChart(liqFull.payrollCoverageMonths),Model.runwayForChart(liqSafe.payrollCoverageMonths)];hChart.update('none');}
   if (typeof updateAnalystPanels === 'function') updateAnalystPanels();
   if (typeof updateAnalystCharts === 'function') updateAnalystCharts();
 }
@@ -3219,7 +3262,7 @@ function initCharts() {
         labels: ['Current','After all hires','After safe hires only'],
         datasets: [
           { label:'Annual payroll ($K)', data:[13440,14160,13872], backgroundColor:'rgba(26,58,107,.6)', borderColor:'#1a3a6b', borderWidth:1.5, borderRadius:5, yAxisID:'y' },
-          { label:'Cash runway (months)', data:[1.1,1.0,1.1], backgroundColor:'rgba(26,107,58,.55)', borderColor:'#1a6b3a', borderWidth:1.5, borderRadius:5, yAxisID:'y2' }
+          { label:'Payroll coverage (months)', data:[1.1,1.0,1.1], backgroundColor:'rgba(26,107,58,.55)', borderColor:'#1a6b3a', borderWidth:1.5, borderRadius:5, yAxisID:'y2' }
         ]
       },
       options: Object.assign({}, base, {
@@ -3231,7 +3274,7 @@ function initCharts() {
           },
           y2: {
             position: 'right',
-            title: { display:true, text:'Cash runway (months)', font:{size:10} },
+            title: { display:true, text:'Payroll coverage (months)', font:{size:10} },
             ticks: { font:{size:10} },
             grid: { display:false }
           },
@@ -3491,7 +3534,8 @@ function updateCEO() {
   var aiEst = Math.round(aiEstFull*10)/10;
   // Hiring capacity & runway — same Model calls as the Workforce module
   var hdC = Math.round(safeVal('sl-head',280,1,9999)), salC = Math.round(safeVal('sl-sal',48,1,999)), hrC = Math.round(safeVal('sl-hire',15,0,9999)), cashC = safeVal('sl-cash',1.2,0,9999);
-  var runwayC = Model.runwayMonths(cashC, Model.monthlyPayrollK(hdC, salC));
+  var liqC = Model.liquidity({ cashM: cashC, revenueM: safeVal('sl-rev-h',20,0.1,999), marginPct: mgC, headcount: hdC, salaryK: salC });
+  var runwayC = liqC.runwayMonths;
   var shC = Model.safeHires({ planned: hrC, runwayMonths: runwayC, env: gEnv, sector: SEC, annualPayrollK: hdC*salC, annualProfitK: rev*1000*(mgC/100), salaryK: salC });
   RS_METRICS.ceo = { safeHires: shC.safe, runwayMonths: runwayC, aiSavingsM: aiEstFull };
   // Sector-specific top 3 actions
@@ -3512,7 +3556,7 @@ function updateCEO() {
     '<div class="ceo-grid">' +
     '<div class="ceo-card '+rc+'"><div class="ceo-card-label">Rate Environment</div><div class="ceo-card-val">'+rl+'</div><div class="ceo-card-sub" style="font-size:11px;margin-top:3px;opacity:.8">'+rd+'</div></div>' +
     '<div class="ceo-card '+pgc+'"><div class="ceo-card-label">Pricing Opportunity</div><div class="ceo-card-val">'+pgl+'</div><div class="ceo-card-sub" style="font-size:11px;margin-top:3px;opacity:.8">'+pgd+'</div></div>' +
-    '<div class="ceo-card ceo-b"><div class="ceo-card-label">AI Advantage Potential</div><div class="ceo-card-val">~$'+aiEst.toFixed(1)+'M / yr</div><div class="ceo-card-sub" style="font-size:11px;margin-top:3px;opacity:.8">Safe hires: '+shC.safe+' of '+hrC+' · runway '+(isFinite(runwayC)?runwayC.toFixed(1)+' mo':'∞')+'</div></div>' +
+    '<div class="ceo-card ceo-b"><div class="ceo-card-label">AI Advantage Potential</div><div class="ceo-card-val">~$'+aiEst.toFixed(1)+'M / yr</div><div class="ceo-card-sub" style="font-size:11px;margin-top:3px;opacity:.8">Safe hires: '+shC.safe+' of '+hrC+' · '+(liqC.cashFlowPositive?'cash-flow positive, payroll cover '+Model.formatMonths(liqC.payrollCoverageMonths)+' mo':'runway '+Model.formatMonths(runwayC)+' mo')+'</div></div>' +
     '</div>' +
     '<div class="ceo-actions"><div class="ceo-actions-title">Top 3 actions right now — '+s.name+'</div>' +
     a3.map(function(x){return '<div class="ceo-action"><div class="ceo-dot"></div>'+x+'</div>';}).join('') +
@@ -3646,6 +3690,7 @@ function runScenario(key) {
   setVal('sl-rev-ai', baselineRevenue);
   setVal('sl-rev-h',  baselineRevenue);
   setVal('sl-margin', Math.min(60, Math.max(-99, Math.round(baselineMargin * sc.marginMult))));
+  setVal('sl-margin-h', Math.min(60, Math.max(-99, Math.round(baselineMargin * sc.marginMult))));
   setVal('sl-labour', Math.min(80, Math.max(5, Math.round(baselineLabour * sc.labourMult))));
   setVal('sl-rawmat', Math.min(70, Math.max(0, Math.round(baselineRawMat * sc.vcMult))));
   setVal('sl-fixed',  Math.min(60, Math.max(5, Math.round(baselineFixed))));
@@ -3743,7 +3788,7 @@ function calcSafeHires(sc) {
   var sal = Math.round(safeVal('sl-sal',48,1,999));
   var rev = safeVal('sl-rev-h',20,0.1,999);
   var mgn = safeVal('sl-margin',12,-99,99);
-  var runway = Model.runwayMonths(cash, Model.monthlyPayrollK(head, sal));
+  var runway = Model.liquidity({ cashM: cash, revenueM: rev, marginPct: mgn, headcount: head, salaryK: sal }).runwayMonths;
   var sh = Model.safeHires({ planned: hr, runwayMonths: runway, env: gEnv, sector: SEC, annualPayrollK: head*sal, annualProfitK: rev*1000*(mgn/100), salaryK: sal });
   RS_METRICS.simulator = RS_METRICS.simulator || {};
   RS_METRICS.simulator.safeHires = sh.safe;
