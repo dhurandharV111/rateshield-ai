@@ -511,7 +511,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
           <div class="rb-sub" id="pred-env">Gradual easing — transition environment</div>
         </div>
         <div class="card">
-          <div class="card-head"><div class="card-title">FOMC probabilities</div></div>
+          <div class="card-head"><div class="card-title">FOMC probabilities (model-implied)</div></div>
           <div class="card-body" style="padding-top:.75rem">
             <div class="pb"><span class="pb-name">Rate hike</span><div class="pb-track"><div class="pb-fill" id="pb-hike" style="width:8%;background:#c0392b"></div></div><span class="pb-pct" id="pt-hike" style="color:#8b1a1a">8%</span></div>
             <div class="pb"><span class="pb-name">Hold</span><div class="pb-track"><div class="pb-fill" id="pb-hold" style="width:34%;background:#1a3a6b"></div></div><span class="pb-pct" id="pt-hold" style="color:#1a3a6b">34%</span></div>
@@ -524,7 +524,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
           <div class="dr"><span class="dl">In 6 months</span><span class="dv" id="r6">3.50%</span></div>
           <div class="dr"><span class="dl">In 12 months</span><span class="dv" id="r12">3.25%</span></div>
           <div class="dr"><span class="dl">In 18 months</span><span class="dv" id="r18">3.00%</span></div>
-          <div class="dr"><span class="dl">Model confidence</span><span class="dv" id="conf">74%</span></div>
+          <div class="dr"><span class="dl">Model confidence (analog-distance heuristic)</span><span class="dv" id="conf">—</span></div>
         </div>
         <div class="rb rb-amber" id="sec-impact-box">
           <div class="rb-label">What this means for your sector</div>
@@ -541,7 +541,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
       <thead><tr><th>Signal</th><th>Your input</th><th>Neutral</th><th>Pressure</th><th>Weight</th></tr></thead>
       <tbody id="m1-analyst-tbody"></tbody>
     </table>
-    <p class="analyst-note">CPI and Core PCE carry 35% combined weight (Fed dual mandate inflation target 2.0%). Unemployment deviation from 4.0% full employment carries 25%. GDP growth relative to 2.5% trend carries 20%. 10Y Treasury as market expectation signal carries 20%. Historical analog matching uses Euclidean distance across all 5 signals against 1970–2025 FRED data.</p>
+    <p class="analyst-note">CPI and Core PCE carry 35% combined weight (Fed dual mandate inflation target 2.0%). Unemployment deviation from 4.0% full employment carries 25%. GDP growth relative to 2.5% trend carries 20%. 10Y Treasury as market expectation signal carries 20%. Historical analog matching uses normalised Euclidean distance across all 5 signals against a curated set of FRED annual averages (CONFIG.analog.years, 1974–2024); model confidence is a heuristic of that distance, and the FOMC probabilities are a softmax over the predicted 12-month rate change.</p>
           <div class="analyst-chart-box">
             <div class="chart-title">Macro signal contribution to rate forecast</div>
             <canvas id="m1AnalystChart" height="190"></canvas>
@@ -563,7 +563,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
       <div class="dr"><span class="dl">Post-COVID peak 2023 — fastest hike in 40 years</span><span class="tag tr">5.25%</span></div>
       <div class="dr"><span class="dl" id="fed-asof-label">Current rate</span><span class="tag ta" id="fed-current-tag">—</span></div>
       <div class="dr"><span class="dl">Yield curve recession accuracy (DataSetIQ)</span><span class="tag tg">87.5% — 7 of 8</span></div>
-      <div class="dr"><span class="dl">Closest historical analog to today</span><span class="tag tb">1995 — 74% match</span></div>
+      <div class="dr"><span class="dl" id="analog-label">Closest historical analog to today</span><span class="tag tb" id="analog-tag">—</span></div>
     </div>
   </div>
 
@@ -1007,7 +1007,50 @@ var CONFIG = {
     minOutput: 1
   },
 
-  runway: { displayCap: 99 }
+  runway: { displayCap: 99 },
+
+  // ── Rate forecast (Financing Strategy) ──────────────────────────
+  forecast: {
+    baseRate: 2.5, scorePerPt: 0.4, minRate: 0.25, maxRate: 7,
+    // Signal thresholds → score contributions (Taylor-rule style heuristic).
+    cpi: { hot: 5, warm: 3, cool: 2, hotPts: 3, warmPts: 1.5, coolPts: -2 },
+    un:  { high: 6, low: 3.5, highPts: -2, lowPts: 2 },
+    tr:  { high: 5, low: 2, highPts: 2, lowPts: -2 },
+    gdp: { neg: 0, hot: 4, negPts: -3, hotPts: 1.5 },
+    pce: { hot: 3, cool: 2, hotPts: 1.5, coolPts: -1.5, slope: 0.5 },
+    envHighScore: 2.5, envLowScore: -1.5,
+    path6: 0.12, path18Up: -0.08, path18Down: -0.30,
+    bullStep: 0.055, bearStep: 0.045
+  },
+  // FOMC hike / hold / cut probabilities are a softmax over the predicted 12-month
+  // rate change (in 50 bp units): hike score = +z, cut score = −z, hold score =
+  // holdBias − |z| × holdDecay. Purely a function of the forecast — labelled
+  // "model-implied" in the UI.
+  fomc: { unitBp: 0.5, temperature: 1.4, holdBias: 0.6, holdDecay: 0.4 },
+  // Historical analogs: approximate annual averages from FRED (CPIAUCSL YoY,
+  // UNRATE, DGS10, real GDP growth, PCEPILFE YoY). Matching is a normalised
+  // Euclidean distance across the five signals; scale ≈ one standard deviation
+  // of each series over 1970–2025.
+  analog: {
+    scale: { cpi: 2.5, un: 1.5, tr: 2.0, gdp: 1.5, pce: 2.0 },
+    matchDecay: 1.5,            // match% = 100 × e^(−distance / matchDecay)
+    confidenceBase: 40, confidenceSpan: 55, confidenceMax: 94, // confidence = base + span × e^(−distance)
+    years: [
+      { year: 1974, label: 'Oil shock stagflation',        cpi: 11.0, un: 5.6, tr: 7.6,  gdp: -0.5, pce: 9.0 },
+      { year: 1981, label: 'Volcker disinflation',         cpi: 10.3, un: 7.6, tr: 13.9, gdp: 2.5,  pce: 8.7 },
+      { year: 1984, label: 'Post-recession boom',          cpi: 4.3,  un: 7.5, tr: 12.5, gdp: 7.2,  pce: 4.5 },
+      { year: 1990, label: 'Gulf War slowdown',            cpi: 5.4,  un: 5.6, tr: 8.6,  gdp: 1.9,  pce: 4.3 },
+      { year: 1995, label: 'Soft landing',                 cpi: 2.8,  un: 5.6, tr: 6.6,  gdp: 2.7,  pce: 2.3 },
+      { year: 2000, label: 'Dot-com peak',                 cpi: 3.4,  un: 4.0, tr: 6.0,  gdp: 4.1,  pce: 1.7 },
+      { year: 2001, label: 'Dot-com bust',                 cpi: 2.8,  un: 4.7, tr: 5.0,  gdp: 1.0,  pce: 1.6 },
+      { year: 2007, label: 'Pre-GFC late cycle',           cpi: 2.8,  un: 4.6, tr: 4.6,  gdp: 2.0,  pce: 2.3 },
+      { year: 2009, label: 'Financial crisis trough',      cpi: -0.4, un: 9.3, tr: 3.3,  gdp: -2.6, pce: 1.2 },
+      { year: 2015, label: 'Post-ZIRP lift-off',           cpi: 0.1,  un: 5.3, tr: 2.1,  gdp: 2.9,  pce: 1.3 },
+      { year: 2019, label: 'Late-cycle mid-cycle cuts',    cpi: 1.8,  un: 3.7, tr: 2.1,  gdp: 2.3,  pce: 1.7 },
+      { year: 2022, label: 'Post-COVID inflation surge',   cpi: 8.0,  un: 3.6, tr: 3.0,  gdp: 2.1,  pce: 5.2 },
+      { year: 2024, label: 'Disinflation with full employment', cpi: 2.9, un: 4.0, tr: 4.2, gdp: 2.8, pce: 2.8 }
+    ]
+  }
 };
 
 var Model = {
@@ -1151,6 +1194,52 @@ var Model = {
              dol: curTR > 0 && curProfit !== 0 ? (curTR - vcAdj * o.output) / Math.abs(curProfit) : 0,
              demandAt: function(p) { return Math.max(0, (a - p) / b); } };
   },
+  // ── Rate forecast ────────────────────────────────────────────────
+  // Signal score used by both the Financing Strategy module and the simulator.
+  rateSignalScore: function(o) {
+    var F = CONFIG.forecast, s = 0;
+    if (o.cpi > F.cpi.hot) s += F.cpi.hotPts; else if (o.cpi > F.cpi.warm) s += F.cpi.warmPts; else if (o.cpi < F.cpi.cool) s += F.cpi.coolPts;
+    if (o.un > F.un.high) s += F.un.highPts; else if (o.un < F.un.low) s += F.un.lowPts;
+    if (o.tr > F.tr.high) s += F.tr.highPts; else if (o.tr < F.tr.low) s += F.tr.lowPts;
+    if (o.gdp < F.gdp.neg) s += F.gdp.negPts; else if (o.gdp > F.gdp.hot) s += F.gdp.hotPts;
+    if (o.pce > F.pce.hot) s += F.pce.hotPts; else if (o.pce < F.pce.cool) s += F.pce.coolPts; else s += (o.pce - F.pce.cool) * F.pce.slope;
+    return s;
+  },
+  predictedRate: function(score) {
+    var F = CONFIG.forecast;
+    return Math.round(Math.max(F.minRate, Math.min(F.maxRate, F.baseRate + score * F.scorePerPt)) * 4) / 4;
+  },
+  rateEnvironment: function(score) {
+    return score >= CONFIG.forecast.envHighScore ? 'high' : score <= CONFIG.forecast.envLowScore ? 'low' : 'transition';
+  },
+  // Nearest historical analog by normalised Euclidean distance over 5 signals.
+  nearestAnalog: function(o) {
+    var A = CONFIG.analog, keys = ['cpi', 'un', 'tr', 'gdp', 'pce'];
+    var ranked = A.years.map(function(y) {
+      var d2 = 0;
+      keys.forEach(function(k) { var z = (o[k] - y[k]) / A.scale[k]; d2 += z * z; });
+      var d = Math.sqrt(d2);
+      return { year: y.year, label: y.label, distance: d, matchPct: Math.round(100 * Math.exp(-d / A.matchDecay)) };
+    }).sort(function(a, b) { return a.distance - b.distance; });
+    return { best: ranked[0], ranked: ranked };
+  },
+  // Confidence is a heuristic: closer to a known episode → more confidence.
+  forecastConfidence: function(distance) {
+    var A = CONFIG.analog;
+    return Math.min(A.confidenceMax, Math.max(A.confidenceBase, Math.round(A.confidenceBase + A.confidenceSpan * Math.exp(-distance))));
+  },
+  // Hike / hold / cut probabilities from the predicted 12-month rate change.
+  fomcProbabilities: function(predictedRate, currentRate) {
+    var F = CONFIG.fomc, z = (predictedRate - currentRate) / F.unitBp;
+    var scores = { hike: z, hold: F.holdBias - Math.abs(z) * F.holdDecay, cut: -z };
+    var keys = ['hike', 'hold', 'cut'], sum = 0, exps = {};
+    keys.forEach(function(k) { exps[k] = Math.exp(scores[k] * F.temperature); sum += exps[k]; });
+    var raw = {}, floor = {}, rem = 100;
+    keys.forEach(function(k) { raw[k] = exps[k] / sum * 100; floor[k] = Math.floor(raw[k]); rem -= floor[k]; });
+    keys.sort(function(a, b) { return (raw[b] - floor[b]) - (raw[a] - floor[a]); }).slice(0, rem).forEach(function(k) { floor[k] += 1; });
+    return { hike: floor.hike, hold: floor.hold, cut: floor.cut, expectedChange: predictedRate - currentRate };
+  },
+
   // The number every panel quotes: IS-LM-adjusted elasticity fed into MR = MC.
   optimalPricing: function(o) {
     var lm = Model.isLm({ output: o.output, fedRate: o.fed, sector: o.sector, elas: o.elas, env: o.env });
@@ -1170,7 +1259,7 @@ var SECTORS = {
     debtEquity:0.86,currentRatio:1.8,dso:45,inventoryTurns:5.3,
     rateImpact:{
       high:'🔴 Equipment financing spreads have risen to 7.40% pre-tax yield (ELFA 2024). Every 1% rate rise on $1.8M equipment debt = $18K/yr direct hit. Delay discretionary capex. Lock ALL floating equipment loans to fixed immediately — SBA 504 rates are your priority.',
-      transition:'🟡 Equipment finance NBV grew 3.1% in 2024 (ELFA). Refinancing window is open. The 1995 analog (74% match) suggests limited further cuts before a 2-year pause. Lock fixed now on any equipment reset within 18 months.',
+      transition:'🟡 Equipment finance NBV grew 3.1% in 2024 (ELFA). Refinancing window is open. The closest historical analog suggests limited further cuts before a 2-year pause. Lock fixed now on any equipment reset within 18 months.',
       low:'🟢 Small-ticket equipment finance NBV up 6.2% YoY (ELFA 2024). Best window to invest in automation and capacity. Average manufacturing D/E is 0.86 — you have room to leverage. Lock fixed before the next cycle.'
     },
     loanNote:'Equipment financing (SBA 504 + ELFA) is your most rate-sensitive instrument. Average manufacturing D/E ratio was 0.86 in 2024. Healthy range: 1.0x–3.0x debt-to-EBITDA. Interest coverage should stay above 3.0x. Every 1% rise on $1.8M equipment = $18K/yr.',
@@ -1331,7 +1420,7 @@ var SECTORS = {
     debtEquity:3.1,currentRatio:1.1,dso:5,capRateRange:'5.5–7.5%',
     rateImpact:{
       high:'🔴 Real estate D/E averages 3.1x (FullRatio 2026 — REIT sector highest at 3.09x). CRE loans tied to SOFR — every 1% rise on $8M debt = $80K/yr immediately. Cap rate expansion compresses asset values even if NOI holds. Refinance ALL floating CRE to fixed immediately — this is the most urgent financial action in any sector.',
-      transition:'🟡 CRE market stabilising. D/E for REITs at 3.09x (FullRatio 2026). Critical window: refinance SOFR-tied loans. 1995 analog suggests limited further cuts. Cap rates currently 5.5–7.5% depending on asset class — price accordingly. Occupancy must be maintained above 82% for debt service coverage.',
+      transition:'🟡 CRE market stabilising. D/E for REITs at 3.09x (FullRatio 2026). Critical window: refinance SOFR-tied loans. The closest historical analog suggests limited further cuts. Cap rates currently 5.5–7.5% depending on asset class — price accordingly. Occupancy must be maintained above 82% for debt service coverage.',
       low:'🟢 Cap rates compress, asset values rise, buyers flood market. Cheap fixed financing + appreciating assets = maximum leverage opportunity. Lock long-term fixed financing now before next cycle. NOI growth + cap rate compression delivers compounding returns.'
     },
     loanNote:'CRE loans (SOFR + spread) are primary instrument — most rate-sensitive of any sector. Real estate D/E averaged 3.09x (FullRatio 2026 — highest of all industries). Every rate change hits NOI coverage immediately. Watch 5-year balloon refinancing risk. Refinancing SOFR to fixed is the single highest-ROI financial action at current rates.',
@@ -2627,27 +2716,33 @@ function updateF() {
   var treas=safeVal('f-tr',CONFIG.macroDefaults.tr,0,10);
   var gdp=safeVal('f-gdp',CONFIG.macroDefaults.gdp,-10,10);
   var pce=safeVal('f-pce',CONFIG.macroDefaults.pce,0,10);
-  var sc=0;
-  if(cpi>5)sc+=3;else if(cpi>3)sc+=1.5;else if(cpi<2)sc-=2;
-  if(unem>6)sc-=2;else if(unem<3.5)sc+=2;
-  if(treas>5)sc+=2;else if(treas<2)sc-=2;
-  if(gdp<0)sc-=3;else if(gdp>4)sc+=1.5;
-  if(pce>3)sc+=1.5;else if(pce<2)sc-=1.5;else sc+=(pce-2)*0.5;
-  var base=Math.max(.25,Math.min(7,2.5+sc*.4));
+  var F=CONFIG.forecast;
+  var sc=Model.rateSignalScore({ cpi: cpi, un: unem, tr: treas, gdp: gdp, pce: pce });
+  var base=Model.predictedRate(sc);
   var r=function(v){return Math.round(v*4)/4;};
-  var hp,hp2,cp,env;
-  if(sc>=2.5){hp=Math.min(68,14+sc*8);cp=Math.max(5,18-sc*4);hp2=100-hp-cp;env='HIGH — restrictive environment';gEnv='high';}
-  else if(sc<=-1.5){cp=Math.min(68,14+Math.abs(sc)*8);hp=Math.max(5,12-Math.abs(sc)*3);hp2=100-cp-hp;env='LOW — accommodative environment';gEnv='low';}
-  else{hp2=Math.min(62,45+Math.abs(sc)*5);hp=(100-hp2)*(sc>0?.6:.35);cp=(100-hp2)*(sc>0?.4:.65);env='TRANSITION — watch closely';gEnv='transition';}
-  hp=Math.round(Math.max(3,Math.min(82,hp)));cp=Math.round(Math.max(3,Math.min(82,cp)));hp2=Math.round(Math.max(6,100-hp-cp));
-  var r12=r(base),r6=r(base+(sc>0?.12:-.12)),r18=r(base+(sc>0?-.08:-.30)),cur=r(treas*.7+2.5*.3);
+  gEnv=Model.rateEnvironment(sc);
+  var env=gEnv==='high'?'HIGH — restrictive environment':gEnv==='low'?'LOW — accommodative environment':'TRANSITION — watch closely';
+  // "Current" is the actual policy rate (Fed input / CONFIG), not a treasury proxy.
+  var cur=r(safeVal('fed-slider',CONFIG.currentFedRate,0,15));
+  var r12=r(base),r6=r(base+(sc>0?F.path6:-F.path6)),r18=r(base+(sc>0?F.path18Up:F.path18Down));
+  // FOMC probabilities are model-implied from the predicted 12-month change.
+  var fomc=Model.fomcProbabilities(r12, cur);
+  var hp=fomc.hike, hp2=fomc.hold, cp=fomc.cut;
+  // Closest historical analog (Euclidean distance over the 5 signals) drives confidence.
+  var analog=Model.nearestAnalog({ cpi: cpi, un: unem, tr: treas, gdp: gdp, pce: pce });
+  var conf=Model.forecastConfidence(analog.best.distance);
+  RS_METRICS.forecast={ score: sc, predicted12: r12, current: cur, fomc: fomc, analogYear: analog.best.year, analogMatch: analog.best.matchPct, confidence: conf };
   document.getElementById('pred-rate').textContent=r12.toFixed(2)+'%';
   document.getElementById('pred-env').textContent=env;
   document.getElementById('cur-r').textContent=cur.toFixed(2)+'%';
   document.getElementById('r6').textContent=r6.toFixed(2)+'%';
   document.getElementById('r12').textContent=r12.toFixed(2)+'%';
   document.getElementById('r18').textContent=r18.toFixed(2)+'%';
-  document.getElementById('conf').textContent=Math.min(94,Math.round(60+Math.abs(sc)*5))+'%';
+  document.getElementById('conf').textContent=conf+'%';
+  var analogEl=document.getElementById('analog-tag');
+  if(analogEl) analogEl.textContent=analog.best.year+' — '+analog.best.matchPct+'% match';
+  var analogSub=document.getElementById('analog-label');
+  if(analogSub) analogSub.textContent='Closest historical analog (Euclidean, 5 signals) — '+analog.best.label;
   document.getElementById('pb-hike').style.width=hp+'%';document.getElementById('pt-hike').textContent=hp+'%';
   document.getElementById('pb-hold').style.width=hp2+'%';document.getElementById('pt-hold').textContent=hp2+'%';
   document.getElementById('pb-cut').style.width=cp+'%';document.getElementById('pt-cut').textContent=cp+'%';
@@ -2657,8 +2752,8 @@ function updateF() {
   var col=sc>=2.5?'#c0392b':sc<=-1.5?'#1a6b3a':'#1a3a6b';
   var lbls=['Now','3mo','6mo','9mo','12mo','15mo','18mo'];
   var bd=[cur,r((cur+r6)/2),r6,r((r6+r12)/2),r12,r((r12+r18)/2),r18];
-  var bull=bd.map(function(v,i){return r(v-i*.055);});
-  var bear=bd.map(function(v,i){return r(v+i*.045);});
+  var bull=bd.map(function(v,i){return r(v-i*F.bullStep);});
+  var bear=bd.map(function(v,i){return r(v+i*F.bearStep);});
   if(fChart){fChart.data.labels=lbls;fChart.data.datasets[0].data=bd;fChart.data.datasets[0].borderColor=col;fChart.data.datasets[0].backgroundColor=col+'12';fChart.data.datasets[1].data=bull;fChart.data.datasets[2].data=bear;fChart.update('none');}
   if (typeof updateAnalystPanels === 'function') updateAnalystPanels();
   if (typeof updateAnalystCharts === 'function') updateAnalystCharts();
@@ -3802,13 +3897,7 @@ function runScenario(key) {
 }
 
 function calcPredRate(cpi, un, tr, gdp, pce) {
-  var sc2 = 0;
-  if(cpi>5) sc2+=3; else if(cpi>3) sc2+=1.5; else if(cpi<2) sc2-=2;
-  if(un>6) sc2-=2; else if(un<3.5) sc2+=2;
-  if(tr>5) sc2+=2; else if(tr<2) sc2-=2;
-  if(gdp<0) sc2-=3; else if(gdp>4) sc2+=1.5;
-  if(pce>3) sc2+=1.5; else if(pce<2) sc2-=1.5; else sc2+=(pce-2)*0.5;
-  return Math.round(Math.max(.25, Math.min(7, 2.5+sc2*.4))*4)/4;
+  return Model.predictedRate(Model.rateSignalScore({ cpi: cpi, un: un, tr: tr, gdp: gdp, pce: pce }));
 }
 
 // Scenario metrics read the same inputs the modules use (runScenario has already
@@ -3878,7 +3967,7 @@ function updateSimCharts() {
 
   var profitData = scKeys.map(function(k) {
     var sc = SCENARIOS[k];
-    var scEnv = sc.gdp < 0 ? 'high' : sc.gdp > 3 ? 'low' : 'transition';
+    var scEnv = Model.rateEnvironment(Model.rateSignalScore(sc));
     return Math.round(Model.optimalPricing({ price: price, output: output, vc: vc * sc.vcMult, fc: fc, elas: elas, fed: sc.fed, sector: SEC, env: scEnv }).optProfit / 1000);
   });
 

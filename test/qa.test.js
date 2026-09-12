@@ -200,6 +200,31 @@ test('FRED prefill applies a snapshot and falls back to CONFIG when the fetch fa
   assert.deepEqual(errors, []);
 });
 
+test('confidence, historical analog and FOMC probabilities are computed from the inputs, not constants', () => {
+  const fs = require('fs');
+  const src = fs.readFileSync(require('./helpers/loadApp').HTML_PATH, 'utf8');
+  assert.ok(!/1995 — 74% match|74% match|>74%</.test(src), 'no hard-coded analog/confidence in markup or prose');
+  const { window } = boot('manufacturing');
+  const M = window.RS_METRICS.forecast;
+  assert.equal(txt(window, 'conf'), M.confidence + '%');
+  assert.equal(txt(window, 'analog-tag'), M.analogYear + ' — ' + M.analogMatch + '% match');
+  assert.ok(txt(window, 'analog-label').includes('Euclidean'));
+  const probs = ['pt-hike', 'pt-hold', 'pt-cut'].map((id) => parseInt(txt(window, id), 10));
+  assert.equal(probs[0] + probs[1] + probs[2], 100);
+  assert.deepEqual(probs, [M.fomc.hike, M.fomc.hold, M.fomc.cut]);
+  // move the inputs to a 2022-style inflation shock: analog, confidence and probabilities all move
+  setVal(window, 'f-cpi', '7.8'); setVal(window, 'f-pce', '5.1'); setVal(window, 'f-un', '3.6'); setVal(window, 'f-tr', '3.0');
+  const M2 = window.RS_METRICS.forecast;
+  assert.equal(M2.analogYear, 2022);
+  assert.equal(txt(window, 'analog-tag'), '2022 — ' + M2.analogMatch + '% match');
+  assert.notEqual(txt(window, 'conf'), M.confidence + '%');
+  assert.ok(M2.fomc.hike > M.fomc.hike, 'inflation shock raises hike probability');
+  assert.ok(txt(window, 'sec-impact-text').length > 0);
+  // the "current rate" row is the actual policy rate, not a treasury proxy
+  assert.equal(txt(window, 'cur-r'), window.CONFIG.currentFedRate.toFixed(2) + '%');
+  assert.ok(src.includes('FOMC probabilities (model-implied)'));
+});
+
 test('negative margin renders without NaN and the simulator does not floor it to +2%', () => {
   const { window, errors } = boot('manufacturing');
   setVal(window, 'sl-margin', '-25');

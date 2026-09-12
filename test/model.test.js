@@ -193,6 +193,63 @@ test('isLm: higher rates reduce IS-equilibrium output and raise effective elasti
   assert.equal(Model.isLm({ output: 1, fedRate: 3, sector: 'retail', elas: 1 }).isDiscretionary, true);
 });
 
+test('rateSignalScore / predictedRate / rateEnvironment: hot inflation raises the forecast, recession lowers it', () => {
+  const hot = Model.rateSignalScore({ cpi: 6, un: 3.4, tr: 5.5, gdp: 4.5, pce: 4 });
+  const cold = Model.rateSignalScore({ cpi: 1.5, un: 6.5, tr: 1.5, gdp: -1, pce: 1.5 });
+  const neutral = Model.rateSignalScore({ cpi: 2.5, un: 4.5, tr: 3.5, gdp: 2, pce: 2 });
+  assert.ok(hot > neutral && neutral > cold);
+  assert.equal(hot, 10, 'maximum score when every signal is hot');
+  assert.equal(Model.predictedRate(hot), Math.min(CONFIG.forecast.maxRate, Math.round((CONFIG.forecast.baseRate + 10 * CONFIG.forecast.scorePerPt) * 4) / 4));
+  assert.equal(Model.predictedRate(cold), CONFIG.forecast.minRate);
+  assert.equal(Model.predictedRate(20), CONFIG.forecast.maxRate, 'clamped at the ceiling');
+  assert.equal(Model.predictedRate(neutral), CONFIG.forecast.baseRate);
+  assert.equal(Model.rateEnvironment(hot), 'high');
+  assert.equal(Model.rateEnvironment(cold), 'low');
+  assert.equal(Model.rateEnvironment(neutral), 'transition');
+  assert.equal(Model.predictedRate(1) % 0.25, 0, 'rounded to 25 bp');
+});
+
+test('nearestAnalog: an exact historical year matches itself at 100% with zero distance', () => {
+  const y = CONFIG.analog.years.find((a) => a.year === 1995);
+  const r = Model.nearestAnalog(y);
+  assert.equal(r.best.year, 1995);
+  assert.equal(r.best.distance, 0);
+  assert.equal(r.best.matchPct, 100);
+  assert.equal(r.ranked.length, CONFIG.analog.years.length);
+  assert.ok(r.ranked[1].distance >= r.ranked[0].distance);
+});
+
+test('nearestAnalog: match % falls with distance; 2022-style inflation matches 2022', () => {
+  const r = Model.nearestAnalog({ cpi: 7.5, un: 3.7, tr: 3.2, gdp: 2, pce: 5 });
+  assert.equal(r.best.year, 2022);
+  assert.ok(r.best.matchPct > 50 && r.best.matchPct < 100);
+  const far = Model.nearestAnalog({ cpi: 30, un: 20, tr: 20, gdp: -10, pce: 30 });
+  assert.ok(far.best.matchPct < 5);
+});
+
+test('forecastConfidence is bounded and decreases with analog distance', () => {
+  const A = CONFIG.analog;
+  assert.equal(Model.forecastConfidence(0), Math.min(A.confidenceMax, A.confidenceBase + A.confidenceSpan));
+  assert.ok(Model.forecastConfidence(0.5) > Model.forecastConfidence(2));
+  assert.equal(Model.forecastConfidence(100), A.confidenceBase);
+  assert.ok(Model.forecastConfidence(0) <= A.confidenceMax);
+});
+
+test('fomcProbabilities: sums to 100, symmetric, and follows the predicted change', () => {
+  const flat = Model.fomcProbabilities(3.75, 3.75);
+  assert.equal(flat.hike + flat.hold + flat.cut, 100);
+  assert.equal(flat.hike, flat.cut);
+  assert.ok(flat.hold > flat.hike, 'no expected change → hold dominates');
+  const cut = Model.fomcProbabilities(3.0, 3.75);
+  assert.equal(cut.hike + cut.hold + cut.cut, 100);
+  assert.ok(cut.cut > cut.hold && cut.cut > cut.hike, 'predicted −75 bp → cut most likely');
+  const hike = Model.fomcProbabilities(4.5, 3.75);
+  assert.ok(hike.hike > hike.cut);
+  assert.equal(hike.cut, cut.hike, 'mirror image');
+  const big = Model.fomcProbabilities(6.5, 3.75);
+  assert.ok(big.hike > 90);
+});
+
 test('optimalPricing composes isLm + pricing and is finite for every sector', () => {
   SECTORS.forEach((s) => {
     const r = Model.optimalPricing({ price: 850, output: 8000, vc: 578, fc: 1700000, elas: 1.4, fed: 3.75, sector: s, env: 'transition' });
