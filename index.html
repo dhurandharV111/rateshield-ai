@@ -4248,7 +4248,12 @@ function applyMarketData(d) {
   var setIn = function(id, v) { var el = document.getElementById(id); if (el && v !== null && !el._userSet) { el.value = Math.round(v * 100) / 100; applied = true; } };
   if (num(d.fedFunds) !== null) { CONFIG.currentFedRate = Math.round(d.fedFunds * 100) / 100; setIn('fed-slider', CONFIG.currentFedRate); }
   if (d.asOf) CONFIG.fedRateAsOf = String(d.asOf);
-  CONFIG.fedSource = 'Live FRED data (FEDFUNDS, CPIAUCSL, PCEPILFE, UNRATE, GDP, DGS10) as of ' + CONFIG.fedRateAsOf;
+  // Show each series' value and observation date so any number can be traced to FRED.
+  var dt = d.dates || {};
+  var fmtD = function(iso) { return iso ? String(iso).slice(0, 7) : '?'; };
+  CONFIG.fedSource = 'Live FRED data as of ' + CONFIG.fedRateAsOf + ' — FEDFUNDS ' + d.fedFunds + '% (' + fmtD(dt.FEDFUNDS) + ') · CPIAUCSL YoY ' + d.cpi + '% (' + fmtD(dt.CPIAUCSL) + ') · PCEPILFE core YoY ' + d.corePce + '% (' + fmtD(dt.PCEPILFE) + ') · UNRATE ' + d.unemployment + '% · A191RL1Q225SBEA real GDP ' + d.gdpGrowth + '% (' + fmtD(dt.A191RL1Q225SBEA) + ') · DGS10 ' + d.treasury10y + '%'
+    + ((d.warnings && d.warnings.length) ? ' · ⚠ ' + d.warnings.join(' · ') : '');
+  try { console.log('[RateShield] FRED snapshot', d); } catch (e) {}
   var map = { cpi: 'f-cpi', corePce: 'f-pce', unemployment: 'f-un', gdpGrowth: 'f-gdp', treasury10y: 'f-tr' };
   var macroKey = { cpi: 'cpi', corePce: 'pce', unemployment: 'un', gdpGrowth: 'gdp', treasury10y: 'tr' };
   Object.keys(map).forEach(function(k) {

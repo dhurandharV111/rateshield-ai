@@ -54,6 +54,27 @@ test('buildSnapshot passes each latest value through directly (no % change compu
   assert.equal(fred.buildSnapshot(fixture({ A191RL1Q225SBEA: [{ date: '2026-04-01', value: '2.456' }] })).gdpGrowth, 2.46);
 });
 
+test('snapshot echoes the raw FRED observations per series so values can be traced', () => {
+  const snap = fred.buildSnapshot(fixture());
+  assert.equal(snap.raw.corePce.series, 'PCEPILFE');
+  assert.equal(snap.raw.corePce.units, 'pc1');
+  assert.deepEqual(snap.raw.corePce.observations, [{ date: '2026-07-01', value: '2.6' }]);
+  assert.equal(snap.raw.cpi.series, 'CPIAUCSL');
+  assert.equal(snap.raw.cpi.units, 'pc1');
+  assert.equal(snap.raw.gdpGrowth.series, 'A191RL1Q225SBEA');
+  assert.equal(snap.raw.treasury10y.observations.length, 2);
+});
+
+test('cross-check: core PCE more than 1 pt above headline CPI is flagged, not dropped', () => {
+  const ok = fred.buildSnapshot(fixture({ PCEPILFE: [{ date: '2026-07-01', value: '3.34' }], CPIAUCSL: [{ date: '2026-08-01', value: '3.35' }] }));
+  assert.equal(ok.corePce, 3.34);
+  assert.ok(!ok.warnings.some((w) => w.includes('exceeds CPIAUCSL')), 'within 1 pt → no flag');
+  const odd = fred.buildSnapshot(fixture({ PCEPILFE: [{ date: '2026-07-01', value: '3.34' }], CPIAUCSL: [{ date: '2026-08-01', value: '2.0' }] }));
+  assert.equal(odd.corePce, 3.34, 'value is kept');
+  assert.ok(odd.warnings.some((w) => w.includes('PCEPILFE') && w.includes('exceeds CPIAUCSL')), 'flagged for investigation');
+  assert.equal(fred.CORE_PCE_VS_CPI_MAX_GAP, 1.0);
+});
+
 test('sanity bound: GDP growth above 8% or below −10% is rejected (nulled with a warning)', () => {
   assert.deepEqual(fred.SANITY.gdpGrowth, [-10, 8]);
   const nominalLike = fred.buildSnapshot(fixture({ A191RL1Q225SBEA: [{ date: '2026-04-01', value: '8.01' }] }));

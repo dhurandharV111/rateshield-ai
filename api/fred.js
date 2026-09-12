@@ -25,6 +25,8 @@ export const SERIES = {
   treasury10y:  { id: 'DGS10',           units: 'lin', limit: 10 }
 };
 
+export const CORE_PCE_VS_CPI_MAX_GAP = 1.0;
+
 // Plausibility bounds. A value outside its bound is dropped (null) so the app
 // falls back to its CONFIG snapshot, and the reason is reported in `warnings`.
 export const SANITY = {
@@ -51,9 +53,12 @@ export function monthLabel(isoDate) {
 // snapshot the app consumes: latest value of each series, rounded to 2 dp,
 // with out-of-bounds values nulled and explained.
 export function buildSnapshot(raw) {
-  const out = { dates: {}, warnings: [] };
+  const out = { dates: {}, warnings: [], raw: {} };
   Object.keys(SERIES).forEach((key) => {
     const s = SERIES[key];
+    // Echo exactly what FRED returned (series id, units requested, last observations)
+    // so any value on screen can be traced back without guessing.
+    out.raw[key] = { series: s.id, units: s.units, observations: (raw[s.id] || []).slice(0, 3).map((o) => ({ date: o.date, value: o.value })) };
     const latest = latestValue(raw[s.id]);
     if (!latest) { out[key] = null; out.dates[s.id] = null; return; }
     const [lo, hi] = SANITY[key];
@@ -65,6 +70,11 @@ export function buildSnapshot(raw) {
     }
     out.dates[s.id] = latest.date;
   });
+  // Cross-check: core PCE normally runs at or below headline CPI. A gap of more than
+  // CORE_PCE_VS_CPI_MAX_GAP points is flagged (not dropped) so it can be investigated.
+  if (out.corePce !== null && out.cpi !== null && out.corePce - out.cpi > CORE_PCE_VS_CPI_MAX_GAP) {
+    out.warnings.push(`PCEPILFE (core PCE, ${out.corePce}%) exceeds CPIAUCSL (headline CPI, ${out.cpi}%) by more than ${CORE_PCE_VS_CPI_MAX_GAP} pt — check raw.corePce`);
+  }
   out.asOf = out.dates.FEDFUNDS ? monthLabel(out.dates.FEDFUNDS) : null;
   out.notes = {
     gdpGrowth: 'A191RL1Q225SBEA — real GDP, % change from preceding period, SAAR (used as reported)',
@@ -94,7 +104,11 @@ export default async function handler(req, res) {
     const results = await Promise.all(keys.map((k) => fetchSeries(SERIES[k], apiKey)));
     const raw = {};
     keys.forEach((k, i) => { raw[SERIES[k].id] = results[i]; });
+    // Server-side trace of the core PCE fetch (visible in Vercel → Logs).
+    console.log('[fred] PCEPILFE units=pc1 raw observations:', JSON.stringify((raw.PCEPILFE || []).slice(0, 3)));
+    console.log('[fred] CPIAUCSL units=pc1 raw observations:', JSON.stringify((raw.CPIAUCSL || []).slice(0, 3)));
     const snapshot = buildSnapshot(raw);
+    if (snapshot.warnings.length) console.warn('[fred] warnings:', snapshot.warnings.join(' | '));
     res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
     return res.status(200).json(snapshot);
   } catch (error) {
