@@ -1019,6 +1019,9 @@ var CONFIG = {
     // more than warnDeviation away from the current price (the linear demand curve
     // is calibrated at the current price and is only reliable near it).
     minElasticity: 0.3, rangeBand: 0.20, warnDeviation: 0.25,
+    // Within nearFloorBand of the floor the ± band is meaningless (the floor clips it), so
+    // the range is one-sided: base → base × oneSidedHigh, with an "indicative only" note.
+    nearFloorBand: 0.20, oneSidedHigh: 1.4,
     discretionarySectors: { retail: true, restaurant: true, consumer: true, technology: true, realestate: true },
     sentiment: { base: 50, rateAnchor: 5, ratePerPt: 4, rateCap: 20, gapMult: 30, gapCap: 15, env: { high: -10, transition: 0, low: 12 }, min: 5, max: 95,
                  sectorMult: { retail: 1.3, restaurant: 1.4, consumer: 1.2, technology: 0.8, realestate: 1.5, default: 1.0 } },
@@ -1311,15 +1314,26 @@ var Model = {
   // plus the "far from current price" warning. Lower elasticity ⇒ more pricing power ⇒
   // higher optimal price, so the band is sorted rather than assumed.
   priceRange: function(o, base) {
-    var band = CONFIG.pricing.rangeBand;
+    var P = CONFIG.pricing, band = P.rangeBand;
     var at = function(e) {
       var lm = Model.isLm({ output: o.output, fedRate: o.fed, sector: o.sector, elas: e, env: o.env });
       return Model.pricing({ price: o.price, output: o.output, vc: o.vc, fc: o.fc, elas: lm.isLmElas, fed: o.fed, sector: o.sector, vcAdj: o.vcAdj }).optP;
     };
-    var p1 = at(o.elas * (1 - band)), p2 = at(o.elas * (1 + band));
+    var low, high, note = null, oneSided = false;
+    var nearFloor = o.elas <= P.minElasticity * (1 + P.nearFloorBand);
+    if (nearFloor) {
+      oneSided = true; note = 'Elasticity near floor — range is indicative only';
+    } else {
+      var p1 = at(o.elas * (1 - band)), p2 = at(o.elas * (1 + band));
+      low = Math.min(p1, p2, base.optP); high = Math.max(p1, p2, base.optP);
+      // If the optimum sits on the cost floor for the whole band, the band collapses;
+      // fall back to the one-sided form so the range is never a single point.
+      if (!(high > low)) { oneSided = true; note = 'Optimal price at cost floor — range is indicative only'; }
+    }
+    if (oneSided) { low = base.optP; high = base.optP * P.oneSidedHigh; }
     var deviation = o.price > 0 ? Math.abs(base.optP - o.price) / o.price : 0;
-    return { low: Math.min(p1, p2, base.optP), base: base.optP, high: Math.max(p1, p2, base.optP), band: band,
-             deviation: deviation, warn: deviation > CONFIG.pricing.warnDeviation, warnThreshold: CONFIG.pricing.warnDeviation };
+    return { low: low, base: base.optP, high: high, band: band, oneSided: oneSided, note: note,
+             deviation: deviation, warn: deviation > P.warnDeviation, warnThreshold: P.warnDeviation };
   }
 };
 // @@MODEL-END
@@ -3253,7 +3267,7 @@ function updateEQ() {
     var html='<div style="border-radius:12px;padding:1.25rem;margin-bottom:1rem;border:1px solid rgba('+recBorder+',.2);background:'+recBg+'">';
     html+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;opacity:.8;margin-bottom:.35rem;color:'+recColor+'">'+s.emoji+' '+s.name+' — '+gEnv.toUpperCase()+' RATE ENV · IS-LM EQUILIBRIUM</div>';
     html+='<div style="font-size:22px;font-weight:700;color:'+recColor+';margin-bottom:.25rem">Optimal: $'+Math.round(optP).toLocaleString()+'/unit · '+Math.round(optQ).toLocaleString()+' units · $'+Math.round(optPr/1000).toLocaleString()+'K profit/yr</div>';
-    html+='<div id="eq-price-range" style="font-size:13px;font-weight:600;margin-bottom:.35rem">Recommended price range: $'+Math.round(PR.range.low).toLocaleString()+' (low) · $'+Math.round(PR.range.base).toLocaleString()+' (base) · $'+Math.round(PR.range.high).toLocaleString()+' (high) — elasticity ±'+Math.round(PR.range.band*100)+'%'+(PR.elasClamped?' · elasticity floored at '+CONFIG.pricing.minElasticity+' for stability':'')+'</div>';
+    html+='<div id="eq-price-range" style="font-size:13px;font-weight:600;margin-bottom:.35rem">Recommended price range: $'+Math.round(PR.range.low).toLocaleString()+' (low) · $'+Math.round(PR.range.base).toLocaleString()+' (base) · $'+Math.round(PR.range.high).toLocaleString()+' (high) — '+(PR.range.oneSided?'one-sided band (base to base × '+CONFIG.pricing.oneSidedHigh+')':'elasticity ±'+Math.round(PR.range.band*100)+'%')+(PR.range.note?' · ⚠ '+PR.range.note:'')+(PR.elasClamped?' · elasticity floored at '+CONFIG.pricing.minElasticity+' for stability':'')+'</div>';
     html+='<div style="font-size:13px;font-weight:600;margin-bottom:.75rem">'+pricingMsg+'</div>';
     if(PR.range.warn) html+='<div id="eq-range-warning" style="font-size:12px;color:#7a4f00;background:#fff8e6;border:1px solid rgba(122,79,0,.25);border-radius:8px;padding:.625rem .875rem;margin-bottom:.625rem;line-height:1.6"><strong>⚠ Recommended price is '+Math.round(PR.range.deviation*100)+'% away from your current price.</strong> The linear demand curve is calibrated at your current price and elasticity and is only reliable near it (within ~'+Math.round(PR.range.warnThreshold*100)+'%). Treat this as a direction, not a target: move in steps and re-measure elasticity before going further.</div>';
     html+='<div style="font-size:12px;color:#3a3a3a;background:rgba(15,15,15,.04);border-radius:8px;padding:.625rem .875rem;margin-bottom:.625rem;line-height:1.6"><strong>IS-LM context:</strong> At r*='+fedRate.toFixed(2)+'%, IS-equilibrium output is '+Math.round(yEquil).toLocaleString()+' units — '+(outputGap>0?'<strong>above</strong> your current output (demand-pull environment — pricing power elevated)':'<strong>below</strong> your current output (rate-suppressed demand — pricing pressure elevated)')+'. Effective elasticity adjusted to '+isLmElas.toFixed(2)+' from stated '+elas+'.</div>';

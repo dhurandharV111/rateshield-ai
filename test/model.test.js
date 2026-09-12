@@ -341,6 +341,37 @@ test('loanRates applies CONFIG.debt.spreads', () => {
   near(r.prime, 6.75); near(r.sba, 9.5); near(r.sofr, 6.9); near(r.cre, 7.45); near(r.equip, 7.25);
 });
 
+test('priceRange: elasticity within 20% of the floor gives a one-sided band with an "indicative only" note', () => {
+  const o = { price: 850, output: 8000, vc: 578, fc: 1700000, fed: 3.75, sector: 'manufacturing', env: 'transition' };
+  const floorEdge = CONFIG.pricing.minElasticity * (1 + CONFIG.pricing.nearFloorBand); // 0.36
+  const near = Model.optimalPricing(Object.assign({}, o, { elas: floorEdge })).range;
+  assert.equal(near.oneSided, true);
+  assert.equal(near.note, 'Elasticity near floor — range is indicative only');
+  assert.equal(near.low, near.base);
+  assert.ok(Math.abs(near.high - near.base * CONFIG.pricing.oneSidedHigh) < 1e-9);
+  const below = Model.optimalPricing(Object.assign({}, o, { elas: 0.1 })).range;
+  assert.equal(below.oneSided, true);
+  const normal = Model.optimalPricing(Object.assign({}, o, { elas: floorEdge + 0.01 })).range;
+  assert.equal(normal.oneSided, false);
+  assert.equal(normal.note, null);
+  assert.ok(normal.low < normal.base || normal.base < normal.high);
+});
+
+test('priceRange: low, base and high are never all equal for any elasticity > 0', () => {
+  const inputs = [
+    { price: 850, output: 8000, vc: 578, fc: 1700000, fed: 3.75, sector: 'manufacturing', env: 'transition' },
+    { price: 10, output: 1000, vc: 9.99, fc: 10, fed: 7, sector: 'retail', env: 'high' },       // optimum pinned at cost floor
+    { price: 185000, output: 135, vc: 132000, fc: 1500000, fed: 2, sector: 'realestate', env: 'low' }
+  ];
+  const elasticities = [0.05, 0.1, 0.3, 0.36, 0.37, 0.5, 0.8, 1.0, 1.4, 2.1, 3, 5];
+  inputs.forEach((o) => elasticities.forEach((e) => {
+    const r = Model.optimalPricing(Object.assign({}, o, { elas: e })).range;
+    assert.ok(!(r.low === r.base && r.base === r.high), `elas ${e} / ${o.sector}: all equal (${r.low})`);
+    assert.ok(r.low <= r.base && r.base <= r.high, `elas ${e}: ordering`);
+    assert.ok(isFinite(r.low) && isFinite(r.high));
+  }));
+});
+
 test('optimalPricing composes isLm + pricing and is finite for every sector', () => {
   SECTORS.forEach((s) => {
     const r = Model.optimalPricing({ price: 850, output: 8000, vc: 578, fc: 1700000, elas: 1.4, fed: 3.75, sector: s, env: 'transition' });
