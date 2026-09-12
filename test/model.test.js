@@ -125,6 +125,17 @@ test('aiSavings: labour-heavy but hard-to-automate sector is not over-credited',
   near(pro.savingsM / con.savingsM, CONFIG.ai.automatableShare.professional / CONFIG.ai.automatableShare.construction);
 });
 
+test('aiSavings: a scenario automatableMult raises the share, capped at CONFIG.ai.automatableCap', () => {
+  const base = Model.aiSavings({ revenueM: 20, marginPct: 10, labourPctOfCosts: 40, sector: 'professional' });
+  const boosted = Model.aiSavings({ revenueM: 20, marginPct: 10, labourPctOfCosts: 40, sector: 'professional', automatableMult: 1.5 });
+  near(boosted.automatable, Math.min(CONFIG.ai.automatableCap, CONFIG.ai.automatableShare.professional * 1.5));
+  assert.ok(boosted.savingsM > base.savingsM);
+  near(boosted.savingsM / base.savingsM, 1.5);
+  const capped = Model.aiSavings({ revenueM: 20, marginPct: 10, labourPctOfCosts: 40, sector: 'technology', automatableMult: 2 });
+  assert.equal(capped.automatable, CONFIG.ai.automatableCap, '0.22 × 2 = 0.44 is capped at 0.35');
+  assert.equal(Model.aiSavings({ revenueM: 20, marginPct: 10, labourPctOfCosts: 40, sector: 'retail', automatableMult: 0 }).automatableMult, 1, 'invalid multiplier ignored');
+});
+
 test('aiSavingsBreakdown: headline equals aiSavings and adds materials/overhead components', () => {
   const o = { revenueM: 20, marginPct: 10, labourPctOfCosts: 30, rawMatPctOfRevenue: 40, fixedPctOfCosts: 25, sector: 'manufacturing' };
   const b = Model.aiSavingsBreakdown(o);

@@ -476,6 +476,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
     <div class="sim-desc" id="sim-desc">
       <div class="sim-desc-title" id="sim-desc-title">Base Case — Current environment</div>
       <div class="sim-desc-text" id="sim-desc-text">CPI 3.2% · Unemployment 4.2% · GDP 2.1% · 10Y Treasury 4.3%. Transition environment with modest cuts ahead.</div>
+      <div class="sim-desc-text" id="sim-pressure-line" style="margin-top:4px;opacity:.85"></div>
     </div>
     <div class="sim-grid">
       <div class="sim-metric"><div class="sim-metric-lbl">Predicted Rate</div><div class="sim-metric-val" id="sm-rate">—</div><div class="sim-metric-delta" id="sm-rate-d">&nbsp;</div></div>
@@ -996,6 +997,7 @@ var CONFIG = {
     // Share of labour cost that is realistically automatable, per sector.
     // (McKinsey Global Institute 2024, WEF 2025 — sector implementation benchmarks.)
     automatableShare: { manufacturing: 0.14, technology: 0.22, retail: 0.14, restaurant: 0.13, construction: 0.08, healthcare: 0.15, logistics: 0.18, realestate: 0.16, professional: 0.20, consumer: 0.11, default: 0.12 },
+    automatableCap: 0.35,   // ceiling on the share after any scenario multiplier
     rawMatSaveRate: 0.05,   // better ordering / procurement
     fixedSaveRate:  0.03,   // admin & scheduling overhead
     pricePassThrough: 0.40, // share of the saving passed on as lower prices
@@ -1136,8 +1138,10 @@ var Model = {
   aiSavings: function(o) {
     var totalCostsM = o.revenueM * (1 - o.marginPct / 100);
     var labourCostM = totalCostsM * (o.labourPctOfCosts / 100);
-    var automatable = Model._sec(CONFIG.ai.automatableShare, o.sector);
-    return { totalCostsM: totalCostsM, labourCostM: labourCostM, automatable: automatable, savingsM: labourCostM * automatable };
+    // Scenario multiplier (e.g. AI Acceleration ×1.5) raises the automatable share, capped.
+    var mult = (typeof o.automatableMult === 'number' && o.automatableMult > 0) ? o.automatableMult : 1;
+    var automatable = Math.min(CONFIG.ai.automatableCap, Model._sec(CONFIG.ai.automatableShare, o.sector) * mult);
+    return { totalCostsM: totalCostsM, labourCostM: labourCostM, automatable: automatable, automatableMult: mult, savingsM: labourCostM * automatable };
   },
   // Same headline number plus the raw-material and fixed-overhead components shown
   // in the analyst breakdown.
@@ -1567,6 +1571,9 @@ var gEnv = 'transition';
 // Observability hook: each renderer records the canonical Model numbers it
 // displayed, so tests can assert that every surface agrees. Not shown in the UI.
 var RS_METRICS = {};
+// Multipliers the active scenario applies on top of CONFIG (reset to 1 by the base case).
+// Every Model.aiSavings caller passes these so all surfaces stay consistent.
+var SCENARIO_MODS = { automatableMult: 1 };
 var fChart=null, hChart=null, aiChart=null, lChart=null, eqChart=null, profChart=null, eqScChart=null, eqBasicChart=null;
 var chatBusy = false;
 var baselineRevenue = 20;
@@ -1599,7 +1606,7 @@ function updateHealth() {
   var liq = Model.liquidity({ cashM: cash, revenueM: rev, marginPct: margin, headcount: head, salaryK: sal });
   var runway = liq.runwayMonths;
   var debtRatio = (head*sal) > 0 ? debt*1000/(head*sal) : 0;
-  var aiSave = Model.aiSavings({ revenueM: rev, marginPct: margin, labourPctOfCosts: lab, sector: SEC }).savingsM;
+  var aiSave = Model.aiSavings({ automatableMult: SCENARIO_MODS.automatableMult, revenueM: rev, marginPct: margin, labourPctOfCosts: lab, sector: SEC }).savingsM;
   var pr = Model.optimalPricing({ price: price, output: output, vc: vc, fc: fc, elas: elas, fed: fed, sector: SEC, env: gEnv });
   var priceLeak = Math.max(0, Math.round(pr.gap/1000));
   RS_METRICS.health = { runwayMonths: runway, aiSavingsM: aiSave };
@@ -1736,7 +1743,7 @@ function updateAnalystPanels() {
   var rm = safeVal('sl-rawmat',30,0,99);
   var fx = safeVal('sl-fixed',25,0,99);
   var mg = safeVal('sl-margin',12,-99,99);
-  var aiB = Model.aiSavingsBreakdown({ revenueM: aRev, marginPct: mg, labourPctOfCosts: lb, rawMatPctOfRevenue: rm, fixedPctOfCosts: fx, sector: SEC });
+  var aiB = Model.aiSavingsBreakdown({ automatableMult: SCENARIO_MODS.automatableMult, revenueM: aRev, marginPct: mg, labourPctOfCosts: lb, rawMatPctOfRevenue: rm, fixedPctOfCosts: fx, sector: SEC });
   var labCost = aiB.detail.labourCostM;
   var rmCost = aRev * rm/100;
   var fxCost = aiB.detail.totalCostsM * fx/100;
@@ -1800,7 +1807,7 @@ function updateAnalystPanels() {
   var gap2=Math.round(pr2.gap/1000), oP2=pr2.optP;
   setM6('m6-an-price', gap2>0 ? '+$'+gap2+'K/yr leaving on table (current $'+Math.round(p2)+' → optimal $'+Math.round(oP2)+')' : '✓ Near optimal');
   var aRev2=safeVal('sl-rev-ai',20,0.1,999), lb2=safeVal('sl-labour',35,0,99), mg6=safeVal('sl-margin',12,-99,99);
-  setM6('m6-an-ai', '~$'+Model.aiSavings({ revenueM: aRev2, marginPct: mg6, labourPctOfCosts: lb2, sector: SEC }).savingsM.toFixed(1)+'M/yr estimated');
+  setM6('m6-an-ai', '~$'+Model.aiSavings({ automatableMult: SCENARIO_MODS.automatableMult, revenueM: aRev2, marginPct: mg6, labourPctOfCosts: lb2, sector: SEC }).savingsM.toFixed(1)+'M/yr estimated');
   var cash2=safeVal('sl-cash',1.2,0,9999), hd2=Math.round(safeVal('sl-head',280,1,9999)), sal2=Math.round(safeVal('sl-sal',48,1,999));
   var liq6 = Model.liquidity({ cashM: cash2, revenueM: aRev2, marginPct: mg6, headcount: hd2, salaryK: sal2 });
   setM6('m6-an-hire', (liq6.cashFlowPositive ? 'Cash-flow positive' : Model.formatMonths(liq6.runwayMonths)+' months cash runway')+' · payroll coverage '+Model.formatMonths(liq6.payrollCoverageMonths)+' months');
@@ -1924,7 +1931,7 @@ function updateAnalystCharts() {
     var rm   = safeVal('sl-rawmat',30,0,99);
     var fx   = safeVal('sl-fixed',25,0,99);
     var mg3c = safeVal('sl-margin',12,-99,99);
-    var aiB3 = Model.aiSavingsBreakdown({ revenueM: aRev, marginPct: mg3c, labourPctOfCosts: lb, rawMatPctOfRevenue: rm, fixedPctOfCosts: fx, sector: SEC });
+    var aiB3 = Model.aiSavingsBreakdown({ automatableMult: SCENARIO_MODS.automatableMult, revenueM: aRev, marginPct: mg3c, labourPctOfCosts: lb, rawMatPctOfRevenue: rm, fixedPctOfCosts: fx, sector: SEC });
     var labSave = aiB3.labourM;
     var rmSave  = aiB3.rawMatM;
     var fxSave  = aiB3.fixedM;
@@ -2045,7 +2052,7 @@ function updateAnalystCharts() {
     var lb6  = safeVal('sl-labour',35,0,99);
     var mg6c = safeVal('sl-margin',12,-99,99);
     // AI opportunity as a share of revenue (0–100 scale: 10% of revenue = 100)
-    var aiOpp = Math.min(100,Math.round(Model.aiSavings({ revenueM: rev6, marginPct: mg6c, labourPctOfCosts: lb6, sector: SEC }).savingsM/rev6*1000));
+    var aiOpp = Math.min(100,Math.round(Model.aiSavings({ automatableMult: SCENARIO_MODS.automatableMult, revenueM: rev6, marginPct: mg6c, labourPctOfCosts: lb6, sector: SEC }).savingsM/rev6*1000));
     var p6=safeVal('sl-eq-price',850,0.01,999999),q6=safeVal('sl-eq-output',8000,1,9999999);
     var vc6=safeVal('sl-eq-vc',578,0,999999),fc6=safeVal('sl-eq-fc',1700000,0,999999999),el6=safeVal('sl-eq-elas',1.4,0.1,5);
     var fd6=safeVal('fed-slider',CONFIG.currentFedRate,0,15);
@@ -2937,7 +2944,7 @@ function updateAI() {
   var lb=safeVal('sl-labour',35,0,99)/100;
   var rm=safeVal('sl-rawmat',30,0,99)/100;
   var fx=safeVal('sl-fixed',25,0,99)/100;
-  var ai=Model.aiSavings({ revenueM: rev, marginPct: mg*100, labourPctOfCosts: lb*100, sector: SEC });
+  var ai=Model.aiSavings({ automatableMult: SCENARIO_MODS.automatableMult, revenueM: rev, marginPct: mg*100, labourPctOfCosts: lb*100, sector: SEC });
   var totalCost=ai.totalCostsM;
   var totalCostRatio=1-mg;
   var labourCostRatio=totalCostRatio*lb;
@@ -3262,7 +3269,7 @@ function updateEQ() {
   var labCost=safeVal('sl-labour',35,0,99),rev3=safeVal('sl-rev-ai',20,0.1,999),mg3=safeVal('sl-margin',12,-99,99)/100;
   // AI scenario: variable cost falls by the automatable share of labour cost (same
   // per-sector share the AI Advantage module uses).
-  var aiE=Model.aiSavings({ revenueM: rev3, marginPct: mg3*100, labourPctOfCosts: labCost, sector: SEC });
+  var aiE=Model.aiSavings({ automatableMult: SCENARIO_MODS.automatableMult, revenueM: rev3, marginPct: mg3*100, labourPctOfCosts: labCost, sector: SEC });
   var vcAI=vcAdj*(1-(labCost/100)*aiE.automatable);
   var prAI=Model.pricing({ price: price, output: output, vc: vc, fc: fc, elas: isLmElas, fed: fedRate, sector: SEC, vcAdj: vcAI });
   var aiQ=prAI.optQ,aiP=prAI.optP,aiPr=prAI.optProfit;
@@ -3767,7 +3774,7 @@ function updateCEO() {
   var rev = safeVal('sl-rev-ai',20,0.1,999);
   var lab = safeVal('sl-labour',35,0,99);
   var mgC = safeVal('sl-margin',12,-99,99);
-  var aiEstFull = Model.aiSavings({ revenueM: rev, marginPct: mgC, labourPctOfCosts: lab, sector: SEC }).savingsM;
+  var aiEstFull = Model.aiSavings({ automatableMult: SCENARIO_MODS.automatableMult, revenueM: rev, marginPct: mgC, labourPctOfCosts: lab, sector: SEC }).savingsM;
   var aiEst = Math.round(aiEstFull*10)/10;
   // Hiring capacity & runway — same Model calls as the Workforce module
   var hdC = Math.round(safeVal('sl-head',280,1,9999)), salC = Math.round(safeVal('sl-sal',48,1,999)), hrC = Math.round(safeVal('sl-hire',15,0,9999)), cashC = safeVal('sl-cash',1.2,0,9999);
@@ -3880,9 +3887,11 @@ var SCENARIOS = {
   },
   ai: {
     label: 'AI Acceleration', icon: '🤖',
-    note: 'AI displaces workers rapidly — unemployment rises but productivity soars. Labour costs fall 20%+. Winners are companies already automated.',
+    note: 'AI adoption accelerates — the automatable share of labour rises 1.5× (capped at 35%) and unit variable cost falls, which also lowers the profit-maximising price (shown as pricing pressure). Winners are companies already automated.',
     cpi:2.4, un:5.1, tr:3.9, gdp:3.2, pce:2.2, fed:3.0,
-    labourMult:0.72, marginMult:1.22, vcMult:0.82, revMult:1.08,
+    // Margin and labour share are left at baseline: the scenario works through a
+    // higher automatable share (automatableMult) rather than lower margins.
+    labourMult:1.0, marginMult:1.0, vcMult:0.82, revMult:1.08, automatableMult:1.5,
     color:'#4a1a6b', bg:'rgba(74,26,107,.7)'
   }
 };
@@ -3921,6 +3930,9 @@ function runScenario(key) {
   setVal('f-gdp', sc.gdp);
   setVal('f-pce', sc.pce);
   setVal('fed-slider', sc.fed);
+
+  // ── Scenario multipliers that act on CONFIG rather than on inputs
+  SCENARIO_MODS.automatableMult = (typeof sc.automatableMult === 'number' && sc.automatableMult > 0) ? sc.automatableMult : 1;
 
   // ── Reset to baseline first, then apply scenario multipliers
   // This prevents scenarios from compounding on each other
@@ -3994,6 +4006,22 @@ function runScenario(key) {
   setMetric('sm-loan',  'sm-loan-d',  monthlyInt, baseMetrics.loan,  function(v){return '$'+(Math.round(v/1000))+'K/mo';}, false);
   setMetric('sm-price', 'sm-price-d', optPrice,   baseMetrics.price, function(v){return '$'+Math.round(v).toLocaleString();}, true);
 
+  // ── Pricing pressure is reported on its own line, never netted out of AI savings
+  var spl = document.getElementById('sim-pressure-line');
+  if (spl) {
+    var vcPct = Math.round((sc.vcMult - 1) * 100);
+    var priceDelta = optPrice - baseMetrics.price;
+    if (key === 'base' || sc.vcMult === 1) {
+      spl.textContent = 'Pricing pressure: none — unit variable cost unchanged vs base.';
+    } else {
+      spl.textContent = 'Pricing pressure: unit variable cost ' + (vcPct >= 0 ? '+' : '') + vcPct + '% → profit-maximising price $' + Math.round(optPrice).toLocaleString() + ' vs base $' + Math.round(baseMetrics.price).toLocaleString() + ' (' + (priceDelta >= 0 ? '+' : '−') + '$' + Math.abs(Math.round(priceDelta)).toLocaleString() + '/unit)' + (SCENARIO_MODS.automatableMult !== 1 ? ' · automatable share ×' + SCENARIO_MODS.automatableMult + ' (cap ' + Math.round(CONFIG.ai.automatableCap * 100) + '%)' : '');
+    }
+  }
+  RS_METRICS.simulator = RS_METRICS.simulator || {};
+  RS_METRICS.simulator.scenario = key;
+  RS_METRICS.simulator.optPrice = optPrice;
+  RS_METRICS.simulator.automatableMult = SCENARIO_MODS.automatableMult;
+
   // ── Update charts
   try {
     if (window.Chart) updateSimCharts();
@@ -4030,7 +4058,7 @@ function calcSafeHires(sc) {
 function calcAIGain(sc, rev, lab) {
   var lb = safeVal('sl-labour',35,0,99);
   var mgn = safeVal('sl-margin',12,-99,99);
-  var aiSave = Model.aiSavings({ revenueM: safeVal('sl-rev-ai',rev,0.1,999), marginPct: mgn, labourPctOfCosts: lb, sector: SEC }).savingsM;
+  var aiSave = Model.aiSavings({ automatableMult: SCENARIO_MODS.automatableMult, revenueM: safeVal('sl-rev-ai',rev,0.1,999), marginPct: mgn, labourPctOfCosts: lb, sector: SEC }).savingsM;
   RS_METRICS.simulator = RS_METRICS.simulator || {};
   RS_METRICS.simulator.aiSavingsM = aiSave;
   return Math.round(aiSave * 10) / 10;

@@ -329,6 +329,35 @@ test('simulator: the recession scenario shows fewer safe hires than the base cas
   });
 });
 
+test('simulator: AI Acceleration raises AI savings above base via the automatable share, with pricing pressure on its own line', () => {
+  SECTORS.forEach((sector) => {
+    const { window, errors } = boot(sector);
+    window.runScenario('base');
+    const baseAi = window.RS_METRICS.simulator.aiSavingsM;
+    const basePrice = window.RS_METRICS.simulator.optPrice;
+    assert.equal(window.SCENARIO_MODS.automatableMult, 1);
+    assert.ok(txt(window, 'sim-pressure-line').startsWith('Pricing pressure: none'));
+    window.runScenario('ai');
+    const aiAi = window.RS_METRICS.simulator.aiSavingsM;
+    assert.ok(aiAi > baseAi, `${sector}: AI scenario savings ${aiAi} should exceed base ${baseAi}`);
+    assert.equal(window.SCENARIO_MODS.automatableMult, 1.5);
+    const share = window.Model.aiSavings({ revenueM: 10, marginPct: 10, labourPctOfCosts: 30, sector, automatableMult: 1.5 }).automatable;
+    assert.ok(share <= window.CONFIG.ai.automatableCap);
+    // the AI module on the page reflects the same boosted share
+    assert.ok(txt(window, 'ai-result').includes(Math.round(share * 100) + '% automatable'));
+    // margin was not lowered; pricing pressure is reported separately
+    assert.equal(parseFloat(window.document.getElementById('sl-margin').value), window.baselineMargin);
+    const line = txt(window, 'sim-pressure-line');
+    assert.ok(line.includes('unit variable cost −18%') || line.includes('unit variable cost -18%'), line);
+    assert.ok(line.includes('vs base $' + Math.round(basePrice).toLocaleString()));
+    // and returning to base resets the multiplier
+    window.runScenario('base');
+    assert.equal(window.SCENARIO_MODS.automatableMult, 1);
+    assert.ok(Math.abs(window.RS_METRICS.simulator.aiSavingsM - baseAi) < 1e-9);
+    assert.deepEqual(errors, []);
+  });
+});
+
 test('negative margin renders without NaN and the simulator does not floor it to +2%', () => {
   const { window, errors } = boot('manufacturing');
   setVal(window, 'sl-margin', '-25');
