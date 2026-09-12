@@ -190,6 +190,33 @@ test('current Fed rate and as-of date come from CONFIG, not literals, and render
   assert.ok(txt(w2, 'ai-actions').includes('At ' + w2.CONFIG.currentFedRate.toFixed(2) + '% Fed rate'));
 });
 
+test('"Current rate" reads live FEDFUNDS after prefill, and a restored saved profile cannot clobber live market data', async () => {
+  const { window, errors } = boot('manufacturing');
+  const snapshot = { asOf: 'August 2026', fedFunds: 3.64, cpi: 2.9, corePce: 2.6, unemployment: 4.3, gdpGrowth: 2.4, treasury10y: 4.05 };
+  window.fetch = () => Promise.resolve({ ok: true, json: () => Promise.resolve(snapshot) });
+  assert.equal(await window.loadFredData(), true);
+  assert.equal(txt(window, 'cur-r'), '3.64%', 'Rate path "Current rate" shows live FEDFUNDS');
+  assert.equal(window.RS_METRICS.forecast.currentSource, 'FEDFUNDS (live)');
+  assert.equal(parseFloat(window.document.getElementById('f-gdp').value), 2.4);
+  // a saved profile (loaded later) with stale market values must not overwrite the live ones
+  window.restoreInputs({ 'fed-slider': '3.75', 'f-cpi': '3.2', 'f-gdp': '2.1', 'sl-head': '300' });
+  assert.equal(parseFloat(window.document.getElementById('fed-slider').value), 3.64, 'saved fed rate ignored');
+  assert.equal(parseFloat(window.document.getElementById('f-cpi').value), 2.9, 'saved CPI ignored');
+  assert.equal(parseFloat(window.document.getElementById('f-gdp').value), 2.4, 'saved GDP ignored');
+  assert.equal(parseFloat(window.document.getElementById('sl-head').value), 300, 'business inputs still restored');
+  assert.equal(txt(window, 'cur-r'), '3.64%');
+  assert.equal(txt(window, 'fed-current-tag'), '3.64%');
+  // the Fed input remains a what-if lever: dragging it changes loans but not the "Current rate" row
+  setVal(window, 'fed-slider', '6');
+  assert.equal(txt(window, 'cur-r'), '3.64%');
+  assert.ok(window.document.getElementById('fed-slider')._userSet, 'manual edit marks the input as user-set');
+  // ...and a later live refresh respects the manual edit
+  window.applyMarketData(Object.assign({}, snapshot, { fedFunds: 3.5 }));
+  assert.equal(parseFloat(window.document.getElementById('fed-slider').value), 6);
+  assert.equal(window.CONFIG.currentFedRate, 3.5);
+  assert.deepEqual(errors, []);
+});
+
 test('FRED prefill applies a snapshot and falls back to CONFIG when the fetch fails', async () => {
   const { window, errors } = boot('manufacturing');
   const before = window.CONFIG.currentFedRate;

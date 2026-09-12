@@ -4,63 +4,83 @@
 // Strategy inputs. The API key lives in the FRED_API_KEY environment variable
 // and is never sent to the browser.
 //
-// Series: FEDFUNDS (effective fed funds, %), CPIAUCSL (CPI index → YoY %),
-// PCEPILFE (core PCE index → YoY %), UNRATE (%), GDP (nominal level → YoY %),
-// DGS10 (10-year Treasury, %).
+// Series (all values are used directly as returned by FRED — nothing is
+// re-derived here):
+//   FEDFUNDS        effective federal funds rate, % (monthly)
+//   CPIAUCSL        CPI, requested with units=pc1 → year-over-year % change
+//   PCEPILFE        core PCE price index, units=pc1 → year-over-year % change
+//   UNRATE          unemployment rate, %
+//   A191RL1Q225SBEA real GDP, % change from preceding period, seasonally
+//                   adjusted annual rate (quarterly) — NOT the nominal GDP level
+//   DGS10           10-year Treasury constant-maturity yield, % (daily)
 
 const FRED_BASE = 'https://api.stlouisfed.org/fred/series/observations';
 
+export const SERIES = {
+  fedFunds:     { id: 'FEDFUNDS',        units: 'lin', limit: 3 },
+  cpi:          { id: 'CPIAUCSL',        units: 'pc1', limit: 3 },
+  corePce:      { id: 'PCEPILFE',        units: 'pc1', limit: 3 },
+  unemployment: { id: 'UNRATE',          units: 'lin', limit: 3 },
+  gdpGrowth:    { id: 'A191RL1Q225SBEA', units: 'lin', limit: 3 },
+  treasury10y:  { id: 'DGS10',           units: 'lin', limit: 10 }
+};
+
+// Plausibility bounds. A value outside its bound is dropped (null) so the app
+// falls back to its CONFIG snapshot, and the reason is reported in `warnings`.
+export const SANITY = {
+  fedFunds: [0, 25], cpi: [-5, 25], corePce: [-5, 25], unemployment: [0, 30],
+  gdpGrowth: [-10, 8], treasury10y: [0, 25]
+};
+
 // FRED encodes a missing daily value as ".". Return the latest numeric observation.
-function latestValue(observations) {
-  for (let i = 0; i < observations.length; i++) {
+export function latestValue(observations) {
+  for (let i = 0; i < (observations || []).length; i++) {
     const v = parseFloat(observations[i].value);
     if (isFinite(v)) return { value: v, date: observations[i].date };
   }
   return null;
 }
 
-// Year-over-year % change of an index/level series given observations sorted
-// newest-first and the number of periods in a year (12 monthly, 4 quarterly).
-function yoyPct(observations, periodsPerYear) {
-  const nums = observations.map((o) => ({ v: parseFloat(o.value), d: o.date })).filter((o) => isFinite(o.v));
-  if (nums.length <= periodsPerYear) return null;
-  const latest = nums[0], prior = nums[periodsPerYear];
-  if (!(prior.v > 0)) return null;
-  return { value: (latest.v / prior.v - 1) * 100, date: latest.d };
-}
-
-// Turns raw per-series observation arrays into the snapshot the app consumes.
-function buildSnapshot(series) {
-  const ff = latestValue(series.FEDFUNDS || []);
-  const un = latestValue(series.UNRATE || []);
-  const tr = latestValue(series.DGS10 || []);
-  const cpi = yoyPct(series.CPIAUCSL || [], 12);
-  const pce = yoyPct(series.PCEPILFE || [], 12);
-  const gdp = yoyPct(series.GDP || [], 4);
-  const r2 = (x) => (x === null ? null : Math.round(x.value * 100) / 100);
-  return {
-    asOf: ff ? monthLabel(ff.date) : null,
-    fedFunds: r2(ff),
-    cpi: r2(cpi),
-    corePce: r2(pce),
-    unemployment: r2(un),
-    gdpGrowth: r2(gdp),
-    treasury10y: r2(tr),
-    dates: { FEDFUNDS: ff && ff.date, CPIAUCSL: cpi && cpi.date, PCEPILFE: pce && pce.date, UNRATE: un && un.date, GDP: gdp && gdp.date, DGS10: tr && tr.date },
-    notes: { gdpGrowth: 'Nominal GDP, year-over-year % change of the FRED GDP level series', cpi: 'CPIAUCSL year-over-year % change', corePce: 'PCEPILFE year-over-year % change' }
-  };
-}
-
-function monthLabel(isoDate) {
+export function monthLabel(isoDate) {
   const d = new Date(isoDate + 'T00:00:00Z');
   if (isNaN(d.getTime())) return isoDate;
   return d.toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
-async function fetchSeries(id, limit, apiKey) {
-  const url = `${FRED_BASE}?series_id=${encodeURIComponent(id)}&api_key=${encodeURIComponent(apiKey)}&file_type=json&sort_order=desc&limit=${limit}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`FRED ${id} ${res.status}`);
+// Turns raw per-series observation arrays (keyed by FRED series id) into the
+// snapshot the app consumes: latest value of each series, rounded to 2 dp,
+// with out-of-bounds values nulled and explained.
+export function buildSnapshot(raw) {
+  const out = { dates: {}, warnings: [] };
+  Object.keys(SERIES).forEach((key) => {
+    const s = SERIES[key];
+    const latest = latestValue(raw[s.id]);
+    if (!latest) { out[key] = null; out.dates[s.id] = null; return; }
+    const [lo, hi] = SANITY[key];
+    if (latest.value < lo || latest.value > hi) {
+      out[key] = null;
+      out.warnings.push(`${s.id} value ${latest.value} on ${latest.date} is outside the sanity bound [${lo}, ${hi}] and was ignored`);
+    } else {
+      out[key] = Math.round(latest.value * 100) / 100;
+    }
+    out.dates[s.id] = latest.date;
+  });
+  out.asOf = out.dates.FEDFUNDS ? monthLabel(out.dates.FEDFUNDS) : null;
+  out.notes = {
+    gdpGrowth: 'A191RL1Q225SBEA — real GDP, % change from preceding period, SAAR (used as reported)',
+    cpi: 'CPIAUCSL with units=pc1 — year-over-year % change (computed by FRED)',
+    corePce: 'PCEPILFE with units=pc1 — year-over-year % change (computed by FRED)'
+  };
+  return out;
+}
+
+export function seriesUrl(s, apiKey) {
+  return `${FRED_BASE}?series_id=${encodeURIComponent(s.id)}&units=${s.units}&api_key=${encodeURIComponent(apiKey)}&file_type=json&sort_order=desc&limit=${s.limit}`;
+}
+
+async function fetchSeries(s, apiKey) {
+  const res = await fetch(seriesUrl(s, apiKey));
+  if (!res.ok) throw new Error(`FRED ${s.id} ${res.status}`);
   const json = await res.json();
   return json.observations || [];
 }
@@ -70,20 +90,14 @@ export default async function handler(req, res) {
   const apiKey = process.env.FRED_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'FRED_API_KEY is not configured' });
   try {
-    const [FEDFUNDS, CPIAUCSL, PCEPILFE, UNRATE, GDP, DGS10] = await Promise.all([
-      fetchSeries('FEDFUNDS', 3, apiKey),
-      fetchSeries('CPIAUCSL', 14, apiKey),
-      fetchSeries('PCEPILFE', 14, apiKey),
-      fetchSeries('UNRATE', 3, apiKey),
-      fetchSeries('GDP', 6, apiKey),
-      fetchSeries('DGS10', 10, apiKey)
-    ]);
-    const snapshot = buildSnapshot({ FEDFUNDS, CPIAUCSL, PCEPILFE, UNRATE, GDP, DGS10 });
+    const keys = Object.keys(SERIES);
+    const results = await Promise.all(keys.map((k) => fetchSeries(SERIES[k], apiKey)));
+    const raw = {};
+    keys.forEach((k, i) => { raw[SERIES[k].id] = results[i]; });
+    const snapshot = buildSnapshot(raw);
     res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
     return res.status(200).json(snapshot);
   } catch (error) {
     return res.status(502).json({ error: 'Could not reach FRED', detail: error && error.message });
   }
 }
-
-export { latestValue, yoyPct, buildSnapshot, monthLabel };

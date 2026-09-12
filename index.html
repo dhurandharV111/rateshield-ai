@@ -2481,6 +2481,8 @@ function runLiveUpdates(functions) {
 
 function refreshForInput(id) {
   syncSharedInput(id);
+  // A manual edit to a market input wins over later live-data refreshes this session.
+  if (MARKET_INPUT_IDS.indexOf(id) !== -1) { var mEl = document.getElementById(id); if (mEl) mEl._userSet = true; }
   var updates = [];
 
   if (id.indexOf('f-') === 0) {
@@ -2566,18 +2568,25 @@ function saveInputsDebounced() {
   _saveTimer = setTimeout(saveInputs, 1500);
 }
 
+// Inputs that describe the market rather than the business. Live FRED data
+// owns these once it has loaded; a saved profile must not overwrite them.
+var MARKET_INPUT_IDS = ['f-cpi', 'f-un', 'f-tr', 'f-gdp', 'f-pce', 'fed-slider'];
+
 function restoreInputs(values) {
   if (!values) return;
+  var liveMarket = !!LAST_MARKET_DATA;
   INPUT_IDS.forEach(function(id) {
     var el = document.getElementById(id);
-    if (el && values[id] !== undefined) {
-      el.value = values[id];
-    }
+    if (!el || values[id] === undefined) return;
+    if (liveMarket && MARKET_INPUT_IDS.indexOf(id) !== -1) return;
+    el.value = values[id];
   });
   // Old saves may contain different copies of the same business value.
   syncSharedInput('sl-rev-h');
   syncSharedInput('sl-cash');
   syncSharedInput('sl-margin');
+  // If live data arrived before the profile, re-assert it (the profile may hold a stale rate).
+  if (liveMarket) applyMarketData(LAST_MARKET_DATA);
   // Refresh every dependent result, including forecast, health and CEO cards.
   try { updateAll(); } catch(e) { console.warn('restoreInputs refresh failed:', e); }
 }
@@ -2786,8 +2795,10 @@ function updateF() {
   var r=function(v){return Math.round(v*4)/4;};
   gEnv=Model.rateEnvironment(sc);
   var env=gEnv==='high'?'HIGH — restrictive environment':gEnv==='low'?'LOW — accommodative environment':'TRANSITION — watch closely';
-  // "Current" is the actual policy rate (Fed input / CONFIG), not a treasury proxy.
-  var cur=r(safeVal('fed-slider',CONFIG.currentFedRate,0,15));
+  // "Current" is the actual policy rate — live FEDFUNDS once /api/fred has loaded
+  // (applyMarketData writes it to CONFIG.currentFedRate), otherwise the CONFIG
+  // snapshot. It is deliberately NOT the Fed input, which is a what-if lever.
+  var cur=Math.round(CONFIG.currentFedRate*100)/100; // exact, not quarter-rounded like the path
   var r12=r(base),r6=r(base+(sc>0?F.path6:-F.path6)),r18=r(base+(sc>0?F.path18Up:F.path18Down));
   // FOMC probabilities are model-implied from the predicted 12-month change.
   var fomc=Model.fomcProbabilities(r12, cur);
@@ -2795,7 +2806,7 @@ function updateF() {
   // Closest historical analog (Euclidean distance over the 5 signals) drives confidence.
   var analog=Model.nearestAnalog({ cpi: cpi, un: unem, tr: treas, gdp: gdp, pce: pce });
   var conf=Model.forecastConfidence(analog.best.distance);
-  RS_METRICS.forecast={ score: sc, predicted12: r12, current: cur, fomc: fomc, analogYear: analog.best.year, analogMatch: analog.best.matchPct, confidence: conf };
+  RS_METRICS.forecast={ score: sc, predicted12: r12, current: cur, currentSource: LAST_MARKET_DATA ? 'FEDFUNDS (live)' : 'CONFIG snapshot', fomc: fomc, analogYear: analog.best.year, analogMatch: analog.best.matchPct, confidence: conf };
   document.getElementById('pred-rate').textContent=r12.toFixed(2)+'%';
   document.getElementById('pred-env').textContent=env;
   document.getElementById('cur-r').textContent=cur.toFixed(2)+'%';
@@ -4227,9 +4238,12 @@ function renderMarketDataLabels() {
 
 // Applies a /api/fred snapshot: { asOf, fedFunds, cpi, corePce, unemployment, gdpGrowth, treasury10y }.
 // Returns true if anything was applied. Pure with respect to network; testable.
+var LAST_MARKET_DATA = null;
 function applyMarketData(d) {
   if (!d || typeof d !== 'object') return false;
   var num = function(v) { return (typeof v === 'number' && isFinite(v)) ? v : null; };
+  if (num(d.fedFunds) === null) return false;
+  LAST_MARKET_DATA = d;
   var applied = false;
   var setIn = function(id, v) { var el = document.getElementById(id); if (el && v !== null && !el._userSet) { el.value = Math.round(v * 100) / 100; applied = true; } };
   if (num(d.fedFunds) !== null) { CONFIG.currentFedRate = Math.round(d.fedFunds * 100) / 100; setIn('fed-slider', CONFIG.currentFedRate); }
