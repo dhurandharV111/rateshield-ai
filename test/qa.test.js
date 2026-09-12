@@ -79,16 +79,28 @@ test('initCharts isolates a failing canvas so the other charts still initialise'
 });
 
 test('Workforce, Executive Health, CEO Summary and Scenario Simulator quote identical safe hires, runway and AI savings', () => {
-  SECTORS.forEach((sector) => {
-    const { window } = boot(sector);
+  const cases = [
+    { margin: '7', scenario: 'base' },       // cash-flow positive
+    { margin: '-6', scenario: 'base' },      // loss year → finite net-burn runway
+    { margin: '7', scenario: 'recession' },  // non-base scenario changes env + inputs
+    { margin: '-3', scenario: 'inflation' }
+  ];
+  SECTORS.forEach((sectorKey) => cases.forEach((c) => {
+    const { window } = boot(sectorKey);
+    let sector = sectorKey;
     // non-default inputs so agreement is not an accident of defaults
     setVal(window, 'sl-hire', '23');
     setVal(window, 'sl-cash', '0.9');
-    setVal(window, 'sl-margin', '7');
+    setVal(window, 'sl-margin', c.margin);
     setVal(window, 'sl-labour', '41');
-    window.runScenario('base');
+    window.baselineMargin = parseFloat(c.margin);
+    window.runScenario(c.scenario);
     window.updateAll();
+    // simulator metrics were computed inside runScenario on the same inputs the modules now show
+    window.calcSafeHires(window.SCENARIOS[c.scenario]);
+    window.calcAIGain(window.SCENARIOS[c.scenario], parseFloat(window.document.getElementById('sl-rev-ai').value), parseFloat(window.document.getElementById('sl-labour').value));
     const M = window.RS_METRICS;
+    sector = sector + '/' + c.scenario + '/m' + c.margin;
     assert.ok(M.workforce && M.ceo && M.simulator && M.health && M.ai, sector + ' metrics recorded');
     assert.equal(M.ceo.safeHires, M.workforce.safeHires, sector + ' safe hires CEO vs Workforce');
     assert.equal(M.simulator.safeHires, M.workforce.safeHires, sector + ' safe hires Simulator vs Workforce');
@@ -101,7 +113,11 @@ test('Workforce, Executive Health, CEO Summary and Scenario Simulator quote iden
     // and the rendered text agrees with the recorded numbers
     assert.ok(txt(window, 'hiring-result').includes('Hire ' + M.workforce.safeHires + ' of'), sector + ' hiring text');
     assert.ok(txt(window, 'sm-hire').startsWith(M.simulator.safeHires + ' '), sector + ' simulator text');
-  });
+    assert.ok(txt(window, 'ceo-content').includes('Safe hires: ' + M.workforce.safeHires + ' of'), sector + ' CEO text');
+    assert.equal(txt(window, 'hm-ai'), '$' + M.ai.aiSavingsM.toFixed(1) + 'M', sector + ' health AI text');
+    assert.equal(txt(window, 'sm-ai-val'), '$' + (Math.round(M.ai.aiSavingsM * 10) / 10).toFixed(1) + 'M/yr', sector + ' simulator AI text');
+    if (parseFloat(c.margin) < 0) assert.ok(isFinite(M.workforce.runwayMonths), sector + ' loss year has finite runway');
+  }));
 });
 
 test('runway is net-burn based: profitable business shows "Cash-flow positive" plus payroll coverage; loss year shows months', () => {
