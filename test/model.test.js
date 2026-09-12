@@ -237,7 +237,7 @@ test('isLm: higher rates reduce IS-equilibrium output and raise effective elasti
 test('rateSignalScore / predictedRate / rateEnvironment: hot inflation raises the forecast, recession lowers it', () => {
   const hot = Model.rateSignalScore({ cpi: 6, un: 3.4, tr: 5.5, gdp: 4.5, pce: 4 });
   const cold = Model.rateSignalScore({ cpi: 1.5, un: 6.5, tr: 1.5, gdp: -1, pce: 1.5 });
-  const neutral = Model.rateSignalScore({ cpi: 2.5, un: 4.5, tr: 3.5, gdp: 2, pce: 2 });
+  const neutral = Model.rateSignalScore({ cpi: 2, un: 4.5, tr: 3.5, gdp: 2, pce: 2 });
   assert.ok(hot > neutral && neutral > cold);
   assert.equal(hot, 10, 'maximum score when every signal is hot');
   assert.equal(Model.predictedRate(hot), Math.min(CONFIG.forecast.maxRate, Math.round((CONFIG.forecast.baseRate + 10 * CONFIG.forecast.scorePerPt) * 4) / 4));
@@ -248,6 +248,38 @@ test('rateSignalScore / predictedRate / rateEnvironment: hot inflation raises th
   assert.equal(Model.rateEnvironment(cold), 'low');
   assert.equal(Model.rateEnvironment(neutral), 'transition');
   assert.equal(Model.predictedRate(1) % 0.25, 0, 'rounded to 25 bp');
+});
+
+test('rateSignalContributions: CPI and PCE are continuous and clamped; the score is their sum', () => {
+  const at = (cpi, pce) => Model.rateSignalContributions({ cpi, pce, un: 4.5, tr: 3.5, gdp: 2 });
+  near(at(2, 2).cpi, 0); near(at(2, 2).pce, 0);
+  near(at(4, 2).cpi, 1.5);          // (4 − 2) × 0.75
+  near(at(3, 3).pce, 0.75);
+  near(at(10, 2).cpi, 3, 1e-9);     // clamped at +3
+  near(at(-2, 2).cpi, -2, 1e-9);    // clamped at −2
+  near(at(2, 6).pce, 1.5, 1e-9);    // clamped at +1.5
+  near(at(2, -1).pce, -1.5, 1e-9);  // clamped at −1.5
+  const c = Model.rateSignalContributions({ cpi: 3.35, pce: 3.34, un: 6.5, tr: 5.5, gdp: -1 });
+  near(Model.rateSignalScore({ cpi: 3.35, pce: 3.34, un: 6.5, tr: 5.5, gdp: -1 }), c.cpi + c.pce + c.un + c.tr + c.gdp);
+  assert.equal(c.un, -2); assert.equal(c.tr, 2); assert.equal(c.gdp, -3);
+});
+
+test('a 0.02-point change in CPI never moves the predicted rate by more than 0.25', () => {
+  const others = { pce: 2.8, un: 4.2, tr: 4.3, gdp: 2.1 };
+  let maxJump = 0;
+  for (let cpi = 0; cpi <= 12; cpi = Math.round((cpi + 0.02) * 100) / 100) {
+    const a = Model.predictedRate(Model.rateSignalScore(Object.assign({ cpi }, others)));
+    const b = Model.predictedRate(Model.rateSignalScore(Object.assign({ cpi: cpi + 0.02 }, others)));
+    maxJump = Math.max(maxJump, Math.abs(b - a));
+    assert.ok(Math.abs(b - a) <= 0.25 + 1e-9, `CPI ${cpi} → ${cpi + 0.02}: jump ${Math.abs(b - a)}`);
+  }
+  assert.ok(maxJump <= 0.25);
+  // and the same holds for core PCE
+  for (let pce = 0; pce <= 8; pce = Math.round((pce + 0.02) * 100) / 100) {
+    const a = Model.predictedRate(Model.rateSignalScore({ cpi: 3.2, pce, un: 4.2, tr: 4.3, gdp: 2.1 }));
+    const b = Model.predictedRate(Model.rateSignalScore({ cpi: 3.2, pce: pce + 0.02, un: 4.2, tr: 4.3, gdp: 2.1 }));
+    assert.ok(Math.abs(b - a) <= 0.25 + 1e-9, `PCE ${pce}`);
+  }
 });
 
 test('nearestAnalog: an exact historical year matches itself at 100% with zero distance', () => {

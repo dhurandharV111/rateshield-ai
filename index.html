@@ -537,12 +537,12 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
 <div class="adv-only">
   <div class="analyst-panel">
     <div class="analyst-panel-title">Analyst Notes — Rate Prediction Model</div>
-    <div class="analyst-formula">Predicted rate = 2.5% base + Σ(signal × weight) | Taylor Rule variant with 55yr FRED calibration</div>
+    <div class="analyst-formula">Predicted rate = 2.5% base + Σ(signal contributions) × 0.4 | Taylor-rule-style heuristic (CONFIG.forecast)</div>
     <table class="analyst-table">
-      <thead><tr><th>Signal</th><th>Your input</th><th>Neutral</th><th>Pressure</th><th>Weight</th></tr></thead>
+      <thead><tr><th>Signal</th><th>Your input</th><th>Neutral</th><th>Contribution</th><th>Rule</th><th>Pressure</th></tr></thead>
       <tbody id="m1-analyst-tbody"></tbody>
     </table>
-    <p class="analyst-note">CPI and Core PCE carry 35% combined weight (Fed dual mandate inflation target 2.0%). Unemployment deviation from 4.0% full employment carries 25%. GDP growth relative to 2.5% trend carries 20%. 10Y Treasury as market expectation signal carries 20%. Historical analog matching uses normalised Euclidean distance across all 5 signals against a curated set of FRED annual averages (CONFIG.analog.years, 1974–2024); model confidence is a heuristic of that distance, and the FOMC probabilities are a softmax over the predicted 12-month rate change.</p>
+    <p class="analyst-note">CPI and Core PCE contribute continuously: (x − 2.0%) × 0.75 score points, clamped to −2…+3 for CPI and −1.5…+1.5 for Core PCE, so a small move in inflation never jumps the forecast. Unemployment (above 6% / below 3.5%), 10Y Treasury (above 5% / below 2%) and GDP (below 0% / above 4%) add fixed steps. Predicted 12-month rate = 2.5% + score × 0.4, rounded to 25 bp. Historical analog matching uses normalised Euclidean distance across all 5 signals against a curated set of FRED annual averages (CONFIG.analog.years, 1974–2024); model confidence is a heuristic of that distance, and the FOMC probabilities are a softmax over the predicted 12-month rate change.</p>
           <div class="analyst-chart-box">
             <div class="chart-title">Macro signal contribution to rate forecast</div>
             <canvas id="m1AnalystChart" height="190"></canvas>
@@ -1040,12 +1040,15 @@ var CONFIG = {
   // ── Rate forecast (Financing Strategy) ──────────────────────────
   forecast: {
     baseRate: 2.5, scorePerPt: 0.4, minRate: 0.25, maxRate: 7,
-    // Signal thresholds → score contributions (Taylor-rule style heuristic).
-    cpi: { hot: 5, warm: 3, cool: 2, hotPts: 3, warmPts: 1.5, coolPts: -2 },
+    // Signal → score contributions (Taylor-rule style heuristic).
+    // Inflation signals are continuous: clamp((x − anchor) × slope, min, max), so a
+    // small change in CPI/PCE can never jump the forecast across a cliff.
+    cpi: { anchor: 2, slope: 0.75, min: -2, max: 3 },
+    pce: { anchor: 2, slope: 0.75, min: -1.5, max: 1.5 },
+    // Unemployment, 10Y and GDP keep their threshold form for now.
     un:  { high: 6, low: 3.5, highPts: -2, lowPts: 2 },
     tr:  { high: 5, low: 2, highPts: 2, lowPts: -2 },
     gdp: { neg: 0, hot: 4, negPts: -3, hotPts: 1.5 },
-    pce: { hot: 3, cool: 2, hotPts: 1.5, coolPts: -1.5, slope: 0.5 },
     envHighScore: 2.5, envLowScore: -1.5,
     path6: 0.12, path18Up: -0.08, path18Down: -0.30,
     bullStep: 0.055, bearStep: 0.045
@@ -1258,14 +1261,22 @@ var Model = {
 
   // ── Rate forecast ────────────────────────────────────────────────
   // Signal score used by both the Financing Strategy module and the simulator.
+  // Per-signal contributions (score points). Used by the forecast, the analyst
+  // table and the contribution chart, so all three agree.
+  rateSignalContributions: function(o) {
+    var F = CONFIG.forecast;
+    var clamp = function(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); };
+    var c = { cpi: clamp((o.cpi - F.cpi.anchor) * F.cpi.slope, F.cpi.min, F.cpi.max),
+              pce: clamp((o.pce - F.pce.anchor) * F.pce.slope, F.pce.min, F.pce.max),
+              un: 0, tr: 0, gdp: 0 };
+    if (o.un > F.un.high) c.un = F.un.highPts; else if (o.un < F.un.low) c.un = F.un.lowPts;
+    if (o.tr > F.tr.high) c.tr = F.tr.highPts; else if (o.tr < F.tr.low) c.tr = F.tr.lowPts;
+    if (o.gdp < F.gdp.neg) c.gdp = F.gdp.negPts; else if (o.gdp > F.gdp.hot) c.gdp = F.gdp.hotPts;
+    return c;
+  },
   rateSignalScore: function(o) {
-    var F = CONFIG.forecast, s = 0;
-    if (o.cpi > F.cpi.hot) s += F.cpi.hotPts; else if (o.cpi > F.cpi.warm) s += F.cpi.warmPts; else if (o.cpi < F.cpi.cool) s += F.cpi.coolPts;
-    if (o.un > F.un.high) s += F.un.highPts; else if (o.un < F.un.low) s += F.un.lowPts;
-    if (o.tr > F.tr.high) s += F.tr.highPts; else if (o.tr < F.tr.low) s += F.tr.lowPts;
-    if (o.gdp < F.gdp.neg) s += F.gdp.negPts; else if (o.gdp > F.gdp.hot) s += F.gdp.hotPts;
-    if (o.pce > F.pce.hot) s += F.pce.hotPts; else if (o.pce < F.pce.cool) s += F.pce.coolPts; else s += (o.pce - F.pce.cool) * F.pce.slope;
-    return s;
+    var c = Model.rateSignalContributions(o);
+    return c.cpi + c.pce + c.un + c.tr + c.gdp;
   },
   predictedRate: function(score) {
     var F = CONFIG.forecast;
@@ -1701,20 +1712,23 @@ function safeVal(id, def, min, max) {
 // ── Populate analyst panel tables
 function updateAnalystPanels() {
   // M1 — macro signal interpretation
+  var mIn = { cpi: safeVal('f-cpi',CONFIG.macroDefaults.cpi,0,20), pce: safeVal('f-pce',CONFIG.macroDefaults.pce,0,10),
+              un: safeVal('f-un',CONFIG.macroDefaults.un,0,15), gdp: safeVal('f-gdp',CONFIG.macroDefaults.gdp,-10,10), tr: safeVal('f-tr',CONFIG.macroDefaults.tr,0,10) };
+  var mC = Model.rateSignalContributions(mIn);
+  var F1 = CONFIG.forecast;
   var signals = [
-    ['CPI Inflation', safeVal('f-cpi',CONFIG.macroDefaults.cpi,0,20), '2.0%', '', '17.5%'],
-    ['Core PCE', safeVal('f-pce',CONFIG.macroDefaults.pce,0,10), '2.0%', '', '17.5%'],
-    ['Unemployment', safeVal('f-un',CONFIG.macroDefaults.un,0,15), '4.0%', '', '25%'],
-    ['GDP Growth', safeVal('f-gdp',CONFIG.macroDefaults.gdp,-10,10), '2.5%', '', '20%'],
-    ['10Y Treasury', safeVal('f-tr',CONFIG.macroDefaults.tr,0,10), '3.5%', '', '20%']
+    ['CPI Inflation', mIn.cpi, F1.cpi.anchor.toFixed(1)+'%', mC.cpi, 'continuous: ('+'CPI − '+F1.cpi.anchor+') × '+F1.cpi.slope+', clamped '+F1.cpi.min+'…'+F1.cpi.max],
+    ['Core PCE', mIn.pce, F1.pce.anchor.toFixed(1)+'%', mC.pce, 'continuous: (PCE − '+F1.pce.anchor+') × '+F1.pce.slope+', clamped '+F1.pce.min+'…'+F1.pce.max],
+    ['Unemployment', mIn.un, F1.un.low+'–'+F1.un.high+'%', mC.un, '>'+F1.un.high+'% → '+F1.un.highPts+' · <'+F1.un.low+'% → +'+F1.un.lowPts],
+    ['GDP Growth', mIn.gdp, F1.gdp.neg+'–'+F1.gdp.hot+'%', mC.gdp, '<'+F1.gdp.neg+'% → '+F1.gdp.negPts+' · >'+F1.gdp.hot+'% → +'+F1.gdp.hotPts],
+    ['10Y Treasury', mIn.tr, F1.tr.low+'–'+F1.tr.high+'%', mC.tr, '>'+F1.tr.high+'% → +'+F1.tr.highPts+' · <'+F1.tr.low+'% → '+F1.tr.lowPts]
   ];
-  var neutral = [2.0, 2.0, 4.0, 2.5, 3.5];
   var m1tb = document.getElementById('m1-analyst-tbody');
   if(m1tb) {
-    m1tb.innerHTML = signals.map(function(s, i) {
-      var dev = (s[1] - neutral[i]).toFixed(2);
-      var pressure = s[1] > neutral[i] ? (i < 2 ? '🔴 Hawkish' : i === 2 ? '🟢 Dovish' : i === 3 ? '🟢 Hawkish' : '🔴 Hawkish') : (i < 2 ? '🟢 Dovish' : i === 2 ? '🔴 Hawkish' : i === 3 ? '🔴 Dovish' : '🟢 Dovish');
-      return '<tr><td><strong>'+s[0]+'</strong></td><td>'+s[1]+'%</td><td>'+s[2]+'</td><td>'+(dev>0?'+':'')+dev+'%</td><td>'+s[4]+'</td><td>'+pressure+'</td></tr>';
+    m1tb.innerHTML = signals.map(function(s) {
+      var pts = s[3], ratePts = pts * F1.scorePerPt;
+      var pressure = pts > 0.05 ? '🔴 Hawkish' : pts < -0.05 ? '🟢 Dovish' : '⚪ Neutral';
+      return '<tr><td><strong>'+s[0]+'</strong></td><td>'+s[1]+'%</td><td>'+s[2]+'</td><td>'+(pts>=0?'+':'')+pts.toFixed(2)+' pts → '+(ratePts>=0?'+':'')+ratePts.toFixed(2)+'% rate</td><td style="font-size:11px;color:#6b6b6b">'+s[4]+'</td><td>'+pressure+'</td></tr>';
     }).join('');
   }
 
@@ -1880,15 +1894,10 @@ function updateAnalystCharts() {
   var m1c = document.getElementById('m1AnalystChart');
   if (m1c) {
     var signals = ['CPI','Core PCE','Unemployment','GDP','10Y Treasury'];
-    var neutral  = [2.0, 2.0, 4.0, 2.5, 3.5];
-    var weights  = [0.175, 0.175, 0.25, 0.20, 0.20];
-    var vals     = [safeVal('f-cpi',CONFIG.macroDefaults.cpi,0,20), safeVal('f-pce',CONFIG.macroDefaults.pce,0,10),
-                    safeVal('f-un',CONFIG.macroDefaults.un,0,15), safeVal('f-gdp',CONFIG.macroDefaults.gdp,-10,10), safeVal('f-tr',CONFIG.macroDefaults.tr,0,10)];
-    // For unemployment: deviation in opposite direction
-    var contribs = vals.map(function(v,i){
-      var dev = i===2 ? neutral[i]-v : v-neutral[i]; // unemployment: below neutral = hawkish
-      return parseFloat((dev * weights[i] * 0.4).toFixed(3));
-    });
+    // Same contributions the forecast uses, expressed in rate points (score × scorePerPt).
+    var c1 = Model.rateSignalContributions({ cpi: safeVal('f-cpi',CONFIG.macroDefaults.cpi,0,20), pce: safeVal('f-pce',CONFIG.macroDefaults.pce,0,10),
+                                             un: safeVal('f-un',CONFIG.macroDefaults.un,0,15), gdp: safeVal('f-gdp',CONFIG.macroDefaults.gdp,-10,10), tr: safeVal('f-tr',CONFIG.macroDefaults.tr,0,10) });
+    var contribs = [c1.cpi, c1.pce, c1.un, c1.gdp, c1.tr].map(function(v){ return parseFloat((v * CONFIG.forecast.scorePerPt).toFixed(3)); });
     var colors = contribs.map(function(v){ return v>0 ? 'rgba(139,26,26,.7)' : 'rgba(26,107,58,.7)'; });
     if (!m1AC) {
       m1AC = new Chart(m1c.getContext('2d'), {
