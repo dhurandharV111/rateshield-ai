@@ -225,6 +225,27 @@ test('confidence, historical analog and FOMC probabilities are computed from the
   assert.ok(src.includes('FOMC probabilities (model-implied)'));
 });
 
+test('pricing guardrails render: low/base/high range, far-from-current warning, and tiny elasticity stays finite', () => {
+  const { window, errors } = boot('manufacturing');
+  assert.ok(/Recommended price range: \$[\d,]+ \(low\) · \$[\d,]+ \(base\) · \$[\d,]+ \(high\)/.test(txt(window, 'eq-price-range')), txt(window, 'eq-price-range'));
+  assert.ok(txt(window, 'm5b-rec-price-sub').startsWith('Range $'));
+  // push current price far below the optimum → warning banner appears everywhere
+  const optP = window.RS_METRICS && window.Model.optimalPricing({ price: 850, output: 8000, vc: 578, fc: 1700000, elas: 1.4, fed: window.CONFIG.currentFedRate, sector: 'manufacturing', env: window.gEnv }).optP;
+  setVal(window, 'sl-eq-price', String(Math.round(optP * 0.5)));
+  assert.ok(window.document.getElementById('eq-range-warning'), 'warning banner rendered');
+  assert.ok(txt(window, 'eq-range-warning').includes('only reliable near it'));
+  assert.ok(txt(window, 'm5b-rec-price-sub').includes('far from current price'));
+  assert.ok(txt(window, 'ceo-content').includes('range $'));
+  // near the optimum → no banner
+  setVal(window, 'sl-eq-price', String(Math.round(optP)));
+  assert.equal(window.document.getElementById('eq-range-warning'), null);
+  // elasticity below the floor does not produce NaN/Infinity and says so
+  setVal(window, 'sl-eq-elas', '0.1');
+  assert.deepEqual(badValues(window, 'tiny-elas'), []);
+  assert.ok(txt(window, 'eq-price-range').includes('elasticity floored at ' + window.CONFIG.pricing.minElasticity));
+  assert.deepEqual(errors, []);
+});
+
 test('negative margin renders without NaN and the simulator does not floor it to +2%', () => {
   const { window, errors } = boot('manufacturing');
   setVal(window, 'sl-margin', '-25');

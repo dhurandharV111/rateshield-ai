@@ -743,7 +743,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
       <div class="basic-only" id="m5-basic-summary" style="margin-bottom:1.5rem">
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
           <div class="kpi"><div class="kl">Current profit/yr</div><div class="kv" id="m5b-cur-profit" style="color:#1a6b3a">—</div><div class="ks">At your current price</div></div>
-          <div class="kpi" style="border:2px solid #1a6b3a"><div class="kl">Recommended price</div><div class="kv" id="m5b-rec-price" style="color:#1a6b3a">—</div><div class="ks">Profit-maximizing level</div></div>
+          <div class="kpi" style="border:2px solid #1a6b3a"><div class="kl">Recommended price</div><div class="kv" id="m5b-rec-price" style="color:#1a6b3a">—</div><div class="ks" id="m5b-rec-price-sub">Profit-maximizing level</div></div>
           <div class="kpi" style="border:2px solid #1a6b3a"><div class="kl">Recommended volume</div><div class="kv" id="m5b-rec-vol" style="color:#1a6b3a">—</div><div class="ks">Units/yr at that price</div></div>
           <div class="kpi"><div class="kl">Expected profit gain</div><div class="kv" id="m5b-profit-gain" style="color:#7a4f00">—</div><div class="ks">vs. today</div></div>
         </div>
@@ -1001,6 +1001,12 @@ var CONFIG = {
     isInterceptRate: 5,       // rate (pts) used to anchor the IS intercept
     isLmPriceElasticity: 0.15,// price response to the IS-LM output gap
     isLmElasFloor: 0.5,
+    // Guardrails: b = price / (output × elasticity) explodes as elasticity → 0, so the
+    // effective elasticity is floored; the recommendation is shown as a range over
+    // elasticity ± rangeBand; and a warning fires when the recommended price is
+    // more than warnDeviation away from the current price (the linear demand curve
+    // is calibrated at the current price and is only reliable near it).
+    minElasticity: 0.3, rangeBand: 0.20, warnDeviation: 0.25,
     discretionarySectors: { retail: true, restaurant: true, consumer: true, technology: true, realestate: true },
     sentiment: { base: 50, rateAnchor: 5, ratePerPt: 4, rateCap: 20, gapMult: 30, gapCap: 15, env: { high: -10, transition: 0, low: 12 }, min: 5, max: 95,
                  sectorMult: { retail: 1.3, restaurant: 1.4, consumer: 1.2, technology: 0.8, realestate: 1.5, default: 1.0 } },
@@ -1178,7 +1184,8 @@ var Model = {
   // P(Q) = a − bQ calibrated so the curve passes through (output, price) with the
   // given point elasticity. MR = a − 2bQ = MC ⇒ Q* = (a − MC)/(2b).
   pricing: function(o) {
-    var elas = o.elas;
+    var elas = Math.max(CONFIG.pricing.minElasticity, o.elas);
+    var elasClamped = elas !== o.elas;
     var vcAdj = o.vcAdj !== undefined ? o.vcAdj : Model.rateAdjustedVC(o.vc, o.fed, o.sector);
     var b = o.price / (o.output * elas), a = o.price + b * o.output;
     var optQ = Math.max(CONFIG.pricing.minOutput, (a - vcAdj) / (2 * b));
@@ -1186,7 +1193,7 @@ var Model = {
     var optTR = optP * optQ, optTC = vcAdj * optQ + o.fc, optProfit = optTR - optTC;
     var curTR = o.price * o.output, curTC = vcAdj * o.output + o.fc, curProfit = curTR - curTC;
     var contrib = Math.max(0, o.price - vcAdj);
-    return { a: a, b: b, elas: elas, vcAdj: vcAdj, optQ: optQ, optP: optP, optTR: optTR, optTC: optTC, optProfit: optProfit,
+    return { a: a, b: b, elas: elas, elasClamped: elasClamped, vcAdj: vcAdj, optQ: optQ, optP: optP, optTR: optTR, optTC: optTC, optProfit: optProfit,
              optMargin: optTR > 0 ? optProfit / optTR * 100 : 0, curTR: curTR, curTC: curTC, curProfit: curProfit,
              curMargin: curTR > 0 ? curProfit / curTR * 100 : 0, gap: optProfit - curProfit,
              lerner: optP > 0 ? (optP - vcAdj) / optP : 0, lernerMax: 1 / elas,
@@ -1245,7 +1252,22 @@ var Model = {
     var lm = Model.isLm({ output: o.output, fedRate: o.fed, sector: o.sector, elas: o.elas, env: o.env });
     var pr = Model.pricing({ price: o.price, output: o.output, vc: o.vc, fc: o.fc, elas: lm.isLmElas, fed: o.fed, sector: o.sector, vcAdj: o.vcAdj });
     pr.statedElas = o.elas; pr.isLm = lm;
+    pr.range = Model.priceRange(o, pr);
     return pr;
+  },
+  // Low / base / high recommended price over stated elasticity ± CONFIG.pricing.rangeBand,
+  // plus the "far from current price" warning. Lower elasticity ⇒ more pricing power ⇒
+  // higher optimal price, so the band is sorted rather than assumed.
+  priceRange: function(o, base) {
+    var band = CONFIG.pricing.rangeBand;
+    var at = function(e) {
+      var lm = Model.isLm({ output: o.output, fedRate: o.fed, sector: o.sector, elas: e, env: o.env });
+      return Model.pricing({ price: o.price, output: o.output, vc: o.vc, fc: o.fc, elas: lm.isLmElas, fed: o.fed, sector: o.sector, vcAdj: o.vcAdj }).optP;
+    };
+    var p1 = at(o.elas * (1 - band)), p2 = at(o.elas * (1 + band));
+    var deviation = o.price > 0 ? Math.abs(base.optP - o.price) / o.price : 0;
+    return { low: Math.min(p1, p2, base.optP), base: base.optP, high: Math.max(p1, p2, base.optP), band: band,
+             deviation: deviation, warn: deviation > CONFIG.pricing.warnDeviation, warnThreshold: CONFIG.pricing.warnDeviation };
   }
 };
 // @@MODEL-END
@@ -3124,7 +3146,7 @@ function updateEQ() {
   if(kpis)kpis.innerHTML='<div class="kpi"><div class="kl">Current profit/yr</div><div class="kv" style="color:'+(curPr>=0?'#1a6b3a':'#8b1a1a')+'">'+(curPr>=0?'$':'-$')+Math.abs(Math.round(curPr/1000)).toLocaleString()+'K</div><div class="ks">At current price & output</div></div><div class="kpi"><div class="kl">IS-LM optimal (MR=MC)</div><div class="kv" style="color:#1a6b3a">$'+Math.round(optPr/1000).toLocaleString()+'K/yr</div><div class="ks">$'+Math.round(optP).toLocaleString()+'/unit × '+Math.round(optQ).toLocaleString()+'</div></div><div class="kpi"><div class="kl">Profit left on table</div><div class="kv" style="color:'+(gap>500?'#8b1a1a':gap>0?'#7a4f00':'#1a6b3a')+'">'+(gap>0?'+':'')+Math.round(gap/1000).toLocaleString()+'K/yr</div><div class="ks">'+(gap>100?'Mis-priced vs IS-LM optimal':'Near optimal')+'</div></div><div class="kpi"><div class="kl">Pricing power / max</div><div class="kv" style="color:'+(lerner>0.4?'#1a6b3a':lerner>0.2?'#7a4f00':'#8b1a1a')+'">'+lerner.toFixed(2)+' / '+lernerT.toFixed(2)+'</div><div class="ks">'+(lerner<lernerT*.7?'Underpricing vs. market power':'Using pricing power well')+'</div></div>';
 
   // Basic mode
-  var basicMap={'m5b-cur-profit':fk(curPr),'m5b-rec-price':'$'+Math.round(optP).toLocaleString(),'m5b-rec-vol':Math.round(optQ).toLocaleString(),'m5b-profit-gain':(gap>=0?'+':'-')+'$'+Math.abs(Math.round(gap/1000)).toLocaleString()+'K'};
+  var basicMap={'m5b-cur-profit':fk(curPr),'m5b-rec-price':'$'+Math.round(optP).toLocaleString(),'m5b-rec-price-sub':'Range $'+Math.round(PR.range.low).toLocaleString()+' – $'+Math.round(PR.range.high).toLocaleString()+' (elasticity ±'+Math.round(PR.range.band*100)+'%)'+(PR.range.warn?' · ⚠ far from current price':''),'m5b-rec-vol':Math.round(optQ).toLocaleString(),'m5b-profit-gain':(gap>=0?'+':'-')+'$'+Math.abs(Math.round(gap/1000)).toLocaleString()+'K'};
   Object.keys(basicMap).forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=basicMap[id];});
 
   // ─── RECOMMENDATION ─────────────────────────────────────
@@ -3140,7 +3162,9 @@ function updateEQ() {
     var html='<div style="border-radius:12px;padding:1.25rem;margin-bottom:1rem;border:1px solid rgba('+recBorder+',.2);background:'+recBg+'">';
     html+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;opacity:.8;margin-bottom:.35rem;color:'+recColor+'">'+s.emoji+' '+s.name+' — '+gEnv.toUpperCase()+' RATE ENV · IS-LM EQUILIBRIUM</div>';
     html+='<div style="font-size:22px;font-weight:700;color:'+recColor+';margin-bottom:.25rem">Optimal: $'+Math.round(optP).toLocaleString()+'/unit · '+Math.round(optQ).toLocaleString()+' units · $'+Math.round(optPr/1000).toLocaleString()+'K profit/yr</div>';
+    html+='<div id="eq-price-range" style="font-size:13px;font-weight:600;margin-bottom:.35rem">Recommended price range: $'+Math.round(PR.range.low).toLocaleString()+' (low) · $'+Math.round(PR.range.base).toLocaleString()+' (base) · $'+Math.round(PR.range.high).toLocaleString()+' (high) — elasticity ±'+Math.round(PR.range.band*100)+'%'+(PR.elasClamped?' · elasticity floored at '+CONFIG.pricing.minElasticity+' for stability':'')+'</div>';
     html+='<div style="font-size:13px;font-weight:600;margin-bottom:.75rem">'+pricingMsg+'</div>';
+    if(PR.range.warn) html+='<div id="eq-range-warning" style="font-size:12px;color:#7a4f00;background:#fff8e6;border:1px solid rgba(122,79,0,.25);border-radius:8px;padding:.625rem .875rem;margin-bottom:.625rem;line-height:1.6"><strong>⚠ Recommended price is '+Math.round(PR.range.deviation*100)+'% away from your current price.</strong> The linear demand curve is calibrated at your current price and elasticity and is only reliable near it (within ~'+Math.round(PR.range.warnThreshold*100)+'%). Treat this as a direction, not a target: move in steps and re-measure elasticity before going further.</div>';
     html+='<div style="font-size:12px;color:#3a3a3a;background:rgba(15,15,15,.04);border-radius:8px;padding:.625rem .875rem;margin-bottom:.625rem;line-height:1.6"><strong>IS-LM context:</strong> At r*='+fedRate.toFixed(2)+'%, IS-equilibrium output is '+Math.round(yEquil).toLocaleString()+' units — '+(outputGap>0?'<strong>above</strong> your current output (demand-pull environment — pricing power elevated)':'<strong>below</strong> your current output (rate-suppressed demand — pricing pressure elevated)')+'. Effective elasticity adjusted to '+isLmElas.toFixed(2)+' from stated '+elas+'.</div>';
     if(isDiscretionary)html+='<div style="font-size:12px;color:#3a3a3a;background:rgba(15,15,15,.04);border-radius:8px;padding:.625rem .875rem;margin-bottom:.625rem;line-height:1.6"><strong>'+sentIcon+' Sentiment:</strong> '+sentScore+'/100 — '+sentLabel+'. '+(sentScore<45?'Discretionary buyers are pulling back — protect volume over margin.':'Sentiment supports current pricing posture.')+'</div>';
     if(s.eqInsight)html+='<div style="font-size:12px;color:#3a3a3a;background:rgba(15,15,15,.04);border-radius:8px;padding:.625rem .875rem;margin-bottom:.625rem;line-height:1.6"><strong>'+s.emoji+' Sector insight:</strong> '+s.eqInsight+'</div>';
@@ -3240,7 +3264,7 @@ function localAdvisor(txt){
   if(q.includes('hire')||q.includes('hiring')||q.includes('staff')) return 'For <strong>'+s.name+'</strong>, the sector hire risk factor is <strong>'+Math.round(secHireRisk*100)+'%</strong> of the baseline — '+( secHireRisk>1?'above average capacity to hire':'below average — more caution required')+'. In this <strong>'+gEnv+'</strong> rate environment, safe hires are <strong>'+safeHire+'</strong>. '+({manufacturing:'Lock equipment financing before adding payroll.',technology:'Only hire roles AI cannot replace within 3 years.',retail:'Favour seasonal contracts over permanent adds.',restaurant:'Use AI scheduling to squeeze more capacity before hiring.',construction:'Never hire ahead of signed contract backlog.',healthcare:'Admin AI automation before any clinical headcount add.',logistics:'AI dispatch extends capacity before new drivers are needed.',realestate:'Each new manager should cover 35–50 units before you add another.',professional:'Only hire when existing team consistently exceeds 72% billable utilisation.',consumer:'AI demand forecasting unlocks warehouse capacity before headcount adds.'}[SEC]||'Protect cash runway first.');
   if(q.includes('debt')||q.includes('refinance')||q.includes('loan')) return 'For <strong>'+s.name+'</strong>, the primary rate-sensitive debt is <strong>'+debtPriority+'</strong>. At Fed rate <strong>'+fedRate.toFixed(2)+'%</strong>, your rate sensitivity index is <strong>'+Math.round(rsens*1000)/10+'% variable-cost increase per 1 pt Fed move</strong>. '+s.rateLinkage;
   if(q.includes('ai')) return 'For <strong>'+s.name+'</strong>, the AI automation rate is <strong>'+Math.round(Model._sec(CONFIG.ai.automatableShare, SEC)*100)+'% of labour costs</strong> — '+(Model._sec(CONFIG.ai.automatableShare, SEC)>0.18?'above average automation potential':'sector-typical automation potential')+'. Your estimated annual AI opportunity is <strong>'+aiSav+'</strong>. Priority: '+s.actions[0].t+'.';
-  if(q.includes('price')||q.includes('pricing')) return s.eqInsight+' Your current price is <strong>$'+Math.round(price).toLocaleString()+'</strong>. The MR=MC model recommends <strong>$'+Math.round(optP).toLocaleString()+'</strong> at <strong>'+Math.round(optQ).toLocaleString()+'</strong> units, implying <strong>$'+Math.round(gap/1000).toLocaleString()+'K</strong> additional profit. '+s.pricingStrategy;
+  if(q.includes('price')||q.includes('pricing')) return s.eqInsight+' Your current price is <strong>$'+Math.round(price).toLocaleString()+'</strong>. The MR=MC model recommends <strong>$'+Math.round(optP).toLocaleString()+'</strong> (range $'+Math.round(prA.range.low).toLocaleString()+'–$'+Math.round(prA.range.high).toLocaleString()+' over elasticity ±'+Math.round(prA.range.band*100)+'%) at <strong>'+Math.round(optQ).toLocaleString()+'</strong> units, implying <strong>$'+Math.round(gap/1000).toLocaleString()+'K</strong> additional profit. '+(prA.range.warn?'That is more than '+Math.round(prA.range.warnThreshold*100)+'% from your current price, where the linear demand curve is less reliable — move in steps. ':'')+s.pricingStrategy;
   if(q.includes('rate')||q.includes('fed')||q.includes('interest')) return 'The current environment is <strong>'+gEnv.toUpperCase()+'</strong> at <strong>'+fedRate.toFixed(2)+'%</strong>. '+s.rateImpact[gEnv]+' '+s.rateLinkage;
   return s.eqInsight+' For <strong>'+s.name+'</strong> in a <strong>'+gEnv+'</strong> environment, the top priority is: '+s.actions[0].t+'. Estimated pricing gap: <strong>$'+Math.round(gap/1000).toLocaleString()+'K/yr</strong>. Rate sensitivity: <strong>'+Math.round(rsens*1000)/10+'% variable-cost increase per 1 pt Fed move</strong>.';
 }
@@ -3654,7 +3678,7 @@ function updateCEO() {
   var gap = Math.round(prC.gap/1000);
   var pgc = gap>200 ? 'ceo-amber' : 'ceo-green';
   var pgl = gap>200 ? '+$'+gap+'K/yr left on table' : '✓ Near optimal';
-  var pgd = gap>200 ? 'Consider raising to $'+Math.round(optP).toLocaleString() : 'Pricing well calibrated';
+  var pgd = gap>200 ? 'Consider moving toward $'+Math.round(optP).toLocaleString()+' (range $'+Math.round(prC.range.low).toLocaleString()+'–$'+Math.round(prC.range.high).toLocaleString()+')'+(prC.range.warn?' — step gradually, far from current price':'') : 'Pricing well calibrated';
   // AI savings estimate — same Model call as the AI Advantage module
   var rev = safeVal('sl-rev-ai',20,0.1,999);
   var lab = safeVal('sl-labour',35,0,99);

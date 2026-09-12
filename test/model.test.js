@@ -250,6 +250,34 @@ test('fomcProbabilities: sums to 100, symmetric, and follows the predicted chang
   assert.ok(big.hike > 90);
 });
 
+test('pricing guardrail: elasticity below CONFIG.pricing.minElasticity is floored so b cannot explode', () => {
+  const tiny = Model.pricing({ price: 100, output: 1000, vc: 50, fc: 1000, elas: 0.05, vcAdj: 50 });
+  const floor = Model.pricing({ price: 100, output: 1000, vc: 50, fc: 1000, elas: CONFIG.pricing.minElasticity, vcAdj: 50 });
+  assert.equal(tiny.elasClamped, true);
+  assert.equal(floor.elasClamped, false);
+  near(tiny.b, floor.b);
+  near(tiny.optP, floor.optP);
+  assert.ok(isFinite(tiny.optP) && isFinite(tiny.optQ) && isFinite(tiny.gap));
+  assert.ok(tiny.b < 100 / (1000 * 0.05), 'b is smaller than the unguarded value');
+});
+
+test('priceRange: low ≤ base ≤ high over elasticity ±band, and the deviation warning fires when far from current price', () => {
+  const o = { price: 850, output: 8000, vc: 578, fc: 1700000, elas: 1.4, fed: 3.75, sector: 'manufacturing', env: 'transition' };
+  const r = Model.optimalPricing(o);
+  assert.ok(r.range.low <= r.range.base && r.range.base <= r.range.high);
+  assert.equal(r.range.band, CONFIG.pricing.rangeBand);
+  assert.equal(r.range.low, Math.min(r.range.low, r.range.high));
+  // lower elasticity ⇒ higher optimal price, so the high end of the band comes from elas × 0.8
+  const lowElas = Model.optimalPricing(Object.assign({}, o, { elas: 1.4 * 0.8 })).optP;
+  near(r.range.high, Math.max(lowElas, r.range.base));
+  // a price far below optimum triggers the warning; a price at optimum does not
+  const far = Model.optimalPricing(Object.assign({}, o, { price: r.optP * 0.5 }));
+  assert.equal(far.range.warn, true);
+  assert.ok(far.range.deviation > CONFIG.pricing.warnDeviation);
+  const nearOpt = Model.optimalPricing(Object.assign({}, o, { price: r.optP }));
+  assert.equal(nearOpt.range.warn, false);
+});
+
 test('optimalPricing composes isLm + pricing and is finite for every sector', () => {
   SECTORS.forEach((s) => {
     const r = Model.optimalPricing({ price: 850, output: 8000, vc: 578, fc: 1700000, elas: 1.4, fed: 3.75, sector: s, env: 'transition' });
