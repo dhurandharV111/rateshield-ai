@@ -138,6 +138,24 @@ test('AI savings: the module quotes the CONFIG per-sector automatable share and 
   assert.ok(m3.includes('% of costs') && m3.includes(share + '% automatable'));
 });
 
+test('rate sensitivity is labelled as variable-cost increase per 1 pt Fed move everywhere, with CONFIG values', () => {
+  const fs = require('fs');
+  const src = fs.readFileSync(require('./helpers/loadApp').HTML_PATH, 'utf8');
+  assert.ok(!/profit impact per 1% Fed/.test(src), 'old "profit impact" wording removed');
+  assert.ok(!/cost rise per 1% rate increase/.test(src), 'old "cost rise per 1%" wording removed');
+  assert.ok(!/% profit\/1% rate/.test(src), 'old "% profit/1% rate" wording removed');
+  const { window } = boot('realestate');
+  const C = window.CONFIG.rateSensitivity;
+  const m4 = txt(window, 'rs-note-m4');
+  assert.ok(m4.includes('variable-cost increase per 1 pt Fed move'));
+  assert.ok(m4.includes('Real Estate ' + (C.realestate * 100).toFixed(1) + '% (highest)'), m4);
+  assert.ok(m4.includes('Construction ' + (C.construction * 100).toFixed(1) + '%'));
+  assert.ok(txt(window, 'rs-note-m5').includes('Retail ' + (C.retail * 100).toFixed(1) + '%'));
+  assert.ok(txt(window, 'eq-banner-desc').includes((C.realestate * 100).toFixed(1) + '% variable-cost increase per 1 pt Fed move'));
+  assert.ok(txt(window, 'eq-lev-tbody').includes('VC increase / 1 pt Fed'));
+  assert.ok(txt(window, 'm5-analyst-tbody').includes('VC increase per 1 pt Fed move'));
+});
+
 test('negative margin renders without NaN and the simulator does not floor it to +2%', () => {
   const { window, errors } = boot('manufacturing');
   setVal(window, 'sl-margin', '-25');

@@ -699,7 +699,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
       <thead><tr><th>Loan type</th><th>Rate formula</th><th>At current Fed rate</th><th>At 2023 peak (5.25%)</th><th>Risk</th></tr></thead>
       <tbody id="m4-analyst-tbody"></tbody>
     </table>
-    <p class="analyst-note">Rate sensitivity by sector: Real estate carries 2.5% profit impact per 1% Fed move (highest). Construction 1.8%. Restaurant 1.5%. Retail 1.2%. Manufacturing 0.8%. Professional services 0.4%. Technology/SaaS 0.3% (lowest — minimal physical capital). Fixed-rate debt eliminates this exposure entirely; refinancing window depends on yield curve slope.</p>
+    <p class="analyst-note" id="rs-note-m4">Rate sensitivity by sector — variable-cost increase per 1 pt Fed move — loads from CONFIG on login.</p>
           <div class="analyst-chart-box">
             <div class="chart-title">Monthly interest cost by Fed rate</div>
             <canvas id="m4AnalystChart" height="190"></canvas>
@@ -733,7 +733,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
             <thead><tr><th>Variable</th><th>Current</th><th>Optimal / Adjusted</th><th>Impact</th></tr></thead>
             <tbody id="m5-analyst-tbody"></tbody>
           </table>
-          <p class="analyst-note">Rate sensitivity per sector: Real estate 2.5% · Construction 1.8% · Restaurant 1.5% · Retail 1.2% · Manufacturing 0.8% · Professional 0.4% · Technology 0.3%. Elasticity above 1.0 = price-sensitive customers; below 1.0 = captive/loyal buyers. MR=MC condition is the necessary condition for profit maximisation under imperfect competition.</p>
+          <p class="analyst-note" id="rs-note-m5">Rate sensitivity per sector (variable-cost increase per 1 pt Fed move) — loads from CONFIG on login.</p>
         </div>
       </div>
 
@@ -1252,7 +1252,7 @@ var SECTORS = {
     margin:5,labour:35,rawmat:42,fixed:18,
     debtEquity:1.3,currentRatio:1.6,dso:57,backlogRatio:1.8,
     rateImpact:{
-      high:'🔴 Construction is the most rate-sensitive sector at 2.5% profit impact per 1% Fed move. CFMA 2024: industry D/E steady at 1.3x but bonding capacity shrinks as rates rise. Equipment financing spreads have widened. Target government and infrastructure contracts — budget-protected revenue. CFMA best-in-class: D/E below 0.9x.',
+      high:'🔴 Construction is the most rate-sensitive sector at 2.5% variable-cost increase per 1 pt Fed move. CFMA 2024: industry D/E steady at 1.3x but bonding capacity shrinks as rates rise. Equipment financing spreads have widened. Target government and infrastructure contracts — budget-protected revenue. CFMA best-in-class: D/E below 0.9x.',
       transition:'🟡 CFMA 2024: net income before tax improved to 6.3% from 5.0% in 2022. Private construction slowly recovering. Lock project financing at fixed rates. Public pipeline is strong — $1.2T Infrastructure Act is active. DSO averaged 56.6 days in 2023 — tighten collections.',
       low:'🟢 Developers build aggressively. SBA 504 for equipment cheap. CFMA best-in-class gross margin: 21.8%. Expand capacity and hire now — but only into confirmed backlog. Specialty contractors at 15–25% gross margin have the best risk-adjusted returns.'
     },
@@ -1270,7 +1270,7 @@ var SECTORS = {
     elasticityCtx:'Commercial construction elasticity 0.6–0.9. Projects planned years ahead — clients are locked in. Residential more elastic 1.1–1.5. Government contracts have near-zero elasticity. Specialty work commands highest pricing power and lowest elasticity.',
     breakEvenNote:'Break-even is project-level. CFMA: current ratio should be above 1.5 for bonding. A single loss-making project can offset profits from 5 successful ones. Maintain backlog-to-revenue ratio of 1.5–2.0x. Contingency pricing of 8–12% above estimated cost is industry standard.',
     pricingStrategy:'Include explicit rate escalation clauses for projects over 12 months. Fixed-price bids without escalators are profit destroyers in rising rate environments. CFMA best-in-class companies run D/E below 0.9x and carry less fixed assets (12.9% of assets) vs average (23.7%) — lighter equipment ownership improves flexibility.',
-    rateLinkage:'Most rate-sensitive sector: CFMA data shows 2.5% profit impact per 1% Fed move. Both equipment debt AND client project financing move with the Fed simultaneously. Surety bonding capacity (which drives your ability to bid large contracts) directly depends on D/E staying below 1.0x.',
+    rateLinkage:'Most rate-sensitive sector: CFMA data shows 2.5% variable-cost increase per 1 pt Fed move. Both equipment debt AND client project financing move with the Fed simultaneously. Surety bonding capacity (which drives your ability to bid large contracts) directly depends on D/E staying below 1.0x.',
   healthcare:{name:'Healthcare',emoji:'🏥',color:'#1a4a2e',bg:'#e4f5ec',
     margin:10,labour:45,rawmat:15,fixed:35,
     debtEquity:1.2,currentRatio:1.8,dso:42,adminPct:34,
@@ -1644,7 +1644,7 @@ function updateAnalystPanels() {
       ['Fixed cost / yr',    '$' + (fc5/1000).toFixed(0) + 'K',  'Unchanged by volume',   'Spread over more units = lower unit cost at scale'],
       ['Elasticity',         el5.toFixed(1),   el5 > 1 ? 'Price-sensitive' : 'Captive/loyal', el5 > 1.5 ? '⚠ High sensitivity — small price rise loses volume fast' : el5 < 0.8 ? '✓ Low sensitivity — pricing power available' : 'Moderate sensitivity'],
       ['Current annual profit', '$' + Math.round(curPr5 / 1000) + 'K', '$' + Math.round(optPr5 / 1000) + 'K at optimal', gap5 > 0 ? '⚠ $' + gap5 + 'K/yr pricing leakage' : '✓ Near optimal'],
-      ['Rate sensitivity',   (rs5 * 100).toFixed(1) + '% per 1% Fed move', 'Fed at ' + fd5 + '%', 'VC shift from 2.5% neutral: $' + Math.round(vcAdj5 - vc5) + '/unit']
+      ['Rate sensitivity',   (rs5 * 100).toFixed(1) + '% VC increase per 1 pt Fed move', 'Fed at ' + fd5 + '%', 'VC shift from ' + CONFIG.neutralFedRate + '% neutral: $' + Math.round(vcAdj5 - vc5) + '/unit']
     ].map(function(r) {
       return '<tr><td><strong>' + r[0] + '</strong></td><td>' + r[1] + '</td><td>' + r[2] + '</td><td>' + r[3] + '</td></tr>';
     }).join('');
@@ -2542,6 +2542,7 @@ function loadSectorDefaults() {
 
   // M4 — Loan note
   setTxt('loan-note-text', s.loanNote);
+  renderRateSensNotes();
 
   // M5 — Equilibrium defaults
   setEl('sl-eq-price',  s.eqDefPrice);
@@ -2552,7 +2553,7 @@ function loadSectorDefaults() {
 
   // M5 — Banner
   setTxt('eq-banner-title', s.emoji + ' ' + s.name + ' — sector economics loaded');
-  setTxt('eq-banner-desc', 'Market structure: ' + getMarketStructure(SEC) + ' · Rate sensitivity: ' + Math.round(getRateSens(SEC)*1000)/10 + '% cost rise per 1% rate increase');
+  setTxt('eq-banner-desc', 'Market structure: ' + getMarketStructure(SEC) + ' · Rate sensitivity: ' + rateSensPct(SEC).toFixed(1) + '% variable-cost increase per 1 pt Fed move');
   var eb = document.getElementById('eq-banner');
   if (eb) { eb.style.background = s.bg; eb.style.borderColor = 'rgba(0,0,0,.1)'; eb.style.color = s.color; }
 
@@ -2584,6 +2585,26 @@ function getMarketStructure(sec) {
 // Variable-cost increase per 1 pt Fed move (decimal). Single source: CONFIG.rateSensitivity.
 function getRateSens(sec) {
   return Model.rateSensitivity(sec);
+}
+// Sector list, highest first, rendered from CONFIG so labels can never drift from the math.
+function rateSensSorted() {
+  return Object.keys(CONFIG.rateSensitivity).filter(function(k){ return k !== 'default' && SECTORS[k]; })
+    .sort(function(a, b){ return CONFIG.rateSensitivity[b] - CONFIG.rateSensitivity[a]; });
+}
+function rateSensPct(sec) { return Math.round(CONFIG.rateSensitivity[sec] * 1000) / 10; }
+function rateSensBenchmarkText() {
+  return 'RE:' + rateSensPct('realestate').toFixed(1) + '% Const:' + rateSensPct('construction').toFixed(1) + '% SaaS:' + rateSensPct('technology').toFixed(1) + '%';
+}
+function renderRateSensNotes() {
+  var order = rateSensSorted();
+  var list = order.map(function(k, i) {
+    var name = SECTORS[k].name.replace(' / Food Service', '').replace('Logistics / Transport', 'Logistics');
+    return name + ' ' + rateSensPct(k).toFixed(1) + '%' + (i === 0 ? ' (highest)' : i === order.length - 1 ? ' (lowest)' : '');
+  });
+  var m4 = document.getElementById('rs-note-m4');
+  if (m4) m4.textContent = 'Rate sensitivity by sector — variable-cost increase per 1 pt Fed move (CONFIG.rateSensitivity, 2024 sector benchmarks): ' + list.join(' · ') + '. Applied as VC × (1 + (Fed − ' + CONFIG.neutralFedRate + '%) × sensitivity). Fixed-rate debt eliminates this exposure entirely; refinancing window depends on yield curve slope.';
+  var m5 = document.getElementById('rs-note-m5');
+  if (m5) m5.textContent = 'Rate sensitivity per sector (variable-cost increase per 1 pt Fed move): ' + list.join(' · ') + '. Elasticity above 1.0 = price-sensitive customers; below 1.0 = captive/loyal buyers. MR=MC condition is the necessary condition for profit maximisation under imperfect competition.';
 }
 
 // ═══════════════════════════════════════════════
@@ -3065,7 +3086,7 @@ function updateEQ() {
     ['IS slope (investment sensitivity)',((isSlope+isDisc)*100).toFixed(1)+'% per 1% rate','Sector-specific','How much sector demand falls per 1% rate rise. Real estate 8.0%, professional services 1.7%.'],
     ['IS-LM output gap',(outputGap>0?'+':'')+Math.round(outputGap)+'%','±5% = neutral zone',outputGap>5?'Demand above current output — opportunity to raise prices or expand.':outputGap<-5?'Demand below output — pricing pressure; protect volume.':'Near equilibrium.'],
     isDiscretionary?['Market sentiment (discretionary)',sentScore+'/100 — '+sentIcon,'50=neutral; 70+=strong',sentScore>=60?'Supports pricing; buyers less sensitive.':sentScore<40?'Depressed — discount risk high. Monitor basket size closely.':'Neutral. Standard elasticity applies.']:null,
-    ['Rate sensitivity',Math.round(rsens*1000)/10+'% profit/1% rate','RE:3.0% Const:2.5% SaaS:0.3%',rsens>.015?'HIGH — lock floating debt immediately.':rsens>.008?'MODERATE — lock soon.':'LOW — minimal direct impact.'],
+    ['Rate sensitivity',Math.round(rsens*1000)/10+'% VC increase / 1 pt Fed',rateSensBenchmarkText(),rsens>.015?'HIGH — lock floating debt immediately.':rsens>.008?'MODERATE — lock soon.':'LOW — minimal direct impact.'],
     ['IS-LM vs current price','$'+Math.round(optP).toLocaleString()+' vs $'+Math.round(price).toLocaleString(),'IS-LM MR=MC condition',Math.abs(price-optP)/Math.max(1,optP)>.05?'Gap of $'+Math.abs(Math.round(optP-price)).toLocaleString()+' — '+(price<optP?'underpriced, $'+Math.round(gap/1000)+'K/yr left on table.':'overpriced, losing volume.'):'Very close to IS-LM optimal.']
   ].filter(function(r){return r!==null;});
   var ltb=document.getElementById('eq-lev-tbody');
@@ -3110,11 +3131,11 @@ function localAdvisor(txt){
     consumer:'inventory line and SOFR — both hit on rate moves'
   }[SEC]||'floating-rate debt';
   if(q.includes('hire')||q.includes('hiring')||q.includes('staff')) return 'For <strong>'+s.name+'</strong>, the sector hire risk factor is <strong>'+Math.round(secHireRisk*100)+'%</strong> of the baseline — '+( secHireRisk>1?'above average capacity to hire':'below average — more caution required')+'. In this <strong>'+gEnv+'</strong> rate environment, safe hires are <strong>'+safeHire+'</strong>. '+({manufacturing:'Lock equipment financing before adding payroll.',technology:'Only hire roles AI cannot replace within 3 years.',retail:'Favour seasonal contracts over permanent adds.',restaurant:'Use AI scheduling to squeeze more capacity before hiring.',construction:'Never hire ahead of signed contract backlog.',healthcare:'Admin AI automation before any clinical headcount add.',logistics:'AI dispatch extends capacity before new drivers are needed.',realestate:'Each new manager should cover 35–50 units before you add another.',professional:'Only hire when existing team consistently exceeds 72% billable utilisation.',consumer:'AI demand forecasting unlocks warehouse capacity before headcount adds.'}[SEC]||'Protect cash runway first.');
-  if(q.includes('debt')||q.includes('refinance')||q.includes('loan')) return 'For <strong>'+s.name+'</strong>, the primary rate-sensitive debt is <strong>'+debtPriority+'</strong>. At Fed rate <strong>'+fedRate.toFixed(2)+'%</strong>, your rate sensitivity index is <strong>'+Math.round(rsens*1000)/10+'% cost rise per 1% rate increase</strong>. '+s.rateLinkage;
+  if(q.includes('debt')||q.includes('refinance')||q.includes('loan')) return 'For <strong>'+s.name+'</strong>, the primary rate-sensitive debt is <strong>'+debtPriority+'</strong>. At Fed rate <strong>'+fedRate.toFixed(2)+'%</strong>, your rate sensitivity index is <strong>'+Math.round(rsens*1000)/10+'% variable-cost increase per 1 pt Fed move</strong>. '+s.rateLinkage;
   if(q.includes('ai')) return 'For <strong>'+s.name+'</strong>, the AI automation rate is <strong>'+Math.round(Model._sec(CONFIG.ai.automatableShare, SEC)*100)+'% of labour costs</strong> — '+(Model._sec(CONFIG.ai.automatableShare, SEC)>0.18?'above average automation potential':'sector-typical automation potential')+'. Your estimated annual AI opportunity is <strong>'+aiSav+'</strong>. Priority: '+s.actions[0].t+'.';
   if(q.includes('price')||q.includes('pricing')) return s.eqInsight+' Your current price is <strong>$'+Math.round(price).toLocaleString()+'</strong>. The MR=MC model recommends <strong>$'+Math.round(optP).toLocaleString()+'</strong> at <strong>'+Math.round(optQ).toLocaleString()+'</strong> units, implying <strong>$'+Math.round(gap/1000).toLocaleString()+'K</strong> additional profit. '+s.pricingStrategy;
   if(q.includes('rate')||q.includes('fed')||q.includes('interest')) return 'The current environment is <strong>'+gEnv.toUpperCase()+'</strong> at <strong>'+fedRate.toFixed(2)+'%</strong>. '+s.rateImpact[gEnv]+' '+s.rateLinkage;
-  return s.eqInsight+' For <strong>'+s.name+'</strong> in a <strong>'+gEnv+'</strong> environment, the top priority is: '+s.actions[0].t+'. Estimated pricing gap: <strong>$'+Math.round(gap/1000).toLocaleString()+'K/yr</strong>. Rate sensitivity: <strong>'+Math.round(rsens*1000)/10+'% per 1% Fed move</strong>.';
+  return s.eqInsight+' For <strong>'+s.name+'</strong> in a <strong>'+gEnv+'</strong> environment, the top priority is: '+s.actions[0].t+'. Estimated pricing gap: <strong>$'+Math.round(gap/1000).toLocaleString()+'K/yr</strong>. Rate sensitivity: <strong>'+Math.round(rsens*1000)/10+'% variable-cost increase per 1 pt Fed move</strong>.';
 }
 
 function qask(q){document.getElementById('chat-inp').value=q;sendChat();}
