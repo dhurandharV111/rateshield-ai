@@ -520,7 +520,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
         </div>
         <div class="card">
           <div class="card-head"><div class="card-title">Rate path</div></div>
-          <div class="dr"><span class="dl">Current rate</span><span class="dv" id="cur-r">3.75%</span></div>
+          <div class="dr"><span class="dl">Current rate</span><span class="dv" id="cur-r">—</span></div>
           <div class="dr"><span class="dl">In 6 months</span><span class="dv" id="r6">3.50%</span></div>
           <div class="dr"><span class="dl">In 12 months</span><span class="dv" id="r12">3.25%</span></div>
           <div class="dr"><span class="dl">In 18 months</span><span class="dv" id="r18">3.00%</span></div>
@@ -561,7 +561,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
       <div class="dr"><span class="dl">Low rate 2003 — post dot-com crash</span><span class="tag tg">1.0%</span></div>
       <div class="dr"><span class="dl">Zero rate era 2008–2015 — financial crisis</span><span class="tag tg">0.25%</span></div>
       <div class="dr"><span class="dl">Post-COVID peak 2023 — fastest hike in 40 years</span><span class="tag tr">5.25%</span></div>
-      <div class="dr"><span class="dl">Current rate — April 2026</span><span class="tag ta">3.75%</span></div>
+      <div class="dr"><span class="dl" id="fed-asof-label">Current rate</span><span class="tag ta" id="fed-current-tag">—</span></div>
       <div class="dr"><span class="dl">Yield curve recession accuracy (DataSetIQ)</span><span class="tag tg">87.5% — 7 of 8</span></div>
       <div class="dr"><span class="dl">Closest historical analog to today</span><span class="tag tb">1995 — 74% match</span></div>
     </div>
@@ -653,12 +653,13 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
       <div class="card-head"><div class="card-title">Federal funds rate — drag to see live impact</div></div>
       <div class="card-body" style="padding:0">
         <table style="width:100%;border-collapse:collapse"><tbody>
-        <tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Federal funds rate</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="fed-slider" type="number" step="0.25" min="0" value="3.75" oninput="updateL();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b">% · April 2026 = 3.75%</td></tr>
-        <tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Change to model scenarios · COVID low=0.25% · 2023 peak=5.25%</td></tr>
+        <tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Federal funds rate</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="fed-slider" type="number" step="0.25" min="0" value="" oninput="updateL();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b" id="fed-unit-note">%</td></tr>
+        <tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3" id="fed-hint-note">Change to model scenarios</td></tr>
         <tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Fixed-rate share of your debt</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-debt-fixed-pct" type="number" step="5" min="0" max="100" value="0" oninput="updateL();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b">% of total debt</td></tr>
         <tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Debt already locked at a fixed rate — unaffected by the slider above</td></tr>
         <tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Average rate on fixed-rate loans</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="sl-debt-fixed-rate" type="number" step="0.1" min="0" max="30" value="5.5" oninput="updateL();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b">% APR</td></tr>
         <tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Only applies to the fixed-rate share above · e.g. SBA 504, term mortgages</td></tr>
+        <tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3" id="fed-source-note"></td></tr>
         </tbody></table>
       </div>
     </div>
@@ -936,6 +937,14 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
 // on its own in Node, without a browser.
 // ═══════════════════════════════════════════════
 var CONFIG = {
+  // Market data snapshot used until /api/fred (FRED) pre-fills the inputs on load.
+  // Every "current rate" label in the UI renders from these two fields.
+  currentFedRate: 3.75,
+  fedRateAsOf: 'April 2026',
+  macroDefaults: { cpi: 3.2, un: 4.2, tr: 4.3, gdp: 2.1, pce: 2.8 },
+  fedPeak2023: 5.25,
+  fedCovidLow: 0.25,
+
   // Fed funds rate at which variable cost is considered "neutral" (no rate premium).
   neutralFedRate: 2.5,
 
@@ -1263,7 +1272,7 @@ var SECTORS = {
       {t:'AI bid optimisation — win 15–25% more contracts at same margin',d:'Revenue per FTE in construction rose to $450K in 2023 (CFMA). AI bid analysis improves win rates without cutting margin — crucial when bonding capacity depends on maintaining D/E below 1.0x.',src:'CFMA 2024 Construction Financial Benchmarker — productivity metrics'},
       {t:'AI project management — cut overruns 40–50%',d:'CFMA 2024: best-in-class net margin 11.9% vs sector average 6.3%. The gap is largely overrun management. Construction overruns average 20% of project value. AI reduces overruns 40–50% — worth $200K+ on a $1M project.',src:'CFMA 2024 + McKinsey construction overrun analysis'},
       {t:'Tighten DSO — collections target under 35 days',d:'Industry DSO averaged 56.6 days in 2023. Every 10-day DSO improvement on $5M revenue = $137K freed cash. This directly improves your current ratio (target 1.6+) and bonding eligibility.',src:'CFMA 2024 Benchmarker — collections and DSO trends'},
-      {t:'Lock equipment financing to fixed — protect bonding capacity',d:'CFMA best-in-class D/E is 0.9x vs 1.3x sector average. Surety companies penalise D/E above 1.0x. At 3.75% Fed rate, locking fixed on $4M equipment debt prevents bonding risk from rate resets.',src:'CFMA 2024 + surety bonding D/E requirements'}
+      {t:'Lock equipment financing to fixed — protect bonding capacity',d:'CFMA best-in-class D/E is 0.9x vs 1.3x sector average. Surety companies penalise D/E above 1.0x. At {fed}% Fed rate, locking fixed on $4M equipment debt prevents bonding risk from rate resets.',src:'CFMA 2024 + surety bonding D/E requirements'}
     ]},
     eqInsight:'Construction pricing must embed rate risk because projects span 12–36 months. CFMA 2024: best-in-class gross margin 21.8%, net margin 11.9% — vs sector average gross margin 14.8%. The gap is project management and collections discipline, not pricing. Specialty contractors (15–25% gross) outperform general contractors (12–16% gross).',
     cmBench:'15–22% (GC) / 18–28% (specialty)',
@@ -1309,7 +1318,7 @@ var SECTORS = {
       {t:'AI route optimisation — cut fuel costs 10–15%',d:'UPS ORION saves $10M annually at enterprise scale. For a $20M logistics business with fuel at 28% of costs, 12% saving = $672K/yr. With net margins at 3–6%, this single AI application can double profit.',src:'UPS ORION case study + eCapital 2024 logistics benchmarks'},
       {t:'AI dispatch — reduce empty miles from 20% to under 12%',d:'Empty miles average 20% of all truck miles (industry benchmark). AI load-matching cuts empty backhauls by 40–50%. At $1.20/mile diesel cost, reducing empty miles 8% on 500K annual miles = $48K fuel saving.',src:'Transport technology benchmarks — AI dispatch empty mile reduction'},
       {t:'Predictive maintenance — reduce breakdown costs 25–30%',d:'Emergency repairs cost 3x planned maintenance. A truck off-road loses $2–3K/day in revenue + repair costs. Predictive AI on a 20-truck fleet preventing 4 breakdowns/yr = $80–120K saved.',src:'Fleet management benchmarks 2024 — predictive maintenance ROI 3:1'},
-      {t:'Lock fleet financing to fixed — rate window open',d:'Logistics D/E at 1.7x with 3–6% net margins means rate resets are dangerous. At 3.75% Fed rate, locking $2.5M fleet debt to fixed prevents $25K/yr exposure per 1% potential rate rise.',src:'MonitorDaily 2024 D/E trends + Fed rate cycle data'}
+      {t:'Lock fleet financing to fixed — rate window open',d:'Logistics D/E at 1.7x with 3–6% net margins means rate resets are dangerous. At {fed}% Fed rate, locking $2.5M fleet debt to fixed prevents $25K/yr exposure per 1% potential rate rise.',src:'MonitorDaily 2024 D/E trends + Fed rate cycle data'}
     ]},
     eqInsight:'Logistics pricing moves with fuel, lane capacity, and load factor. Transport net margins 3–6% (industry benchmark) — same route can have 40% price variation across a year. Static pricing leaves 10–20% revenue uncaptured during peak demand. D/E at 1.7x means debt service is a meaningful % of thin margins.',
     cmBench:'22–35%',
@@ -1420,7 +1429,7 @@ function updateHealth() {
   var debt  = safeVal('sl-debt', 3.5, 0, 9999);
   var rev   = safeVal('sl-rev-ai', 20, 0.1, 999);
   var lab   = safeVal('sl-labour', 35, 0, 99);
-  var fed   = safeVal('fed-slider', 3.75, 0, 15);
+  var fed   = safeVal('fed-slider',CONFIG.currentFedRate,0,15);
   var price = safeVal('sl-eq-price', 850, 0.01, 999999);
   var output= safeVal('sl-eq-output', 8000, 1, 9999999);
   var vc    = safeVal('sl-eq-vc', 578, 0, 999999);
@@ -1510,11 +1519,11 @@ function safeVal(id, def, min, max) {
 function updateAnalystPanels() {
   // M1 — macro signal interpretation
   var signals = [
-    ['CPI Inflation', safeVal('f-cpi',3.2,0,20), '2.0%', '', '17.5%'],
-    ['Core PCE', safeVal('f-pce',2.8,0,10), '2.0%', '', '17.5%'],
-    ['Unemployment', safeVal('f-un',4.2,0,15), '4.0%', '', '25%'],
-    ['GDP Growth', safeVal('f-gdp',2.1,-10,10), '2.5%', '', '20%'],
-    ['10Y Treasury', safeVal('f-tr',4.3,0,10), '3.5%', '', '20%']
+    ['CPI Inflation', safeVal('f-cpi',CONFIG.macroDefaults.cpi,0,20), '2.0%', '', '17.5%'],
+    ['Core PCE', safeVal('f-pce',CONFIG.macroDefaults.pce,0,10), '2.0%', '', '17.5%'],
+    ['Unemployment', safeVal('f-un',CONFIG.macroDefaults.un,0,15), '4.0%', '', '25%'],
+    ['GDP Growth', safeVal('f-gdp',CONFIG.macroDefaults.gdp,-10,10), '2.5%', '', '20%'],
+    ['10Y Treasury', safeVal('f-tr',CONFIG.macroDefaults.tr,0,10), '3.5%', '', '20%']
   ];
   var neutral = [2.0, 2.0, 4.0, 2.5, 3.5];
   var m1tb = document.getElementById('m1-analyst-tbody');
@@ -1584,7 +1593,7 @@ function updateAnalystPanels() {
   }
 
   // M4 — loan mechanics
-  var fed = safeVal('fed-slider',3.75,0,15);
+  var fed = safeVal('fed-slider',CONFIG.currentFedRate,0,15);
   var prime = fed+3, sba = prime+2.75, sofr = fed+3.15, equip = prime+0.5;
   var peak = 5.25;
   var primePeak = peak+3, sbaPeak = primePeak+2.75, sofrPeak = peak+3.15, equipPeak = primePeak+0.5;
@@ -1610,7 +1619,7 @@ function updateAnalystPanels() {
   var v2 = safeVal('sl-eq-vc',578,0,999999);
   var f2 = safeVal('sl-eq-fc',1700000,0,999999999);
   var e2 = safeVal('sl-eq-elas',1.4,0.1,5);
-  var f3 = safeVal('fed-slider',3.75,0,15);
+  var f3 = safeVal('fed-slider',CONFIG.currentFedRate,0,15);
   var pr2 = Model.optimalPricing({ price: p2, output: o2, vc: v2, fc: f2, elas: e2, fed: f3, sector: SEC, env: gEnv });
   var gap2=Math.round(pr2.gap/1000), oP2=pr2.optP;
   setM6('m6-an-price', gap2>0 ? '+$'+gap2+'K/yr leaving on table (current $'+Math.round(p2)+' → optimal $'+Math.round(oP2)+')' : '✓ Near optimal');
@@ -1619,7 +1628,7 @@ function updateAnalystPanels() {
   var cash2=safeVal('sl-cash',1.2,0,9999), hd2=Math.round(safeVal('sl-head',280,1,9999)), sal2=Math.round(safeVal('sl-sal',48,1,999));
   var liq6 = Model.liquidity({ cashM: cash2, revenueM: aRev2, marginPct: mg6, headcount: hd2, salaryK: sal2 });
   setM6('m6-an-hire', (liq6.cashFlowPositive ? 'Cash-flow positive' : Model.formatMonths(liq6.runwayMonths)+' months cash runway')+' · payroll coverage '+Model.formatMonths(liq6.payrollCoverageMonths)+' months');
-  var fed2=safeVal('fed-slider',3.75,0,15);
+  var fed2=safeVal('fed-slider',CONFIG.currentFedRate,0,15);
   var dm2 = getDebtMix();
   var totInt = Math.round((dm2.credit*(fed2+3)/100)+(dm2.sba*(fed2+5.75)/100)+(dm2.sofr*(fed2+3.15)/100)+(dm2.equip*(fed2+3.5)/100)+(dm2.fixedAmt*dm2.fixedRate/100));
   setM6('m6-an-debt', '$'+Math.round(totInt/1000)+'K/yr interest at current rate');
@@ -1630,7 +1639,7 @@ function updateAnalystPanels() {
   var vc5 = safeVal('sl-eq-vc',     578,    0,    999999);
   var fc5 = safeVal('sl-eq-fc',     1700000,0,    999999999);
   var el5 = safeVal('sl-eq-elas',   1.4,    0.1,  5);
-  var fd5 = safeVal('fed-slider',   3.75,   0,    15);
+  var fd5 = safeVal('fed-slider',CONFIG.currentFedRate,0,15);
   var rs5 = Model.rateSensitivity(SEC);
   var pr5 = Model.optimalPricing({ price: p5, output: q5, vc: vc5, fc: fc5, elas: el5, fed: fd5, sector: SEC, env: gEnv });
   var vcAdj5 = pr5.vcAdj, optQ5 = pr5.optQ, optP5 = pr5.optP, curPr5 = pr5.curProfit, optPr5 = pr5.optProfit;
@@ -1676,8 +1685,8 @@ function updateAnalystCharts() {
     var signals = ['CPI','Core PCE','Unemployment','GDP','10Y Treasury'];
     var neutral  = [2.0, 2.0, 4.0, 2.5, 3.5];
     var weights  = [0.175, 0.175, 0.25, 0.20, 0.20];
-    var vals     = [safeVal('f-cpi',3.2,0,20), safeVal('f-pce',2.8,0,10),
-                    safeVal('f-un',4.2,0,15), safeVal('f-gdp',2.1,-10,10), safeVal('f-tr',4.3,0,10)];
+    var vals     = [safeVal('f-cpi',CONFIG.macroDefaults.cpi,0,20), safeVal('f-pce',CONFIG.macroDefaults.pce,0,10),
+                    safeVal('f-un',CONFIG.macroDefaults.un,0,15), safeVal('f-gdp',CONFIG.macroDefaults.gdp,-10,10), safeVal('f-tr',CONFIG.macroDefaults.tr,0,10)];
     // For unemployment: deviation in opposite direction
     var contribs = vals.map(function(v,i){
       var dev = i===2 ? neutral[i]-v : v-neutral[i]; // unemployment: below neutral = hawkish
@@ -1772,7 +1781,7 @@ function updateAnalystCharts() {
       var p=r+3, s=p+2.75, sf=r+3.15, e=p+0.5;
       return Math.round((dm4c.credit*p/100/12) + (dm4c.sba*s/100/12) + (dm4c.sofr*sf/100/12) + (dm4c.equip*e/100/12) + (dm4c.fixedAmt*dm4c.fixedRate/100/12));
     });
-    var curFed = safeVal('fed-slider',3.75,0,15);
+    var curFed = safeVal('fed-slider',CONFIG.currentFedRate,0,15);
     var curIdx = rates.reduce(function(best,r,i){ return Math.abs(r-curFed)<Math.abs(rates[best]-curFed)?i:best; },0);
     var ptColors = rates.map(function(r,i){ return i===curIdx?'#8b1a1a':'#1a3a6b'; });
     var ptSizes  = rates.map(function(r,i){ return i===curIdx?7:3; });
@@ -1805,7 +1814,7 @@ function updateAnalystCharts() {
     var vc5 = safeVal('sl-eq-vc',578,0,999999);
     var fc5 = safeVal('sl-eq-fc',1700000,0,999999999);
     var el5 = safeVal('sl-eq-elas',1.4,0.1,5);
-    var fd5 = safeVal('fed-slider',3.75,0,15);
+    var fd5 = safeVal('fed-slider',CONFIG.currentFedRate,0,15);
     var prC5 = Model.optimalPricing({ price: p5, output: q5, vc: vc5, fc: fc5, elas: el5, fed: fd5, sector: SEC, env: gEnv });
     var vcA5 = prC5.vcAdj, b5 = prC5.b, a5 = prC5.a;
     var pMin=Math.round(p5*0.5), pMax=Math.round(p5*1.8);
@@ -1845,7 +1854,7 @@ function updateAnalystCharts() {
   // ── M6: advisor context radar / horizontal bar
   var m6c = document.getElementById('m6AnalystChart');
   if (m6c) {
-    var fed6 = safeVal('fed-slider',3.75,0,15);
+    var fed6 = safeVal('fed-slider',CONFIG.currentFedRate,0,15);
     var rateRisk = Math.min(100, Math.round((fed6/7)*100));
     var cash6 = safeVal('sl-cash',1.2,0,9999);
     var hd6   = Math.round(safeVal('sl-head',280,1,9999));
@@ -1863,7 +1872,7 @@ function updateAnalystCharts() {
     var aiOpp = Math.min(100,Math.round(Model.aiSavings({ revenueM: rev6, marginPct: mg6c, labourPctOfCosts: lb6, sector: SEC }).savingsM/rev6*1000));
     var p6=safeVal('sl-eq-price',850,0.01,999999),q6=safeVal('sl-eq-output',8000,1,9999999);
     var vc6=safeVal('sl-eq-vc',578,0,999999),fc6=safeVal('sl-eq-fc',1700000,0,999999999),el6=safeVal('sl-eq-elas',1.4,0.1,5);
-    var fd6=safeVal('fed-slider',3.75,0,15);
+    var fd6=safeVal('fed-slider',CONFIG.currentFedRate,0,15);
     var gap6=Model.optimalPricing({ price: p6, output: q6, vc: vc6, fc: fc6, elas: el6, fed: fd6, sector: SEC, env: gEnv }).gap;
     var priceGap=Math.min(100,Math.max(0,Math.round(gap6/10000)));
     var barData=[rateRisk,hireRisk,debtExp,aiOpp,priceGap];
@@ -2210,6 +2219,8 @@ function launchApp(co, sec, isTrial) {
       } catch (e) {
         console.warn('applySector failed; continuing to simulator init.', e);
       }
+      // Pre-fill the Financing Strategy inputs from live FRED data; CONFIG snapshot stays if it fails.
+      try { loadFredData(); } catch (e) { console.warn('FRED prefill skipped.', e); }
 
       setTimeout(function() {
         try {
@@ -2574,7 +2585,7 @@ function loadSectorDefaults() {
 
   // M1 — Fed rate input (keep current or set sector neutral)
   var fedEl = document.getElementById('fed-slider');
-  if (fedEl && !fedEl._userSet) fedEl.value = 3.75;
+  if (fedEl && !fedEl._userSet) fedEl.value = CONFIG.currentFedRate;
 }
 
 function getMarketStructure(sec) {
@@ -2611,11 +2622,11 @@ function renderRateSensNotes() {
 // MODULE 1: FORECAST
 // ═══════════════════════════════════════════════
 function updateF() {
-  var cpi=safeVal('f-cpi',3.2,0,20);
-  var unem=safeVal('f-un',4.2,0,15);
-  var treas=safeVal('f-tr',4.3,0,10);
-  var gdp=safeVal('f-gdp',2.1,-10,10);
-  var pce=safeVal('f-pce',2.8,0,10);
+  var cpi=safeVal('f-cpi',CONFIG.macroDefaults.cpi,0,20);
+  var unem=safeVal('f-un',CONFIG.macroDefaults.un,0,15);
+  var treas=safeVal('f-tr',CONFIG.macroDefaults.tr,0,10);
+  var gdp=safeVal('f-gdp',CONFIG.macroDefaults.gdp,-10,10);
+  var pce=safeVal('f-pce',CONFIG.macroDefaults.pce,0,10);
   var sc=0;
   if(cpi>5)sc+=3;else if(cpi>3)sc+=1.5;else if(cpi<2)sc-=2;
   if(unem>6)sc-=2;else if(unem<3.5)sc+=2;
@@ -2774,9 +2785,10 @@ function updateAI() {
     '</div></div>';
   var s=SECTORS[SEC];
   var html='';
+  var fedNow=safeVal('fed-slider',CONFIG.currentFedRate,0,15).toFixed(2);
   s.actions.forEach(function(ac,i){
-    var t=ac.t.replace('{pct}',pdPct.toFixed(1)).replace('{vol}',volGainPct.toFixed(1));
-    var d=ac.d.replace('{pct}',pdPct.toFixed(1)).replace('{vol}',volGainPct.toFixed(1));
+    var t=ac.t.replace('{pct}',pdPct.toFixed(1)).replace('{vol}',volGainPct.toFixed(1)).replace('{fed}',fedNow);
+    var d=ac.d.replace('{pct}',pdPct.toFixed(1)).replace('{vol}',volGainPct.toFixed(1)).replace('{fed}',fedNow);
     var sv=i===0?'$'+Math.round(aiSave*CONFIG.ai.pricePassThrough*10)/10+'M':i===1?'$150K+':i===2?'Free $'+Math.round(rev*0.05*10)/10+'M':'+'+volGainPct.toFixed(1)+'% vol';
     html+='<div class="ai-row"><div class="ai-num" style="background:'+(i<3?'#e8f5ee':'#eef3fc')+';color:'+(i<3?'#1a6b3a':'#1a3a6b')+'">'+(i+1)+'</div><div style="flex:1"><div class="ai-title">'+t+'</div><div class="ai-desc">'+d+'</div><div class="ai-src">Source: '+ac.src+'</div></div><div class="ai-save '+(i<3?'tg':'tb')+'">'+sv+'</div></div>';
   });
@@ -2846,7 +2858,7 @@ function buildDebtLabel(dm) {
 }
 
 function updateL() {
-  var fed=safeVal('fed-slider',3.75,0,15);
+  var fed=safeVal('fed-slider',CONFIG.currentFedRate,0,15);
   var prime=fed+3,sba=prime+2.75,sofr=fed+3.15,cre=fed+3.70,equip=prime+0.50;
   document.getElementById('lr-prime').textContent=prime.toFixed(2)+'%';
   document.getElementById('lr-sba').textContent=sba.toFixed(2)+'%';
@@ -2906,7 +2918,7 @@ function updateEQ() {
   var vc=safeVal('sl-eq-vc',578,0,999999);
   var fc=safeVal('sl-eq-fc',1700000,0,999999999);
   var elas=safeVal('sl-eq-elas',1.4,0.1,5);
-  var fedRate=safeVal('fed-slider',3.75,0,15);
+  var fedRate=safeVal('fed-slider',CONFIG.currentFedRate,0,15);
   var s=SECTORS[SEC];if(!s)return;
   var rsens=Model.rateSensitivity(SEC);
   var bench={manufacturing:{dol:[2.5,4],lerner:[.15,.35],margin:[7,12]},technology:{dol:[5,12],lerner:[.55,.85],margin:[70,82]},retail:{dol:[2,3.5],lerner:[.05,.20],margin:[30,42]},restaurant:{dol:[3,6],lerner:[.20,.45],margin:[60,72]},construction:{dol:[1.8,3],lerner:[.25,.55],margin:[15,22]},healthcare:{dol:[3.5,6],lerner:[.05,.15],margin:[30,50]},logistics:{dol:[2,4],lerner:[.15,.35],margin:[18,28]},realestate:{dol:[4,9],lerner:[.40,.70],margin:[55,75]},professional:{dol:[2.5,5],lerner:[.45,.75],margin:[50,70]},consumer:{dol:[2.5,4.5],lerner:[.10,.30],margin:[38,48]}}[SEC]||{dol:[2,4],lerner:[.15,.35],margin:[10,20]};
@@ -3110,7 +3122,7 @@ function updateEQ() {
 function localAdvisor(txt){
   var s=SECTORS[SEC]||SECTORS['manufacturing'];
   var price=safeVal('sl-eq-price',850,0.01,999999), output=safeVal('sl-eq-output',8000,1,9999999), vc=safeVal('sl-eq-vc',578,0,999999), fc=safeVal('sl-eq-fc',1700000,0,999999999), elas=safeVal('sl-eq-elas',1.4,0.1,5);
-  var fedRate=safeVal('fed-slider',3.75,0,15);
+  var fedRate=safeVal('fed-slider',CONFIG.currentFedRate,0,15);
   var rsens=Model.rateSensitivity(SEC);
   var prA=Model.optimalPricing({ price: price, output: output, vc: vc, fc: fc, elas: elas, fed: fedRate, sector: SEC, env: gEnv });
   var optQ=prA.optQ, optP=prA.optP, gap=prA.gap;
@@ -3166,7 +3178,7 @@ function sendChat(){
     consumer:'Consumer goods face K-shaped demand: premium and value are growing, mid-market is shrinking. Inventory carrying costs and private label competition are primary margin pressures. Brand investment protects pricing power and moves elasticity below 1.0.'
   }[SEC]||'Mid-size business with mixed debt and standard cost structure.';
 
-  var sys = 'You are RateShield AI — expert financial advisor for mid-size businesses ($5M–$200M revenue).\n\nCompany: '+coName+'\nSector: '+s.name+' '+s.emoji+'\nRate environment: '+gEnv.toUpperCase()+' (Fed: '+safeVal('fed-slider',3.75,0,15).toFixed(2)+'%)\nPayroll to revenue: ~'+Math.round(safeVal('sl-labour',35,0,99))+'% labour cost\nAI automation rate: '+Math.round(Model._sec(CONFIG.ai.automatableShare, SEC)*100)+'% of labour automatable\n\nSector context: '+secContext+'\n\nRate linkage for this sector: '+s.rateLinkage+'\n\nPricing insight: '+s.eqInsight+'\n\nBe highly specific. Use real numbers from their inputs. Reference sector benchmarks. Never give generic advice. If asked about hiring, reference the sector safe-hire framework. If asked about pricing, reference the MR=MC equilibrium model. If asked about loans, reference the sector debt mix. No bullet-point lists — give direct, specific, numbered recommendations.';
+  var sys = 'You are RateShield AI — expert financial advisor for mid-size businesses ($5M–$200M revenue).\n\nCompany: '+coName+'\nSector: '+s.name+' '+s.emoji+'\nRate environment: '+gEnv.toUpperCase()+' (Fed: '+safeVal('fed-slider',CONFIG.currentFedRate,0,15).toFixed(2)+'%)\nPayroll to revenue: ~'+Math.round(safeVal('sl-labour',35,0,99))+'% labour cost\nAI automation rate: '+Math.round(Model._sec(CONFIG.ai.automatableShare, SEC)*100)+'% of labour automatable\n\nSector context: '+secContext+'\n\nRate linkage for this sector: '+s.rateLinkage+'\n\nPricing insight: '+s.eqInsight+'\n\nBe highly specific. Use real numbers from their inputs. Reference sector benchmarks. Never give generic advice. If asked about hiring, reference the sector safe-hire framework. If asked about pricing, reference the MR=MC equilibrium model. If asked about loans, reference the sector debt mix. No bullet-point lists — give direct, specific, numbered recommendations.';
   (async function(){
     try {
       var res = await fetch('/api/chat', {
@@ -3254,9 +3266,10 @@ function initCharts() {
       data: {
         labels: ['Now','3mo','6mo','9mo','12mo','15mo','18mo'],
         datasets: [
-          { label:'Base case', data:[3.75,3.62,3.5,3.37,3.25,3.12,3.0], borderColor:'#1a3a6b', backgroundColor:'rgba(26,58,107,.08)', fill:true, tension:.4, pointRadius:4, borderWidth:2 },
-          { label:'Bull',      data:[3.75,3.5,3.25,3.1,2.9,2.75,2.6],   borderColor:'#1a6b3a', borderDash:[5,3], tension:.4, pointRadius:2, borderWidth:1.5 },
-          { label:'Bear',      data:[3.75,3.75,3.75,3.6,3.5,3.6,3.75],  borderColor:'#8b1a1a', borderDash:[5,3], tension:.4, pointRadius:2, borderWidth:1.5 }
+          // Placeholder path from CONFIG.currentFedRate; updateF() replaces it immediately.
+          { label:'Base case', data:[0,-.13,-.25,-.38,-.5,-.63,-.75].map(function(d){return Math.round((CONFIG.currentFedRate+d)*100)/100;}), borderColor:'#1a3a6b', backgroundColor:'rgba(26,58,107,.08)', fill:true, tension:.4, pointRadius:4, borderWidth:2 },
+          { label:'Bull',      data:[0,-.25,-.5,-.65,-.85,-1,-1.15].map(function(d){return Math.round((CONFIG.currentFedRate+d)*100)/100;}),   borderColor:'#1a6b3a', borderDash:[5,3], tension:.4, pointRadius:2, borderWidth:1.5 },
+          { label:'Bear',      data:[0,0,0,-.15,-.25,-.15,0].map(function(d){return Math.round((CONFIG.currentFedRate+d)*100)/100;}),  borderColor:'#8b1a1a', borderDash:[5,3], tension:.4, pointRadius:2, borderWidth:1.5 }
         ]
       },
       options: Object.assign({}, base, {
@@ -3540,7 +3553,7 @@ function updateCEO() {
   var vc = parseFloat((document.getElementById('sl-eq-vc')||{value:578}).value)||578;
   var fc = parseFloat((document.getElementById('sl-eq-fc')||{value:1700000}).value)||1700000;
   var elas = parseFloat((document.getElementById('sl-eq-elas')||{value:1.4}).value)||1.4;
-  var fed = parseFloat((document.getElementById('fed-slider')||{value:3.75}).value)||3.75;
+  var fed = safeVal('fed-slider',CONFIG.currentFedRate,0,15);
   var prC = Model.optimalPricing({ price: price, output: output, vc: vc, fc: fc, elas: elas, fed: fed, sector: SEC, env: gEnv });
   var optQ = prC.optQ, optP = prC.optP, curPr = prC.curProfit;
   var gap = Math.round(prC.gap/1000);
@@ -3636,35 +3649,35 @@ function setMode(mode) {
 var SCENARIOS = {
   base: {
     label: 'Base Case', icon: '📊',
-    desc: 'CPI 3.2% · Unemployment 4.2% · GDP 2.1% · 10Y Treasury 4.3% · Core PCE 2.8%. Transition environment — Fed likely on hold with modest cuts ahead.',
-    cpi:3.2, un:4.2, tr:4.3, gdp:2.1, pce:2.8, fed:3.75,
+    note: 'Transition environment — Fed likely on hold with modest cuts ahead.',
+    cpi:CONFIG.macroDefaults.cpi, un:CONFIG.macroDefaults.un, tr:CONFIG.macroDefaults.tr, gdp:CONFIG.macroDefaults.gdp, pce:CONFIG.macroDefaults.pce, fed:CONFIG.currentFedRate,
     labourMult:1.0, marginMult:1.0, vcMult:1.0, revMult:1.0,
     color:'#1a3a6b', bg:'rgba(26,58,107,.7)'
   },
   recession: {
     label: 'Mild Recession', icon: '📉',
-    desc: 'CPI 2.1% · Unemployment 6.2% · GDP -0.8% · 10Y Treasury 3.1% · Core PCE 1.9%. Fed cuts aggressively. Revenue softens. Labour market loosens — good time to lock talent.',
+    note: 'Fed cuts aggressively. Revenue softens. Labour market loosens — good time to lock talent.',
     cpi:2.1, un:6.2, tr:3.1, gdp:-0.8, pce:1.9, fed:2.25,
     labourMult:0.92, marginMult:0.88, vcMult:0.95, revMult:0.82,
     color:'#8b1a1a', bg:'rgba(139,26,26,.7)'
   },
   inflation: {
     label: 'High Inflation', icon: '🔥',
-    desc: 'CPI 6.5% · Unemployment 3.8% · GDP 1.2% · 10Y Treasury 5.8% · Core PCE 5.1%. Fed raises rates. Input costs surge. Pricing power becomes everything.',
+    note: 'Fed raises rates. Input costs surge. Pricing power becomes everything.',
     cpi:6.5, un:3.8, tr:5.8, gdp:1.2, pce:5.1, fed:5.75,
     labourMult:1.12, marginMult:0.82, vcMult:1.18, revMult:0.95,
     color:'#7a4f00', bg:'rgba(122,79,0,.7)'
   },
   growth: {
     label: 'Rapid Growth', icon: '🚀',
-    desc: 'CPI 2.8% · Unemployment 3.2% · GDP 4.8% · 10Y Treasury 4.8% · Core PCE 2.6%. Economy booming. Demand surges. Margins expand. Hire aggressively and lock long-term contracts.',
+    note: 'Economy booming. Demand surges. Margins expand. Hire aggressively and lock long-term contracts.',
     cpi:2.8, un:3.2, tr:4.8, gdp:4.8, pce:2.6, fed:4.25,
     labourMult:1.06, marginMult:1.14, vcMult:1.04, revMult:1.22,
     color:'#1a6b3a', bg:'rgba(26,107,58,.7)'
   },
   ai: {
     label: 'AI Acceleration', icon: '🤖',
-    desc: 'CPI 2.4% · Unemployment 5.1% · GDP 3.2% · 10Y Treasury 3.9% · Core PCE 2.2%. AI displaces workers rapidly — unemployment rises but productivity soars. Labour costs fall 20%+. Winners are companies already automated.',
+    note: 'AI displaces workers rapidly — unemployment rises but productivity soars. Labour costs fall 20%+. Winners are companies already automated.',
     cpi:2.4, un:5.1, tr:3.9, gdp:3.2, pce:2.2, fed:3.0,
     labourMult:0.72, marginMult:1.22, vcMult:0.82, revMult:1.08,
     color:'#4a1a6b', bg:'rgba(74,26,107,.7)'
@@ -3692,7 +3705,7 @@ function runScenario(key) {
   var dt = document.getElementById('sim-desc-title');
   var dd = document.getElementById('sim-desc-text');
   if(dt) dt.textContent = sc.icon + ' ' + sc.label;
-  if(dd) dd.textContent = sc.desc;
+  if(dd) dd.textContent = 'CPI '+sc.cpi+'% · Unemployment '+sc.un+'% · GDP '+sc.gdp+'% · 10Y Treasury '+sc.tr+'% · Core PCE '+sc.pce+'%. '+(sc.note||'');
 
   // ── Set macro inputs to scenario values
   function setVal(id, val) {
@@ -3732,7 +3745,7 @@ function runScenario(key) {
     try { var v = fn(); return (typeof v === 'number' && !isNaN(v)) ? v : fallback; }
     catch (e) { console.warn((fn.name || 'calc') + ' failed inside runScenario.', e); return fallback; }
   }
-  var predRate  = safeCalc(function(){ return calcPredRate(sc.cpi, sc.un, sc.tr, sc.gdp, sc.pce); }, 3.75);
+  var predRate  = safeCalc(function(){ return calcPredRate(sc.cpi, sc.un, sc.tr, sc.gdp, sc.pce); }, CONFIG.currentFedRate);
   var safeHires = safeCalc(function(){ return calcSafeHires(sc); }, 0);
   var aiGain    = safeCalc(function(){ return calcAIGain(sc, basRev, basLab); }, 0);
   var monthlyInt= safeCalc(function(){ return calcMonthlyInt(sc.fed); }, 0);
@@ -4038,10 +4051,66 @@ function initSimulator() {
   }, 200);
 }
 
+// ─── MARKET DATA (CONFIG snapshot → live FRED) ───────────────────
+// Renders every "current rate / as of" label from CONFIG so no number is typed
+// into the markup twice. Called at startup and again after FRED data arrives.
+function renderMarketDataLabels() {
+  function setTxt(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; }
+  setTxt('fed-asof-label', 'Current rate — ' + CONFIG.fedRateAsOf);
+  setTxt('fed-current-tag', CONFIG.currentFedRate.toFixed(2) + '%');
+  setTxt('fed-unit-note', '% · ' + CONFIG.fedRateAsOf + ' = ' + CONFIG.currentFedRate.toFixed(2) + '%');
+  setTxt('fed-hint-note', 'Change to model scenarios · COVID low=' + CONFIG.fedCovidLow + '% · 2023 peak=' + CONFIG.fedPeak2023 + '%');
+  setTxt('fed-source-note', CONFIG.fedSource || ('Snapshot: ' + CONFIG.fedRateAsOf + ' — live FRED data loads on start when available'));
+}
+
+// Applies a /api/fred snapshot: { asOf, fedFunds, cpi, corePce, unemployment, gdpGrowth, treasury10y }.
+// Returns true if anything was applied. Pure with respect to network; testable.
+function applyMarketData(d) {
+  if (!d || typeof d !== 'object') return false;
+  var num = function(v) { return (typeof v === 'number' && isFinite(v)) ? v : null; };
+  var applied = false;
+  var setIn = function(id, v) { var el = document.getElementById(id); if (el && v !== null && !el._userSet) { el.value = Math.round(v * 100) / 100; applied = true; } };
+  if (num(d.fedFunds) !== null) { CONFIG.currentFedRate = Math.round(d.fedFunds * 100) / 100; setIn('fed-slider', CONFIG.currentFedRate); }
+  if (d.asOf) CONFIG.fedRateAsOf = String(d.asOf);
+  CONFIG.fedSource = 'Live FRED data (FEDFUNDS, CPIAUCSL, PCEPILFE, UNRATE, GDP, DGS10) as of ' + CONFIG.fedRateAsOf;
+  var map = { cpi: 'f-cpi', corePce: 'f-pce', unemployment: 'f-un', gdpGrowth: 'f-gdp', treasury10y: 'f-tr' };
+  var macroKey = { cpi: 'cpi', corePce: 'pce', unemployment: 'un', gdpGrowth: 'gdp', treasury10y: 'tr' };
+  Object.keys(map).forEach(function(k) {
+    var v = num(d[k]);
+    if (v === null) return;
+    CONFIG.macroDefaults[macroKey[k]] = Math.round(v * 100) / 100;
+    setIn(map[k], CONFIG.macroDefaults[macroKey[k]]);
+  });
+  // The "base" scenario is today's conditions, so it follows the live data too.
+  if (typeof SCENARIOS !== 'undefined' && SCENARIOS.base) {
+    SCENARIOS.base.cpi = CONFIG.macroDefaults.cpi; SCENARIOS.base.un = CONFIG.macroDefaults.un; SCENARIOS.base.tr = CONFIG.macroDefaults.tr;
+    SCENARIOS.base.gdp = CONFIG.macroDefaults.gdp; SCENARIOS.base.pce = CONFIG.macroDefaults.pce; SCENARIOS.base.fed = CONFIG.currentFedRate;
+  }
+  renderMarketDataLabels();
+  return applied;
+}
+
+function loadFredData() {
+  if (typeof fetch !== 'function') return Promise.resolve(false);
+  return fetch('/api/fred', { headers: { 'Accept': 'application/json' } })
+    .then(function(r) { if (!r.ok) throw new Error('FRED endpoint ' + r.status); return r.json(); })
+    .then(function(d) {
+      var ok = applyMarketData(d);
+      if (ok) { try { updateAll(); } catch (e) { console.warn('updateAll after FRED failed:', e); } }
+      return ok;
+    })
+    .catch(function(e) { console.warn('FRED prefill unavailable — using CONFIG snapshot.', e && e.message); return false; });
+}
+
 // The script is at the end of <body>, so all business controls already exist.
 // Bind once now; the input event fires continuously for sliders, spinners and
 // keyboard edits, while change/blur commits and normalizes the final value.
 bindLiveInputs();
+renderMarketDataLabels();
+(function applyMacroDefaults(){
+  var m = { 'f-cpi': CONFIG.macroDefaults.cpi, 'f-un': CONFIG.macroDefaults.un, 'f-tr': CONFIG.macroDefaults.tr, 'f-gdp': CONFIG.macroDefaults.gdp, 'f-pce': CONFIG.macroDefaults.pce, 'fed-slider': CONFIG.currentFedRate };
+  Object.keys(m).forEach(function(id) { var el = document.getElementById(id); if (el) el.value = m[id]; });
+})();
 
 </script>
 

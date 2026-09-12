@@ -5,6 +5,10 @@
       "destination": "/api/chat.js"
     },
     {
+      "source": "/api/fred",
+      "destination": "/api/fred.js"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

@@ -10,7 +10,7 @@ const { badValues } = require('./helpers/loadApp');
 
 const INPUT_IDS = [
   'f-cpi', 'f-un', 'f-tr', 'f-gdp', 'f-pce',
-  'sl-rev-h', 'sl-head', 'sl-sal', 'sl-hire', 'sl-debt', 'sl-cash',
+  'sl-rev-h', 'sl-head', 'sl-sal', 'sl-hire', 'sl-debt', 'sl-cash', 'sl-margin-h',
   'sl-rev-ai', 'sl-margin', 'sl-labour', 'sl-rawmat', 'sl-fixed',
   'cd-cash', 'cd-opex', 'cd-buffer', 'cd-checking', 'cd-mmf', 'cd-tbill', 'cd-cd',
   'fed-slider', 'sl-debt-fixed-pct', 'sl-debt-fixed-rate',
@@ -154,6 +154,50 @@ test('rate sensitivity is labelled as variable-cost increase per 1 pt Fed move e
   assert.ok(txt(window, 'eq-banner-desc').includes((C.realestate * 100).toFixed(1) + '% variable-cost increase per 1 pt Fed move'));
   assert.ok(txt(window, 'eq-lev-tbody').includes('VC increase / 1 pt Fed'));
   assert.ok(txt(window, 'm5-analyst-tbody').includes('VC increase per 1 pt Fed move'));
+});
+
+test('current Fed rate and as-of date come from CONFIG, not literals, and render in the UI', () => {
+  const fs = require('fs');
+  const src = fs.readFileSync(require('./helpers/loadApp').HTML_PATH, 'utf8');
+  const literals = src.split('\n').filter((l) => /3\.75/.test(l) && !/currentFedRate: 3\.75|rlevels=/.test(l));
+  assert.deepEqual(literals, [], 'no hard-coded 3.75 outside CONFIG / the rate-table grid');
+  assert.ok(!/April 2026/.test(src.replace(/fedRateAsOf: 'April 2026'/, '')), 'as-of date only in CONFIG');
+  const { window } = boot('manufacturing');
+  const C = window.CONFIG;
+  assert.equal(txt(window, 'fed-asof-label'), 'Current rate — ' + C.fedRateAsOf);
+  assert.equal(txt(window, 'fed-current-tag'), C.currentFedRate.toFixed(2) + '%');
+  assert.ok(txt(window, 'fed-unit-note').includes(C.fedRateAsOf));
+  assert.equal(parseFloat(window.document.getElementById('fed-slider').value), C.currentFedRate);
+  assert.equal(parseFloat(window.document.getElementById('f-cpi').value), C.macroDefaults.cpi);
+  // sector action text substitutes the live rate rather than a typed constant
+  const { window: w2 } = boot('construction');
+  assert.ok(txt(w2, 'ai-actions').includes('At ' + w2.CONFIG.currentFedRate.toFixed(2) + '% Fed rate'));
+});
+
+test('FRED prefill applies a snapshot and falls back to CONFIG when the fetch fails', async () => {
+  const { window, errors } = boot('manufacturing');
+  const before = window.CONFIG.currentFedRate;
+  // failure path: fetch rejects → false, nothing changes
+  const failed = await window.loadFredData();
+  assert.equal(failed, false);
+  assert.equal(window.CONFIG.currentFedRate, before);
+  // success path
+  window.fetch = () => Promise.resolve({ ok: true, json: () => Promise.resolve({ asOf: 'August 2026', fedFunds: 3.64, cpi: 2.9, corePce: 2.6, unemployment: 4.3, gdpGrowth: 4.5, treasury10y: 4.05 }) });
+  const ok = await window.loadFredData();
+  assert.equal(ok, true);
+  assert.equal(window.CONFIG.currentFedRate, 3.64);
+  assert.equal(window.CONFIG.fedRateAsOf, 'August 2026');
+  assert.equal(parseFloat(window.document.getElementById('fed-slider').value), 3.64);
+  assert.equal(parseFloat(window.document.getElementById('f-cpi').value), 2.9);
+  assert.equal(parseFloat(window.document.getElementById('f-gdp').value), 4.5);
+  assert.equal(txt(window, 'fed-asof-label'), 'Current rate — August 2026');
+  assert.equal(txt(window, 'fed-current-tag'), '3.64%');
+  assert.ok(txt(window, 'fed-source-note').includes('Live FRED'));
+  assert.equal(window.SCENARIOS.base.fed, 3.64);
+  assert.equal(window.applyMarketData(null), false);
+  assert.equal(window.applyMarketData({ fedFunds: 'garbage' }), false);
+  assert.deepEqual(badValues(window, 'fred'), []);
+  assert.deepEqual(errors, []);
 });
 
 test('negative margin renders without NaN and the simulator does not floor it to +2%', () => {
