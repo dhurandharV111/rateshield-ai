@@ -925,7 +925,200 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
 </div><!-- end content -->
 
 <script>
-// ═══════════════════════════════════════════
+// @@MODEL-START
+// ═══════════════════════════════════════════════
+// CONFIG — the single source of every constant used by the financial model.
+// Model  — pure functions (no DOM access). Every module, the Executive Health
+//          Dashboard, the CEO Summary, the Scenario Simulator and the Executive
+//          Advisor call these same functions; nothing recomputes them inline.
+// The @@MODEL-START/END markers let test/helpers/loadModel.js load this block
+// on its own in Node, without a browser.
+// ═══════════════════════════════════════════════
+var CONFIG = {
+  // Fed funds rate at which variable cost is considered "neutral" (no rate premium).
+  neutralFedRate: 2.5,
+
+  // Variable-cost increase per 1 pt Fed move, stored as a DECIMAL (0.025 = +2.5%).
+  // Applied as: vcAdj = vc × (1 + (fed − neutralFedRate) × rateSensitivity).
+  // These are the researched 2024 sector benchmarks (they replace an older, lower
+  // table that a few panels had been using): CFMA 2024, ELFA 2024, MonitorDaily 2024,
+  // FullRatio 2026, eCapital 2024, NRA 2026.
+  rateSensitivity: {
+    manufacturing: 0.008, // D/E 0.86, equipment-heavy — ELFA 2024
+    technology:    0.003, // D/E 0.8, minimal debt — MonitorDaily 2024
+    retail:        0.015, // D/E 2.2 — highest SMB sector — MonitorDaily 2024
+    restaurant:    0.016, // D/E 1.6, thin margins 3–8% — NRA 2026
+    construction:  0.025, // Most rate-sensitive: equipment + client financing — CFMA 2024
+    healthcare:    0.010, // D/E 1.2, 7–10yr equipment loans — MonitorDaily 2024
+    logistics:     0.014, // D/E 1.7, fleet-heavy — MonitorDaily 2024
+    realestate:    0.030, // D/E 3.09 — highest leverage, SOFR-tied CRE — FullRatio 2026
+    professional:  0.003, // D/E 0.7, capital-light — minimal rate exposure
+    consumer:      0.013, // D/E 1.7, inventory + consumer spending double hit
+    default:       0.010
+  },
+
+  hiring: {
+    // Share of the plan that is safe to hire in each rate environment.
+    envFactor: { high: 0.25, transition: 0.55, low: 1.0 },
+    // Share of the plan that cash runway can support.
+    runway: { safeMonths: 6, cautionMonths: 3, safe: 1.0, caution: 0.55, danger: 0.2 },
+    // Capital-intensive / cyclical sectors are penalised more in high-rate environments.
+    sectorRisk: { manufacturing: 0.85, technology: 1.20, retail: 0.75, restaurant: 0.65, construction: 0.60, healthcare: 1.10, logistics: 0.80, realestate: 0.70, professional: 1.15, consumer: 0.80, default: 1.0 },
+    // Profit coverage of payroll → multiplier (checked top-down, first match wins).
+    profitCoverageBoost: [[1.0, 2.2], [0.5, 1.6], [0.2, 1.2]],
+    profitCoverageBoostDefault: 1.0,
+    // Share of operating profit a business can commit to new payroll.
+    profitHireShare: 0.40,
+    minCombinedFactor: 0.05
+  },
+
+  ai: {
+    // Share of labour cost that is realistically automatable, per sector.
+    // (McKinsey Global Institute 2024, WEF 2025 — sector implementation benchmarks.)
+    automatableShare: { manufacturing: 0.14, technology: 0.22, retail: 0.14, restaurant: 0.13, construction: 0.08, healthcare: 0.15, logistics: 0.18, realestate: 0.16, professional: 0.20, consumer: 0.11, default: 0.12 },
+    rawMatSaveRate: 0.05,   // better ordering / procurement
+    fixedSaveRate:  0.03,   // admin & scheduling overhead
+    pricePassThrough: 0.40, // share of the saving passed on as lower prices
+    volumeElasticity: 2,    // % volume gained per 1% price cut
+    rangeLow: 0.75, rangeHigh: 1.35 // display band around the point estimate
+  },
+
+  pricing: {
+    // IS curve slope: investment sensitivity to rates, per sector.
+    isSlope: { manufacturing: 0.042, technology: 0.018, retail: 0.038, restaurant: 0.045, construction: 0.055, healthcare: 0.028, logistics: 0.040, realestate: 0.065, professional: 0.012, consumer: 0.035, default: 0.035 },
+    // Additional consumer-discretionary demand sensitivity to rates.
+    isDisc: { manufacturing: 0.0, technology: 0.010, retail: 0.025, restaurant: 0.030, construction: 0.010, healthcare: 0.005, logistics: 0.008, realestate: 0.015, professional: 0.005, consumer: 0.028, default: 0.010 },
+    isInterceptRate: 5,       // rate (pts) used to anchor the IS intercept
+    isLmPriceElasticity: 0.15,// price response to the IS-LM output gap
+    isLmElasFloor: 0.5,
+    discretionarySectors: { retail: true, restaurant: true, consumer: true, technology: true, realestate: true },
+    sentiment: { base: 50, rateAnchor: 5, ratePerPt: 4, rateCap: 20, gapMult: 30, gapCap: 15, env: { high: -10, transition: 0, low: 12 }, min: 5, max: 95,
+                 sectorMult: { retail: 1.3, restaurant: 1.4, consumer: 1.2, technology: 0.8, realestate: 1.5, default: 1.0 } },
+    minOutput: 1
+  },
+
+  runway: { displayCap: 99 }
+};
+
+var Model = {
+  _sec: function(table, sector) { return table[sector] !== undefined ? table[sector] : table.default; },
+
+  // ── Rate sensitivity ─────────────────────────────────────────────
+  rateSensitivity: function(sector) { return Model._sec(CONFIG.rateSensitivity, sector); },
+  // vc × (1 + (fed − neutral) × rsens): a 1 pt Fed move with rsens 0.025 raises VC by 2.5%.
+  rateAdjustedVC: function(vc, fed, sector) {
+    return vc * (1 + (fed - CONFIG.neutralFedRate) * Model.rateSensitivity(sector));
+  },
+
+  // ── Cash & runway (all $ figures in $K unless the name says otherwise) ─
+  monthlyPayrollK: function(headcount, salaryK) { return headcount * salaryK / 12; },
+  // months of cash left at a given monthly burn. Burn ≤ 0 means the business is
+  // not consuming cash, so runway is unbounded (Infinity).
+  runwayMonths: function(cashM, monthlyNetBurnK) {
+    if (!(monthlyNetBurnK > 0)) return Infinity;
+    if (!(cashM > 0)) return 0;
+    return cashM * 1000 / monthlyNetBurnK;
+  },
+  // Chart-safe number for a runway value (Infinity → displayCap).
+  runwayForChart: function(months) {
+    return isFinite(months) ? Math.round(months * 10) / 10 : CONFIG.runway.displayCap;
+  },
+
+  // ── AI savings ───────────────────────────────────────────────────
+  // Labour cost = total costs × labour share, where total costs = revenue × (1 − margin).
+  aiSavings: function(o) {
+    var totalCostsM = o.revenueM * (1 - o.marginPct / 100);
+    var labourCostM = totalCostsM * (o.labourPctOfCosts / 100);
+    var automatable = Model._sec(CONFIG.ai.automatableShare, o.sector);
+    return { totalCostsM: totalCostsM, labourCostM: labourCostM, automatable: automatable, savingsM: labourCostM * automatable };
+  },
+  // Same headline number plus the raw-material and fixed-overhead components shown
+  // in the analyst breakdown.
+  aiSavingsBreakdown: function(o) {
+    var lab = Model.aiSavings(o);
+    return { labourM: lab.savingsM, rawMatM: o.revenueM * (o.rawMatPctOfRevenue / 100) * CONFIG.ai.rawMatSaveRate,
+             fixedM: lab.totalCostsM * (o.fixedPctOfCosts / 100) * CONFIG.ai.fixedSaveRate, detail: lab };
+  },
+
+  // ── Safe hires ───────────────────────────────────────────────────
+  // Uses BOTH cash runway and the rate environment, plus the sector hiring risk and
+  // a profitability boost, so every panel that quotes "safe hires" agrees.
+  safeHires: function(o) {
+    var H = CONFIG.hiring;
+    var planned = Math.max(0, Math.round(o.planned || 0));
+    var envF = H.envFactor[o.env] !== undefined ? H.envFactor[o.env] : H.envFactor.transition;
+    var runwayF = o.runwayMonths >= H.runway.safeMonths ? H.runway.safe : o.runwayMonths >= H.runway.cautionMonths ? H.runway.caution : H.runway.danger;
+    var sectorM = Model._sec(H.sectorRisk, o.sector);
+    var payrollK = o.annualPayrollK || 0;
+    var profitK = o.annualProfitK || 0;
+    var coverage = payrollK > 0 ? profitK / payrollK : 0;
+    var boost = H.profitCoverageBoostDefault;
+    for (var i = 0; i < H.profitCoverageBoost.length; i++) {
+      if (coverage >= H.profitCoverageBoost[i][0]) { boost = H.profitCoverageBoost[i][1]; break; }
+    }
+    var combined = Math.min(1, Math.max(H.minCombinedFactor, envF * sectorM * boost));
+    var cashAff = Math.round(planned * runwayF);
+    var profitAff = profitK > 0 && o.salaryK > 0 ? Math.floor((profitK * H.profitHireShare) / o.salaryK) : 0;
+    var maxAff = profitK > 0 ? Math.max(cashAff, Math.min(planned, profitAff)) : cashAff;
+    var safe = Math.max(0, Math.round(Math.min(planned, maxAff) * combined));
+    return { safe: safe, risky: planned - safe, envFactor: envF, runwayFactor: runwayF, sectorFactor: sectorM,
+             profitBoost: boost, combinedFactor: combined, profitCoverage: coverage, cashAffordable: cashAff, profitAffordable: profitAff };
+  },
+
+  // ── IS-LM demand overlay (Growth & Pricing) ───────────────────────
+  isLm: function(o) {
+    var P = CONFIG.pricing;
+    var isSlope = Model._sec(P.isSlope, o.sector), isDisc = Model._sec(P.isDisc, o.sector);
+    var output = o.output;
+    var isIntercept = output * (1 + isSlope * P.isInterceptRate + isDisc * P.isInterceptRate);
+    var isY = function(r) { return Math.max(0, isIntercept - (isSlope + isDisc) * r * output); };
+    var yEquil = isY(o.fedRate), yPotential = isY(0);
+    var outputGap = (yEquil - output) / Math.max(1, output) * 100;
+    var utilizationRate = Math.min(100, Math.round(yEquil / Math.max(1, yPotential) * 100));
+    var demandPressure = (yEquil - output) / Math.max(1, output);
+    var isLmPriceAdj = 1 + demandPressure * P.isLmPriceElasticity;
+    var isLmElas = o.elas / Math.max(P.isLmElasFloor, isLmPriceAdj);
+    var S = P.sentiment, env = o.env || 'transition';
+    var sentRate = Math.max(-S.rateCap, Math.min(S.rateCap, (S.rateAnchor - o.fedRate) * S.ratePerPt));
+    var sentGap = Math.max(-S.gapCap, Math.min(S.gapCap, demandPressure * S.gapMult));
+    var sentEnv = S.env[env] !== undefined ? S.env[env] : 0;
+    var sentScore = Math.round(Math.min(S.max, Math.max(S.min, S.base + sentRate + sentGap + sentEnv)));
+    var sentMult = Model._sec(S.sectorMult, o.sector);
+    sentScore = Math.round(Math.min(S.max, Math.max(S.min, S.base + (sentScore - S.base) * sentMult)));
+    return { isSlope: isSlope, isDisc: isDisc, isY: isY, yEquil: yEquil, yPotential: yPotential, outputGap: outputGap,
+             utilizationRate: utilizationRate, demandPressure: demandPressure, isLmPriceAdj: isLmPriceAdj, isLmElas: isLmElas,
+             isDiscretionary: !!P.discretionarySectors[o.sector], sentScore: sentScore, sentRate: sentRate, sentGap: sentGap, sentEnv: sentEnv };
+  },
+
+  // ── MR = MC pricing core with a linear (inverse) demand curve ─────
+  // P(Q) = a − bQ calibrated so the curve passes through (output, price) with the
+  // given point elasticity. MR = a − 2bQ = MC ⇒ Q* = (a − MC)/(2b).
+  pricing: function(o) {
+    var elas = o.elas;
+    var vcAdj = o.vcAdj !== undefined ? o.vcAdj : Model.rateAdjustedVC(o.vc, o.fed, o.sector);
+    var b = o.price / (o.output * elas), a = o.price + b * o.output;
+    var optQ = Math.max(CONFIG.pricing.minOutput, (a - vcAdj) / (2 * b));
+    var optP = Math.max(vcAdj, a - b * optQ);
+    var optTR = optP * optQ, optTC = vcAdj * optQ + o.fc, optProfit = optTR - optTC;
+    var curTR = o.price * o.output, curTC = vcAdj * o.output + o.fc, curProfit = curTR - curTC;
+    var contrib = Math.max(0, o.price - vcAdj);
+    return { a: a, b: b, elas: elas, vcAdj: vcAdj, optQ: optQ, optP: optP, optTR: optTR, optTC: optTC, optProfit: optProfit,
+             optMargin: optTR > 0 ? optProfit / optTR * 100 : 0, curTR: curTR, curTC: curTC, curProfit: curProfit,
+             curMargin: curTR > 0 ? curProfit / curTR * 100 : 0, gap: optProfit - curProfit,
+             lerner: optP > 0 ? (optP - vcAdj) / optP : 0, lernerMax: 1 / elas,
+             contribution: contrib, breakEven: contrib > 0 ? Math.ceil(o.fc / contrib) : 0,
+             dol: curTR > 0 && curProfit !== 0 ? (curTR - vcAdj * o.output) / Math.abs(curProfit) : 0,
+             demandAt: function(p) { return Math.max(0, (a - p) / b); } };
+  },
+  // The number every panel quotes: IS-LM-adjusted elasticity fed into MR = MC.
+  optimalPricing: function(o) {
+    var lm = Model.isLm({ output: o.output, fedRate: o.fed, sector: o.sector, elas: o.elas, env: o.env });
+    var pr = Model.pricing({ price: o.price, output: o.output, vc: o.vc, fc: o.fc, elas: lm.isLmElas, fed: o.fed, sector: o.sector, vcAdj: o.vcAdj });
+    pr.statedElas = o.elas; pr.isLm = lm;
+    return pr;
+  }
+};
+// @@MODEL-END
 
 // ═══════════════════════════════════════════════
 // SECTOR DATA
@@ -1171,6 +1364,9 @@ var SECTORS = {
 var SEC = 'manufacturing';
 var coName = '';
 var gEnv = 'transition';
+// Observability hook: each renderer records the canonical Model numbers it
+// displayed, so tests can assert that every surface agrees. Not shown in the UI.
+var RS_METRICS = {};
 var fChart=null, hChart=null, aiChart=null, lChart=null, eqChart=null, profChart=null, eqScChart=null, eqBasicChart=null;
 var chatBusy = false;
 var baselineRevenue = 20;
@@ -1198,19 +1394,15 @@ function updateHealth() {
   var vc    = safeVal('sl-eq-vc', 578, 0, 999999);
   var fc    = safeVal('sl-eq-fc', 1700000, 0, 999999999);
   var elas  = safeVal('sl-eq-elas', 1.4, 0.1, 5);
-  var rsens = {manufacturing:.008,technology:.003,retail:.012,restaurant:.015,construction:.018,healthcare:.010,logistics:.014,realestate:.025,professional:.004,consumer:.011}[SEC]||.010;
+  var margin= safeVal('sl-margin', 12, -99, 99);
 
-  var moBurn = head*sal/12;
-  var runway = moBurn > 0 ? cash*1000/moBurn : 99;
+  var moBurn = Model.monthlyPayrollK(head, sal);
+  var runway = Model.runwayMonths(cash, moBurn);
   var debtRatio = (head*sal) > 0 ? debt*1000/(head*sal) : 0;
-  var aiSave = rev*(lab/100)*0.12*0.5;
-  var vcAdj = vc*(1+((fed-2.5)*rsens));
-  var b = price/(output*elas), a = price+b*output;
-  var optQ = Math.max(1,(a-vcAdj)/(2*b));
-  var optP = Math.max(vcAdj, a-b*optQ);
-  var curPr = price*output - vcAdj*output - fc;
-  var optPr = optP*optQ - vcAdj*optQ - fc;
-  var priceLeak = Math.max(0, Math.round((optPr-curPr)/1000));
+  var aiSave = Model.aiSavings({ revenueM: rev, marginPct: margin, labourPctOfCosts: lab, sector: SEC }).savingsM;
+  var pr = Model.optimalPricing({ price: price, output: output, vc: vc, fc: fc, elas: elas, fed: fed, sector: SEC, env: gEnv });
+  var priceLeak = Math.max(0, Math.round(pr.gap/1000));
+  RS_METRICS.health = { runwayMonths: runway, aiSavingsM: aiSave };
 
   // Score each metric
   function scoreClass(val, goodBelow, badAbove) {
@@ -1307,20 +1499,24 @@ function updateAnalystPanels() {
   var hr = Math.round(safeVal('sl-hire',15,0,9999));
   var debt = safeVal('sl-debt',3.5,0,9999);
   var cash = safeVal('sl-cash',1.2,0,9999);
-  var moBurn = hd*sal*1000/12;
-  var runway = moBurn > 0 ? (cash*1000000/moBurn).toFixed(1) : '∞';
+  var mgn2 = safeVal('sl-margin',12,-99,99);
+  var moBurnK = Model.monthlyPayrollK(hd, sal);
+  var moBurn = moBurnK*1000;
+  var runwayN = Model.runwayMonths(cash, moBurnK);
+  var runway = isFinite(runwayN) ? runwayN.toFixed(1) : '∞';
   var debtPay = hd*sal*1000;
   var dRatio = debtPay > 0 ? (debt*1000000/debtPay).toFixed(2) : '0';
-  var envF = gEnv==='high' ? 0.25 : gEnv==='low' ? 1.0 : 0.55;
-  var safeH = Math.min(hr, Math.floor(hr * envF));
+  var sh2 = Model.safeHires({ planned: hr, runwayMonths: runwayN, env: gEnv, sector: SEC, annualPayrollK: hd*sal, annualProfitK: rev*1000*(mgn2/100), salaryK: sal });
+  var envF = sh2.envFactor;
+  var safeH = sh2.safe;
   var m2tb = document.getElementById('m2-analyst-tbody');
   if(m2tb) {
     m2tb.innerHTML = [
-      ['Monthly payroll burn', '$'+Math.round(moBurn/1000)+'K/mo', '$'+Math.round(moBurn*1.1/1000)+'K/mo after hires', parseFloat(runway) > 3 ? '🟢 Safe' : '🔴 Risk'],
-      ['Cash runway', runway+' months', '6+ months = safe hire zone', parseFloat(runway) >= 6 ? '🟢 Safe' : parseFloat(runway) >= 3 ? '🟡 Caution' : '🔴 Danger'],
+      ['Monthly payroll burn', '$'+Math.round(moBurn/1000)+'K/mo', '$'+Math.round(moBurn*1.1/1000)+'K/mo after hires', runwayN > 3 ? '🟢 Safe' : '🔴 Risk'],
+      ['Cash runway', runway+' months', '6+ months = safe hire zone', runwayN >= 6 ? '🟢 Safe' : runwayN >= 3 ? '🟡 Caution' : '🔴 Danger'],
       ['Debt / annual payroll', dRatio+'×', '<1.0× safe · >1.5× risk', parseFloat(dRatio) < 1.0 ? '🟢 Safe' : parseFloat(dRatio) < 1.5 ? '🟡 Caution' : '🔴 High risk'],
       ['Rate environment factor', Math.round(envF*100)+'%', 'HIGH=25% · TRANS=55% · LOW=100%', gEnv==='low' ? '🟢 Hire freely' : gEnv==='high' ? '🔴 Restrict' : '🟡 Cautious'],
-      ['Safe hire count', safeH+' of '+hr+' planned', 'min(planned, affordable) × env factor', safeH === hr ? '🟢 All safe' : '🟡 Partial']
+      ['Safe hire count', safeH+' of '+hr+' planned', 'min(planned, affordable) × env × sector × profit factors', safeH === hr ? '🟢 All safe' : '🟡 Partial']
     ].map(function(r) {
       return '<tr><td><strong>'+r[0]+'</strong></td><td>'+r[1]+'</td><td>'+r[2]+'</td><td>'+r[3]+'</td></tr>';
     }).join('');
@@ -1332,19 +1528,20 @@ function updateAnalystPanels() {
   var rm = safeVal('sl-rawmat',30,0,99);
   var fx = safeVal('sl-fixed',25,0,99);
   var mg = safeVal('sl-margin',12,-99,99);
-  var labCost = aRev * lb/100;
+  var aiB = Model.aiSavingsBreakdown({ revenueM: aRev, marginPct: mg, labourPctOfCosts: lb, rawMatPctOfRevenue: rm, fixedPctOfCosts: fx, sector: SEC });
+  var labCost = aiB.detail.labourCostM;
   var rmCost = aRev * rm/100;
-  var fxCost = aRev * fx/100;
-  var labSave = labCost * 0.10;
-  var rmSave = rmCost * 0.05;
+  var fxCost = aiB.detail.totalCostsM * fx/100;
+  var labSave = aiB.labourM;
+  var rmSave = aiB.rawMatM;
   var m3tb = document.getElementById('m3-analyst-tbody');
   if(m3tb) {
     m3tb.innerHTML = [
-      ['Labour costs', lb+'% of revenue', '$'+labCost.toFixed(1)+'M/yr', '10% AI reduction → $'+labSave.toFixed(2)+'M saved'],
-      ['Raw material costs', rm+'% of revenue', '$'+rmCost.toFixed(1)+'M/yr', '5% AI reduction (better ordering) → $'+rmSave.toFixed(2)+'M saved'],
-      ['Fixed overhead', fx+'% of revenue', '$'+fxCost.toFixed(1)+'M/yr', 'AI lowers admin/scheduling ~3%'],
+      ['Labour costs', lb+'% of costs', '$'+labCost.toFixed(1)+'M/yr', Math.round(aiB.detail.automatable*100)+'% automatable → $'+labSave.toFixed(2)+'M saved'],
+      ['Raw material costs', rm+'% of revenue', '$'+rmCost.toFixed(1)+'M/yr', Math.round(CONFIG.ai.rawMatSaveRate*100)+'% AI reduction (better ordering) → $'+rmSave.toFixed(2)+'M saved'],
+      ['Fixed overhead', fx+'% of costs', '$'+fxCost.toFixed(1)+'M/yr', 'AI lowers admin/scheduling ~'+Math.round(CONFIG.ai.fixedSaveRate*100)+'% → $'+aiB.fixedM.toFixed(2)+'M'],
       ['Current profit margin', mg+'%', '$'+(aRev*mg/100).toFixed(1)+'M/yr', 'Baseline to improve from'],
-      ['Total estimated AI saving', '—', '$'+(labSave+rmSave).toFixed(2)+'M/yr', 'Conservative (5–10% automation rate)']
+      ['Total estimated AI saving', '—', '$'+(labSave+rmSave+aiB.fixedM).toFixed(2)+'M/yr', 'Labour + materials + overhead']
     ].map(function(r) {
       return '<tr><td><strong>'+r[0]+'</strong></td><td>'+r[1]+'</td><td>'+r[2]+'</td><td>'+r[3]+'</td></tr>';
     }).join('');
@@ -1378,16 +1575,14 @@ function updateAnalystPanels() {
   var f2 = safeVal('sl-eq-fc',1700000,0,999999999);
   var e2 = safeVal('sl-eq-elas',1.4,0.1,5);
   var f3 = safeVal('fed-slider',3.75,0,15);
-  var rs2 = {manufacturing:.008,technology:.003,retail:.012,restaurant:.015,construction:.018,healthcare:.010,logistics:.014,realestate:.025,professional:.004,consumer:.011}[SEC]||.010;
-  var vcA2 = v2*(1+((f3-2.5)*rs2));
-  var bb2=p2/(o2*e2), aa2=p2+bb2*o2;
-  var oQ2=Math.max(1,(aa2-vcA2)/(2*bb2)), oP2=Math.max(vcA2,aa2-bb2*oQ2);
-  var gap2=Math.round((oP2*oQ2-vcA2*oQ2-f2-( p2*o2-vcA2*o2-f2))/1000);
+  var pr2 = Model.optimalPricing({ price: p2, output: o2, vc: v2, fc: f2, elas: e2, fed: f3, sector: SEC, env: gEnv });
+  var gap2=Math.round(pr2.gap/1000), oP2=pr2.optP;
   setM6('m6-an-price', gap2>0 ? '+$'+gap2+'K/yr leaving on table (current $'+Math.round(p2)+' → optimal $'+Math.round(oP2)+')' : '✓ Near optimal');
-  var aRev2=safeVal('sl-rev-ai',20,0.1,999), lb2=safeVal('sl-labour',35,0,99);
-  setM6('m6-an-ai', '~$'+(aRev2*(lb2/100)*0.10).toFixed(1)+'M/yr estimated');
+  var aRev2=safeVal('sl-rev-ai',20,0.1,999), lb2=safeVal('sl-labour',35,0,99), mg6=safeVal('sl-margin',12,-99,99);
+  setM6('m6-an-ai', '~$'+Model.aiSavings({ revenueM: aRev2, marginPct: mg6, labourPctOfCosts: lb2, sector: SEC }).savingsM.toFixed(1)+'M/yr estimated');
   var cash2=safeVal('sl-cash',1.2,0,9999), hd2=Math.round(safeVal('sl-head',280,1,9999)), sal2=Math.round(safeVal('sl-sal',48,1,999));
-  var rwy2 = hd2*sal2 > 0 ? (cash2*1000/(hd2*sal2/12)).toFixed(1) : '∞';
+  var rwy2n = Model.runwayMonths(cash2, Model.monthlyPayrollK(hd2, sal2));
+  var rwy2 = isFinite(rwy2n) ? rwy2n.toFixed(1) : '∞';
   setM6('m6-an-hire', rwy2+' months cash runway');
   var fed2=safeVal('fed-slider',3.75,0,15);
   var dm2 = getDebtMix();
@@ -1401,17 +1596,10 @@ function updateAnalystPanels() {
   var fc5 = safeVal('sl-eq-fc',     1700000,0,    999999999);
   var el5 = safeVal('sl-eq-elas',   1.4,    0.1,  5);
   var fd5 = safeVal('fed-slider',   3.75,   0,    15);
-  var rs5 = {manufacturing:.008,technology:.003,retail:.012,restaurant:.015,
-             construction:.018,healthcare:.010,logistics:.014,realestate:.025,
-             professional:.004,consumer:.011}[SEC] || .010;
-  var vcAdj5 = vc5 * (1 + (fd5 - 2.5) * rs5);
-  var b5 = p5 / (q5 * el5);
-  var a5 = p5 + b5 * q5;
-  var optQ5 = Math.max(1, (a5 - vcAdj5) / (2 * b5));
-  var optP5 = Math.max(vcAdj5, a5 - b5 * optQ5);
-  var curPr5 = p5 * q5 - vcAdj5 * q5 - fc5;
-  var optPr5 = optP5 * optQ5 - vcAdj5 * optQ5 - fc5;
-  var gap5   = Math.round((optPr5 - curPr5) / 1000);
+  var rs5 = Model.rateSensitivity(SEC);
+  var pr5 = Model.optimalPricing({ price: p5, output: q5, vc: vc5, fc: fc5, elas: el5, fed: fd5, sector: SEC, env: gEnv });
+  var vcAdj5 = pr5.vcAdj, optQ5 = pr5.optQ, optP5 = pr5.optP, curPr5 = pr5.curProfit, optPr5 = pr5.optProfit;
+  var gap5   = Math.round(pr5.gap / 1000);
   var m5tb = document.getElementById('m5-analyst-tbody');
   if (m5tb) {
     m5tb.innerHTML = [
@@ -1483,12 +1671,10 @@ function updateAnalystCharts() {
     var sal = Math.round(safeVal('sl-sal',48,1,999));
     var hr  = Math.round(safeVal('sl-hire',15,0,999));
     var cash= safeVal('sl-cash',1.2,0,9999);
-    var moBurn = hd*sal*1000/12;
     var scenarios = ['No new hires','25% of plan','50% of plan','75% of plan','All hires'];
     var pcts = [0, 0.25, 0.5, 0.75, 1.0];
     var runways = pcts.map(function(p){
-      var newBurn = (hd + Math.round(hr*p)) * sal * 1000 / 12;
-      return newBurn > 0 ? parseFloat((cash*1000000/newBurn).toFixed(1)) : 99;
+      return Model.runwayForChart(Model.runwayMonths(cash, Model.monthlyPayrollK(hd + Math.round(hr*p), sal)));
     });
     var rwColors = runways.map(function(r){ return r>=6?'rgba(26,107,58,.7)':r>=3?'rgba(122,79,0,.7)':'rgba(139,26,26,.7)'; });
     if (!m2AC) {
@@ -1515,9 +1701,11 @@ function updateAnalystCharts() {
     var lb   = safeVal('sl-labour',35,0,99);
     var rm   = safeVal('sl-rawmat',30,0,99);
     var fx   = safeVal('sl-fixed',25,0,99);
-    var labSave = aRev*(lb/100)*0.10;
-    var rmSave  = aRev*(rm/100)*0.05;
-    var fxSave  = aRev*(fx/100)*0.03;
+    var mg3c = safeVal('sl-margin',12,-99,99);
+    var aiB3 = Model.aiSavingsBreakdown({ revenueM: aRev, marginPct: mg3c, labourPctOfCosts: lb, rawMatPctOfRevenue: rm, fixedPctOfCosts: fx, sector: SEC });
+    var labSave = aiB3.labourM;
+    var rmSave  = aiB3.rawMatM;
+    var fxSave  = aiB3.fixedM;
     var saveData = [parseFloat(labSave.toFixed(2)), parseFloat(rmSave.toFixed(2)), parseFloat(fxSave.toFixed(2))];
     if (!m3AC) {
       m3AC = new Chart(m3c.getContext('2d'), {
@@ -1581,9 +1769,8 @@ function updateAnalystCharts() {
     var fc5 = safeVal('sl-eq-fc',1700000,0,999999999);
     var el5 = safeVal('sl-eq-elas',1.4,0.1,5);
     var fd5 = safeVal('fed-slider',3.75,0,15);
-    var rs5 = {manufacturing:.008,technology:.003,retail:.012,restaurant:.015,construction:.018,healthcare:.010,logistics:.014,realestate:.025,professional:.004,consumer:.011}[SEC]||.010;
-    var vcA5 = vc5*(1+((fd5-2.5)*rs5));
-    var b5=p5/(q5*el5), a5=p5+b5*q5;
+    var prC5 = Model.optimalPricing({ price: p5, output: q5, vc: vc5, fc: fc5, elas: el5, fed: fd5, sector: SEC, env: gEnv });
+    var vcA5 = prC5.vcAdj, b5 = prC5.b, a5 = prC5.a;
     var pMin=Math.round(p5*0.5), pMax=Math.round(p5*1.8);
     var step=Math.round((pMax-pMin)/14);
     var pricePoints=[], profitPoints=[], colors5=[];
@@ -1626,22 +1813,20 @@ function updateAnalystCharts() {
     var cash6 = safeVal('sl-cash',1.2,0,9999);
     var hd6   = Math.round(safeVal('sl-head',280,1,9999));
     var sal6  = Math.round(safeVal('sl-sal',48,1,999));
-    var moBurn6 = hd6*sal6*1000/12;
-    var runway6 = moBurn6>0 ? cash6*1000000/moBurn6 : 99;
-    var hireRisk = Math.min(100,Math.round(Math.max(0,(6-runway6)/6*100)));
+    var runway6 = Model.runwayMonths(cash6, Model.monthlyPayrollK(hd6, sal6));
+    var hireRisk = Math.min(100,Math.round(Math.max(0,(6-Math.min(runway6, CONFIG.runway.displayCap))/6*100)));
     var debt6 = safeVal('sl-debt',3.5,0,9999);
     var debtRatio6 = hd6*sal6>0 ? debt6*1000/(hd6*sal6) : 0;
     var debtExp = Math.min(100,Math.round(debtRatio6/2*100));
     var rev6 = safeVal('sl-rev-ai',20,0.1,999);
     var lb6  = safeVal('sl-labour',35,0,99);
-    var aiOpp = Math.min(100,Math.round(rev6*(lb6/100)*0.10/rev6*1000));
+    var mg6c = safeVal('sl-margin',12,-99,99);
+    // AI opportunity as a share of revenue (0–100 scale: 10% of revenue = 100)
+    var aiOpp = Math.min(100,Math.round(Model.aiSavings({ revenueM: rev6, marginPct: mg6c, labourPctOfCosts: lb6, sector: SEC }).savingsM/rev6*1000));
     var p6=safeVal('sl-eq-price',850,0.01,999999),q6=safeVal('sl-eq-output',8000,1,9999999);
     var vc6=safeVal('sl-eq-vc',578,0,999999),fc6=safeVal('sl-eq-fc',1700000,0,999999999),el6=safeVal('sl-eq-elas',1.4,0.1,5);
     var fd6=safeVal('fed-slider',3.75,0,15);
-    var rs6={manufacturing:.008,technology:.003,retail:.012,restaurant:.015,construction:.018,healthcare:.010,logistics:.014,realestate:.025,professional:.004,consumer:.011}[SEC]||.010;
-    var vcA6=vc6*(1+((fd6-2.5)*rs6)), b6=p6/(q6*el6), a6=p6+b6*q6;
-    var oQ6=Math.max(1,(a6-vcA6)/(2*b6)), oP6=Math.max(vcA6,a6-b6*oQ6);
-    var gap6=oP6*oQ6-vcA6*oQ6-fc6-(p6*q6-vcA6*q6-fc6);
+    var gap6=Model.optimalPricing({ price: p6, output: q6, vc: vc6, fc: fc6, elas: el6, fed: fd6, sector: SEC, env: gEnv }).gap;
     var priceGap=Math.min(100,Math.max(0,Math.round(gap6/10000)));
     var barData=[rateRisk,hireRisk,debtExp,aiOpp,priceGap];
     var barLabels=['Rate risk','Hiring risk','Debt exposure','AI opportunity','Pricing gap'];
@@ -2355,22 +2540,9 @@ function getMarketStructure(sec) {
   return m[sec] || 'Competitive market';
 }
 
+// Variable-cost increase per 1 pt Fed move (decimal). Single source: CONFIG.rateSensitivity.
 function getRateSens(sec) {
-  // Research-backed: % profit impact per 1% Fed rate move (2024 sector benchmarks)
-  // Sources: CFMA 2024, ELFA 2024, MonitorDaily 2024, FullRatio 2026, eCapital 2024
-  var r = {
-    manufacturing:.008,   // D/E 0.86, equipment-heavy — ELFA 2024
-    technology:.003,      // D/E 0.8, minimal debt — MonitorDaily 2024
-    retail:.015,          // D/E 2.2 — highest SMB sector — MonitorDaily 2024
-    restaurant:.016,      // D/E 1.6, thin margins 3–8% — NRA 2026
-    construction:.025,    // Most rate-sensitive: both equipment + client financing — CFMA 2024
-    healthcare:.010,      // D/E 1.2, 7–10yr equipment loans — MonitorDaily 2024
-    logistics:.014,       // D/E 1.7, fleet-heavy — MonitorDaily 2024
-    realestate:.030,      // D/E 3.09 — HIGHEST leverage, SOFR-tied CRE — FullRatio 2026
-    professional:.003,    // D/E 0.7, capital-light — minimal rate exposure
-    consumer:.013         // D/E 1.7, inventory + consumer spending double hit
-  };
-  return r[sec] || .01;
+  return Model.rateSensitivity(sec);
 }
 
 // ═══════════════════════════════════════════════
@@ -2430,31 +2602,26 @@ function updateH() {
   var debt=safeVal('sl-debt',3.5,0,9999);
   var cash=safeVal('sl-cash',1.2,0,9999);
   var curPayroll=hd*sal;
-  var monthlyBurn=curPayroll/12;
-  var runway=cash>0&&monthlyBurn>0?Math.round((cash*1000)/monthlyBurn*10)/10:0;
-  // Sector-specific hire risk multiplier — capital-intensive cyclical sectors penalise hiring more in high-rate envs
-  var secHireRisk={manufacturing:0.85,technology:1.20,retail:0.75,restaurant:0.65,construction:0.60,healthcare:1.10,logistics:0.80,realestate:0.70,professional:1.15,consumer:0.80};
-  var secHireM = secHireRisk[SEC] || 1.0;
+  var monthlyBurn=Model.monthlyPayrollK(hd, sal);
+  var runwayN=Model.runwayMonths(cash, monthlyBurn);
+  var runway=Model.runwayForChart(runwayN);
   var secHireLabel={manufacturing:'Capital-intensive — moderate hiring caution',technology:'High-growth sector — elevated hiring capacity',retail:'Margin-thin — conservative hiring threshold',restaurant:'High turnover sector — extra runway required',construction:'Cyclical demand — strict cash gate',healthcare:'Regulated revenue — stable hiring base',logistics:'Volume-driven — moderate capacity',realestate:'Fixed-cost heavy — protect cash buffer',professional:'Utilisation-driven — hire toward billable capacity',consumer:'Consumer demand risk — lean hiring stance'}[SEC]||'';
   // Healthy payroll % benchmarks by sector
   var payrollBench={manufacturing:'20–28%',technology:'40–55%',retail:'12–18%',restaurant:'28–35%',construction:'28–38%',healthcare:'38–48%',logistics:'32–42%',realestate:'12–20%',professional:'50–65%',consumer:'15–22%'}[SEC]||'under 35%';
-  var envF=gEnv==='high'?0.25:gEnv==='low'?1.0:0.55;
   // Profitability gate: a profitable business funds payroll from revenue, not from its cash balance.
   var mgnH = safeVal('sl-margin', 12, -99, 99);
   var annualProfitK = rev*1000*(mgnH/100);
-  var profitCoverage = curPayroll>0 ? annualProfitK/curPayroll : 0;
-  var strengthBoost = profitCoverage>=1.0 ? 2.2 : profitCoverage>=0.5 ? 1.6 : profitCoverage>=0.2 ? 1.2 : 1.0;
-  var secEnvF = Math.min(1.0, Math.max(0.05, envF * secHireM * strengthBoost));
-  var cashAff=runway>=6?hr:runway>=3?Math.round(hr*.55):Math.round(hr*.2);
-  var profitAff = annualProfitK>0 && sal>0 ? Math.floor((annualProfitK*0.40)/sal) : 0;
-  var maxAff = annualProfitK>0 ? Math.max(cashAff, Math.min(hr, profitAff)) : cashAff;
-  var safe=Math.max(0,Math.round(Math.min(hr,maxAff)*secEnvF));
-  var risky=hr-safe;
+  var sh = Model.safeHires({ planned: hr, runwayMonths: runwayN, env: gEnv, sector: SEC, annualPayrollK: curPayroll, annualProfitK: annualProfitK, salaryK: sal });
+  var secHireM = sh.sectorFactor;
+  var profitCoverage = sh.profitCoverage;
+  var safe=sh.safe;
+  var risky=sh.risky;
   var riskCost=risky*sal;
   var newPayFull=curPayroll+hr*sal;
   var newPaySafe=curPayroll+safe*sal;
-  var runFull=cash>0&&newPayFull>0?Math.round((cash*1000)/(newPayFull/12)*10)/10:0;
-  var runSafe=cash>0&&newPaySafe>0?Math.round((cash*1000)/(newPaySafe/12)*10)/10:0;
+  var runFull=Model.runwayForChart(Model.runwayMonths(cash, newPayFull/12));
+  var runSafe=Model.runwayForChart(Model.runwayMonths(cash, newPaySafe/12));
+  RS_METRICS.workforce = { safeHires: safe, runwayMonths: runwayN };
   var debtRatio=curPayroll>0?Math.round(debt*1000/curPayroll*10)/10:0;
   var payrollRev=rev>0?Math.round(curPayroll/(rev*1000)*100):0;
   var borrowRec=gEnv==='low'?'YES — lock fixed rates now':gEnv==='transition'?'CAUTION — wait 60 days':'WAIT — rates elevated';
@@ -2501,18 +2668,17 @@ function updateAI() {
   var lb=safeVal('sl-labour',35,0,99)/100;
   var rm=safeVal('sl-rawmat',30,0,99)/100;
   var fx=safeVal('sl-fixed',25,0,99)/100;
-  var totalCost=rev*(1-mg);
+  var ai=Model.aiSavings({ revenueM: rev, marginPct: mg*100, labourPctOfCosts: lb*100, sector: SEC });
+  var totalCost=ai.totalCostsM;
   var totalCostRatio=1-mg;
   var labourCostRatio=totalCostRatio*lb;
   var fixedCostRatio=totalCostRatio*fx;
-  var sectorRate = (SECTORS[SEC] && SECTORS[SEC].aiAutoRate) ? SECTORS[SEC].aiAutoRate : 0.12;
-  var savePct = sectorRate;
-  // Labour is entered as a share of total costs, not a share of revenue.
-  // Keep full precision internally so each input has an observable effect.
-  var aiSave=totalCost*lb*savePct;
-  var priceDrop=aiSave*0.4;
+  var savePct = ai.automatable;
+  var aiSave=ai.savingsM;
+  RS_METRICS.ai = { aiSavingsM: aiSave };
+  var priceDrop=aiSave*CONFIG.ai.pricePassThrough;
   var pdPct=rev>0?(priceDrop/rev)*100:0;
-  var volGainPct=pdPct*2;
+  var volGainPct=pdPct*CONFIG.ai.volumeElasticity;
   var extraRev=rev*(volGainPct/100);
   var residualLabourRatio=Math.max(0,labourCostRatio-(labourCostRatio*savePct));
   var otherVariableRatio=Math.max(0,totalCostRatio-fixedCostRatio-rm-labourCostRatio);
@@ -2528,17 +2694,17 @@ function updateAI() {
   var aiResultEl = document.getElementById('ai-result');
   if(aiResultEl) aiResultEl.innerHTML=
     '<div class="g4" style="margin-bottom:1rem">'+
-    '<div class="stat"><div class="stat-label">AI labour savings</div><div class="stat-value" style="font-size:16px;color:#1a6b3a">$'+aiSave.toFixed(2)+'M–$'+(aiSave*1.35).toFixed(2)+'M/yr</div><div class="stat-sub">'+Math.round(savePct*100)+'% automatable × '+Math.round(lb*100)+'% of costs</div></div>'+
+    '<div class="stat"><div class="stat-label">AI labour savings</div><div class="stat-value" style="font-size:16px;color:#1a6b3a">$'+aiSave.toFixed(2)+'M–$'+(aiSave*CONFIG.ai.rangeHigh).toFixed(2)+'M/yr</div><div class="stat-sub">'+Math.round(savePct*100)+'% automatable × '+Math.round(lb*100)+'% of costs</div></div>'+
     '<div class="stat"><div class="stat-label">Safe price reduction</div><div class="stat-value" style="font-size:16px;color:#7a4f00">$'+priceDrop.toFixed(2)+'M</div><div class="stat-sub">'+pdPct.toFixed(2)+'% cut — still profitable</div></div>'+
     '<div class="stat"><div class="stat-label">Volume gain</div><div class="stat-value" style="font-size:16px;color:#1a3a6b">+'+volGainPct.toFixed(2)+'%</div><div class="stat-sub">From being cheaper than rivals</div></div>'+
     '<div class="stat"><div class="stat-label">Net profit gain</div><div class="stat-value" style="font-size:16px;color:'+(gain>=0?'#1a6b3a':'#8b1a1a')+'">'+gainLabel+'</div><div class="stat-sub">Conservative estimate</div></div>'+
     '</div>'+
     '<div class="rb rb-green">'+
     '<div class="rb-label">Step-by-step verified calculation</div>'+
-    '<div class="rb-big">'+(gain>=0?'+$':'-$')+Math.abs(gain*0.75).toFixed(2)+' – '+(gain>=0?'+$':'-$')+Math.abs(gain*1.35).toFixed(2)+'M/year</div>'+
+    '<div class="rb-big">'+(gain>=0?'+$':'-$')+Math.abs(gain*CONFIG.ai.rangeLow).toFixed(2)+' – '+(gain>=0?'+$':'-$')+Math.abs(gain*CONFIG.ai.rangeHigh).toFixed(2)+'M/year</div>'+
     '<div class="rb-sub">'+
     '1. AI saves $'+aiSave.toFixed(2)+'M/yr ($'+rev+'M × '+Math.round(totalCostRatio*100)+'% cost ratio × '+Math.round(lb*100)+'% labour share × '+Math.round(savePct*100)+'% automatable)<br>'+
-    '2. Pass $'+priceDrop.toFixed(2)+'M (40%) as lower prices → volume +'+volGainPct.toFixed(2)+'% (2:1 price elasticity)<br>'+
+    '2. Pass $'+priceDrop.toFixed(2)+'M ('+Math.round(CONFIG.ai.pricePassThrough*100)+'%) as lower prices → volume +'+volGainPct.toFixed(2)+'% ('+CONFIG.ai.volumeElasticity+':1 price elasticity)<br>'+
     '3. Extra revenue $'+extraRev.toFixed(2)+'M minus variable costs $'+varOnExtra.toFixed(2)+'M (raw materials and residual labour scale; fixed costs stay flat) → volume profit $'+volProfit.toFixed(2)+'M<br>'+
     '4. Net: $'+aiSave.toFixed(2)+'M + $'+volProfit.toFixed(2)+'M − $'+priceDropLoss.toFixed(2)+'M margin loss = <strong>'+gainLabel+'</strong>'+
     '</div></div>';
@@ -2547,7 +2713,7 @@ function updateAI() {
   s.actions.forEach(function(ac,i){
     var t=ac.t.replace('{pct}',pdPct.toFixed(1)).replace('{vol}',volGainPct.toFixed(1));
     var d=ac.d.replace('{pct}',pdPct.toFixed(1)).replace('{vol}',volGainPct.toFixed(1));
-    var sv=i===0?'$'+Math.round(aiSave*0.4*10)/10+'M':i===1?'$150K+':i===2?'Free $'+Math.round(rev*0.05*10)/10+'M':'+'+volGainPct.toFixed(1)+'% vol';
+    var sv=i===0?'$'+Math.round(aiSave*CONFIG.ai.pricePassThrough*10)/10+'M':i===1?'$150K+':i===2?'Free $'+Math.round(rev*0.05*10)/10+'M':'+'+volGainPct.toFixed(1)+'% vol';
     html+='<div class="ai-row"><div class="ai-num" style="background:'+(i<3?'#e8f5ee':'#eef3fc')+';color:'+(i<3?'#1a6b3a':'#1a3a6b')+'">'+(i+1)+'</div><div style="flex:1"><div class="ai-title">'+t+'</div><div class="ai-desc">'+d+'</div><div class="ai-src">Source: '+ac.src+'</div></div><div class="ai-save '+(i<3?'tg':'tb')+'">'+sv+'</div></div>';
   });
   document.getElementById('ai-actions').innerHTML=html;
@@ -2678,7 +2844,7 @@ function updateEQ() {
   var elas=safeVal('sl-eq-elas',1.4,0.1,5);
   var fedRate=safeVal('fed-slider',3.75,0,15);
   var s=SECTORS[SEC];if(!s)return;
-  var rsens={manufacturing:.008,technology:.003,retail:.015,restaurant:.016,construction:.025,healthcare:.010,logistics:.014,realestate:.030,professional:.003,consumer:.013}[SEC]||.010;
+  var rsens=Model.rateSensitivity(SEC);
   var bench={manufacturing:{dol:[2.5,4],lerner:[.15,.35],margin:[7,12]},technology:{dol:[5,12],lerner:[.55,.85],margin:[70,82]},retail:{dol:[2,3.5],lerner:[.05,.20],margin:[30,42]},restaurant:{dol:[3,6],lerner:[.20,.45],margin:[60,72]},construction:{dol:[1.8,3],lerner:[.25,.55],margin:[15,22]},healthcare:{dol:[3.5,6],lerner:[.05,.15],margin:[30,50]},logistics:{dol:[2,4],lerner:[.15,.35],margin:[18,28]},realestate:{dol:[4,9],lerner:[.40,.70],margin:[55,75]},professional:{dol:[2.5,5],lerner:[.45,.75],margin:[50,70]},consumer:{dol:[2.5,4.5],lerner:[.10,.30],margin:[38,48]}}[SEC]||{dol:[2,4],lerner:[.15,.35],margin:[10,20]};
 
   // ═══════════════════════════════════════════════════════
@@ -2693,85 +2859,16 @@ function updateEQ() {
   //   Y* = IS output at the policy rate
   // ═══════════════════════════════════════════════════════
 
-  // IS curve parameters — calibrated per sector (investment sensitivity to rates)
-  var isSlope = {
-    manufacturing: 0.042,  // High: equipment capex very rate-sensitive
-    technology:    0.018,  // Low: mostly equity-funded, low capex
-    retail:        0.038,  // High: inventory financing + store expansion
-    restaurant:    0.045,  // High: buildout loans dominate investment
-    construction:  0.055,  // Highest: both project financing AND client demand
-    healthcare:    0.028,  // Medium: equipment loans 7–10yr
-    logistics:     0.040,  // High: fleet financing
-    realestate:    0.065,  // Highest: entirely rate-driven; cap rate compression
-    professional:  0.012,  // Very low: capital-light, mostly labour
-    consumer:      0.035   // Medium: inventory + consumer discretionary spending
-  }[SEC] || 0.035;
-
-  // Discretionary sectors have additional CONSUMER demand sensitivity to rates
-  // (households cut spending on non-essentials when debt costs rise)
-  var isDisc = {
-    manufacturing: 0.0,   // B2B — consumer rate sensitivity doesn't apply directly
-    technology:    0.010, // B2B SaaS mostly; some consumer
-    retail:        0.025, // Consumer discretionary — households pull back
-    restaurant:    0.030, // High discretionary — eating out is first cut
-    construction:  0.010, // Mixed; residential more sensitive than commercial
-    healthcare:    0.005, // Near-necessity; minimal discretionary
-    logistics:     0.008, // B2B volume
-    realestate:    0.015, // Rental demand shifts with household income
-    professional:  0.005, // B2B
-    consumer:      0.028  // Consumer goods — highly discretionary overall
-  }[SEC] || 0.010;
-
-  // IS intercept: normalised equilibrium output at zero rate (max stimulus)
-  // Represents sector potential at r=0 (full investment + consumer demand)
-  var isIntercept = output * (1 + isSlope * 5 + isDisc * 5);
-
-  // IS curve: Y_IS(r) = isIntercept - (isSlope + isDisc)*r*output
-  // Gives sector GDP-analog output at each rate level
-  var isY = function(r) {
-    return Math.max(0, isIntercept - (isSlope + isDisc) * r * output);
-  };
-
-  // LM curve: horizontal at Fed policy rate (modern CB framework)
-  // r* = fedRate (the Fed sets this; the LM is flat at this level)
-  var rStar = fedRate;
-
-  // Equilibrium output: where IS crosses LM (r = rStar)
-  var yEquil = isY(rStar);
-  var yPotential = isY(0); // Max output if rates were zero
-  var outputGap = (yEquil - output) / Math.max(1, output) * 100; // % gap vs current actual
-  var utilizationRate = Math.min(100, Math.round(yEquil / Math.max(1,yPotential) * 100));
-
-  // IS-LM implied equilibrium price adjustment
-  // When IS output > current actual → demand > supply → pricing power ↑
-  // When IS output < current actual → demand < supply → pricing pressure ↓
-  var demandPressure = (yEquil - output) / Math.max(1, output); // positive = excess demand
-  var isLmPriceAdj = 1 + demandPressure * 0.15; // 15% price elasticity to IS-LM gap
-
-  // ═══════════════════════════════════════════════════════
-  // MARKET SENTIMENT (discretionary sectors only)
-  // Uses IS-LM output gap + Fed rate to score consumer/business confidence
-  // Relevant for: retail, restaurant, consumer, technology (consumer segment)
-  // ═══════════════════════════════════════════════════════
-  var isDiscretionary = {retail:true,restaurant:true,consumer:true,technology:true,realestate:true}[SEC] || false;
-
-  // Sentiment score: 0–100 (50=neutral)
-  // Driven by: rate level (lower=better), IS-LM output gap, rate direction (gEnv)
-  var sentBase = 50;
-  var sentRate = Math.max(-20, Math.min(20, (5 - fedRate) * 4)); // +20 at r=0, -20 at r=10
-  var sentGap  = Math.max(-15, Math.min(15, demandPressure * 30));
-  var sentEnv  = {high:-10, transition:0, low:+12}[gEnv] || 0;
-  var sentScore = Math.round(Math.min(95, Math.max(5, sentBase + sentRate + sentGap + sentEnv)));
-
-  // Sector-specific sentiment multipliers (some sectors feel rate moves faster)
-  var sentMult = {
-    retail:       1.3,  // Consumer spending responds quickly to rate environment
-    restaurant:   1.4,  // Most rate-sensitive discretionary spending
-    consumer:     1.2,  // Household goods — moderate discretionary
-    technology:   0.8,  // More insulated — enterprise budgets lag
-    realestate:   1.5   // Buyer confidence collapses fastest when rates rise
-  }[SEC] || 1.0;
-  sentScore = Math.round(Math.min(95, Math.max(5, 50 + (sentScore-50)*sentMult)));
+  // All of the IS-LM overlay, market sentiment and the MR=MC core come from Model
+  // (CONFIG.pricing holds the per-sector IS slopes / sentiment constants). The
+  // Executive Health Dashboard, CEO Summary, analyst panels and Scenario Simulator
+  // call the same Model.optimalPricing, so every surface quotes the same numbers.
+  var PR = Model.optimalPricing({ price: price, output: output, vc: vc, fc: fc, elas: elas, fed: fedRate, sector: SEC, env: gEnv });
+  var LM = PR.isLm;
+  var isSlope = LM.isSlope, isDisc = LM.isDisc, isY = LM.isY;
+  var yEquil = LM.yEquil, outputGap = LM.outputGap, utilizationRate = LM.utilizationRate;
+  var isLmPriceAdj = LM.isLmPriceAdj, isDiscretionary = LM.isDiscretionary;
+  var sentRate = LM.sentRate, sentGap = LM.sentGap, sentEnv = LM.sentEnv, sentScore = LM.sentScore;
 
   var sentLabel = sentScore >= 75 ? 'Strong — consumers spending freely'
                 : sentScore >= 60 ? 'Positive — cautious optimism'
@@ -2781,21 +2878,14 @@ function updateEQ() {
   var sentColor = sentScore >= 60 ? '#1a6b3a' : sentScore >= 45 ? '#7a4f00' : '#8b1a1a';
   var sentIcon  = sentScore >= 60 ? '🟢' : sentScore >= 45 ? '🟡' : '🔴';
 
-  // IS-LM adjusted VC: rate drives up borrowing cost → higher variable cost
-  var vcAdj = vc * (1 + ((fedRate-2.5) * rsens));
-
-  // IS-LM demand-adjusted price: high output gap → customers more price-accepting
-  // (if IS says demand > supply, you can price higher; if IS says recession, cut)
-  var isLmElas = elas / Math.max(0.5, isLmPriceAdj); // effective elasticity adjusts with demand
-
-  // Core MR=MC equilibrium (using IS-LM adjusted elasticity)
-  var b=price/(output*isLmElas), a=price+b*output;
-  var optQ=Math.max(1,(a-vcAdj)/(2*b)), optP=Math.max(vcAdj,a-b*optQ);
-  var optTR=optP*optQ, optTC=vcAdj*optQ+fc, optPr=optTR-optTC, optMg=optTR>0?optPr/optTR*100:0;
-  var curTR=price*output, curTC=vcAdj*output+fc, curPr=curTR-curTC, curMg=curTR>0?curPr/curTR*100:0;
-  var lerner=optP>0?(optP-vcAdj)/optP:0, lernerT=1/isLmElas;
-  var contrib=Math.max(0,price-vcAdj), breakEven=contrib>0?Math.ceil(fc/contrib):0;
-  var dol=curTR>0&&curPr!==0?(curTR-vcAdj*output)/Math.abs(curPr):0, gap=optPr-curPr;
+  var vcAdj = PR.vcAdj, isLmElas = LM.isLmElas;
+  var b = PR.b, a = PR.a;
+  var optQ = PR.optQ, optP = PR.optP;
+  var optTR = PR.optTR, optTC = PR.optTC, optPr = PR.optProfit, optMg = PR.optMargin;
+  var curTR = PR.curTR, curTC = PR.curTC, curPr = PR.curProfit, curMg = PR.curMargin;
+  var lerner = PR.lerner, lernerT = PR.lernerMax;
+  var contrib = PR.contribution, breakEven = PR.breakEven;
+  var dol = PR.dol, gap = PR.gap;
   var fd=function(v){return (v>=0?'$':'-$')+Math.abs(Math.round(v)).toLocaleString();};
   var fk=function(v){return (v>=0?'$':'-$')+Math.abs(Math.round(v/1000)).toLocaleString()+'K';};
 
@@ -2891,10 +2981,16 @@ function updateEQ() {
 
   // ─── AI SCENARIO + RATE SCENARIOS ───────────────────────
   var labCost=safeVal('sl-labour',35,0,99),rev3=safeVal('sl-rev-ai',20,0.1,999),mg3=safeVal('sl-margin',12,-99,99)/100;
-  var tc3=rev3*(1-mg3),lp3=tc3>0?labCost/tc3:.3,vcAI=vcAdj*(1-Math.min(1,lp3/.65)*.12);
-  var aiQ=Math.max(1,(a-vcAI)/(2*b)),aiP=Math.max(vcAI,a-b*aiQ),aiPr=aiP*aiQ-vcAI*aiQ-fc;
-  var rVC4=vc*(1+((fedRate+2-2.5)*rsens)),rQ4=Math.max(1,(a-rVC4)/(2*b)),rP4=Math.max(rVC4,a-b*rQ4),rPr4=rP4*rQ4-rVC4*rQ4-fc;
-  var rVC5=vc*(1+((Math.max(.25,fedRate-1.5)-2.5)*rsens)),rQ5=Math.max(1,(a-rVC5)/(2*b)),rP5=Math.max(rVC5,a-b*rQ5),rPr5=rP5*rQ5-rVC5*rQ5-fc;
+  // AI scenario: variable cost falls by the automatable share of labour cost (same
+  // per-sector share the AI Advantage module uses).
+  var aiE=Model.aiSavings({ revenueM: rev3, marginPct: mg3*100, labourPctOfCosts: labCost, sector: SEC });
+  var vcAI=vcAdj*(1-(labCost/100)*aiE.automatable);
+  var prAI=Model.pricing({ price: price, output: output, vc: vc, fc: fc, elas: isLmElas, fed: fedRate, sector: SEC, vcAdj: vcAI });
+  var aiQ=prAI.optQ,aiP=prAI.optP,aiPr=prAI.optProfit;
+  var pr4=Model.pricing({ price: price, output: output, vc: vc, fc: fc, elas: isLmElas, fed: fedRate+2, sector: SEC });
+  var rVC4=pr4.vcAdj,rQ4=pr4.optQ,rP4=pr4.optP,rPr4=pr4.optProfit;
+  var pr5=Model.pricing({ price: price, output: output, vc: vc, fc: fc, elas: isLmElas, fed: Math.max(.25,fedRate-1.5), sector: SEC });
+  var rVC5=pr5.vcAdj,rQ5=pr5.optQ,rP5=pr5.optP,rPr5=pr5.optProfit;
   // IS-LM shock scenarios: rate +2 and −1.5 shift IS equilibrium output
   var yUp=isY(fedRate+2), yDown=isY(Math.max(0.25,fedRate-1.5));
   var scs=[
@@ -2936,7 +3032,7 @@ function updateEQ() {
   var rlevels=[0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5,3.75,4,4.25,4.5,4.75,5,5.25,5.5,5.75,6,6.25,6.5,6.75,7,7.25,7.5,7.75,8];
   var rvals=[],rlbls=[];
   var rtb=document.getElementById('eq-rt-tbody');
-  if(rtb)rtb.innerHTML=rlevels.map(function(r){var rvc=vc*(1+((r-2.5)*rsens)),rIsY=isY(r),rGap=(rIsY-output)/Math.max(1,output)*100,rElas=elas/Math.max(0.5,1+rGap*0.15),rb2=price/(output*rElas),ra2=price+rb2*output,rq=Math.max(1,(ra2-rvc)/(2*rb2)),rp=Math.max(rvc,ra2-rb2*rq),rpr=rp*rq-rvc*rq-fc,ci=((rvc-vc)/Math.max(1,vc)*100).toFixed(1),pd=Math.round((rpr-curPr)/1000),rl=(rp>0?(rp-rvc)/rp:0),cur=Math.abs(r-fedRate)<.3,act=r>=6?'Emergency: lock all debt':r>=4.5?'Lock floating now':r>=3?'Hold pricing':r<1?'Expand aggressively':'Hold strategy';rvals.push(Math.round(rpr/1000));rlbls.push(r+'%');return '<tr style="background:'+(cur?'#f0ede6':'')+' "><td style="padding:7px 11px;font-size:12px;font-weight:'+(cur?'700':'400')+'"> '+(cur?'★ ':'')+r.toFixed(2)+'%'+(cur?' ← now':'')+'</td><td style="text-align:right;padding:7px 11px;color:'+(parseFloat(ci)>0?'#8b1a1a':'#1a6b3a')+'"> '+(parseFloat(ci)>=0?'+':'')+ci+'%</td><td style="text-align:right;padding:7px 11px;font-weight:700;color:#1a6b3a">$'+Math.round(rp).toLocaleString()+'</td><td style="text-align:right;padding:7px 11px">'+Math.round(rq).toLocaleString()+'</td><td style="text-align:right;padding:7px 11px;color:'+(rpr>=0?'#1a6b3a':'#8b1a1a')+'"> '+(rpr>=0?'$':'-$')+Math.abs(Math.round(rpr/1000)).toLocaleString()+'K</td><td style="text-align:right;padding:7px 11px;color:'+(pd>=0?'#1a6b3a':'#8b1a1a')+'"> '+(pd>=0?'+':'')+pd+'K</td><td style="text-align:right;padding:7px 11px;color:'+(rl>.4?'#1a6b3a':rl>.2?'#7a4f00':'#8b1a1a')+'">'+Math.round(rl*100)/100+'</td><td style="padding:7px 11px;font-size:11px">'+act+'</td></tr>';}).join('');
+  if(rtb)rtb.innerHTML=rlevels.map(function(r){var rPR=Model.optimalPricing({ price: price, output: output, vc: vc, fc: fc, elas: elas, fed: r, sector: SEC, env: gEnv }),rvc=rPR.vcAdj,rq=rPR.optQ,rp=rPR.optP,rpr=rPR.optProfit,ci=((rvc-vc)/Math.max(1,vc)*100).toFixed(1),pd=Math.round((rpr-curPr)/1000),rl=(rp>0?(rp-rvc)/rp:0),cur=Math.abs(r-fedRate)<.3,act=r>=6?'Emergency: lock all debt':r>=4.5?'Lock floating now':r>=3?'Hold pricing':r<1?'Expand aggressively':'Hold strategy';rvals.push(Math.round(rpr/1000));rlbls.push(r+'%');return '<tr style="background:'+(cur?'#f0ede6':'')+' "><td style="padding:7px 11px;font-size:12px;font-weight:'+(cur?'700':'400')+'"> '+(cur?'★ ':'')+r.toFixed(2)+'%'+(cur?' ← now':'')+'</td><td style="text-align:right;padding:7px 11px;color:'+(parseFloat(ci)>0?'#8b1a1a':'#1a6b3a')+'"> '+(parseFloat(ci)>=0?'+':'')+ci+'%</td><td style="text-align:right;padding:7px 11px;font-weight:700;color:#1a6b3a">$'+Math.round(rp).toLocaleString()+'</td><td style="text-align:right;padding:7px 11px">'+Math.round(rq).toLocaleString()+'</td><td style="text-align:right;padding:7px 11px;color:'+(rpr>=0?'#1a6b3a':'#8b1a1a')+'"> '+(rpr>=0?'$':'-$')+Math.abs(Math.round(rpr/1000)).toLocaleString()+'K</td><td style="text-align:right;padding:7px 11px;color:'+(pd>=0?'#1a6b3a':'#8b1a1a')+'"> '+(pd>=0?'+':'')+pd+'K</td><td style="text-align:right;padding:7px 11px;color:'+(rl>.4?'#1a6b3a':rl>.2?'#7a4f00':'#8b1a1a')+'">'+Math.round(rl*100)/100+'</td><td style="padding:7px 11px;font-size:11px">'+act+'</td></tr>';}).join('');
 
   // ─── CHARTS ──────────────────────────────────────────────
   if(eqChart){eqChart.data.labels=mrows.map(function(r){return r.q.toLocaleString();});eqChart.data.datasets[0].data=mrows.map(function(r){return r.mr;});eqChart.data.datasets[1].data=mrows.map(function(r){return r.mc;});eqChart.data.datasets[2].data=mrows.map(function(r){return r.p;});eqChart.update('none');}
@@ -2951,15 +3047,13 @@ function localAdvisor(txt){
   var s=SECTORS[SEC]||SECTORS['manufacturing'];
   var price=safeVal('sl-eq-price',850,0.01,999999), output=safeVal('sl-eq-output',8000,1,9999999), vc=safeVal('sl-eq-vc',578,0,999999), fc=safeVal('sl-eq-fc',1700000,0,999999999), elas=safeVal('sl-eq-elas',1.4,0.1,5);
   var fedRate=safeVal('fed-slider',3.75,0,15);
-  var rsens={manufacturing:.008,technology:.003,retail:.012,restaurant:.015,construction:.018,healthcare:.010,logistics:.014,realestate:.025,professional:.004,consumer:.011}[SEC]||.010;
-  var vcAdj=vc*(1+((fedRate-2.5)*rsens));
-  var b=price/(output*elas), a=price+b*output;
-  var optQ=Math.max(1,(a-vcAdj)/(2*b)), optP=Math.max(vcAdj,a-b*optQ);
-  var curPr=price*output-(vcAdj*output+fc), optPr=optP*optQ-(vcAdj*optQ+fc), gap=optPr-curPr;
+  var rsens=Model.rateSensitivity(SEC);
+  var prA=Model.optimalPricing({ price: price, output: output, vc: vc, fc: fc, elas: elas, fed: fedRate, sector: SEC, env: gEnv });
+  var optQ=prA.optQ, optP=prA.optP, gap=prA.gap;
   var aiSav=document.getElementById('hm-ai')?document.getElementById('hm-ai').textContent:'—';
   var safeHire=document.getElementById('sm-hire')?document.getElementById('sm-hire').textContent:'—';
   var q=(txt||'').toLowerCase();
-  var secHireRisk={manufacturing:0.85,technology:1.20,retail:0.75,restaurant:0.65,construction:0.60,healthcare:1.10,logistics:0.80,realestate:0.70,professional:1.15,consumer:0.80}[SEC]||1.0;
+  var secHireRisk=Model._sec(CONFIG.hiring.sectorRisk, SEC);
   var debtPriority={
     manufacturing:'equipment financing (longest rate exposure)',
     technology:'venture debt and revolving credit line',
@@ -3383,20 +3477,23 @@ function updateCEO() {
   var fc = parseFloat((document.getElementById('sl-eq-fc')||{value:1700000}).value)||1700000;
   var elas = parseFloat((document.getElementById('sl-eq-elas')||{value:1.4}).value)||1.4;
   var fed = parseFloat((document.getElementById('fed-slider')||{value:3.75}).value)||3.75;
-  var rsens = {manufacturing:.008,technology:.003,retail:.012,restaurant:.015,construction:.018,healthcare:.010,logistics:.014,realestate:.025,professional:.004,consumer:.011}[SEC]||.010;
-  var vcA = vc*(1+((fed-2.5)*rsens));
-  var bb = price/(output*elas), aa = price+bb*output;
-  var optQ = Math.max(1,(aa-vcA)/(2*bb)), optP = Math.max(vcA,aa-bb*optQ);
-  var curPr = price*output - vcA*output - fc;
-  var optPr = optP*optQ - vcA*optQ - fc;
-  var gap = Math.round((optPr-curPr)/1000);
+  var prC = Model.optimalPricing({ price: price, output: output, vc: vc, fc: fc, elas: elas, fed: fed, sector: SEC, env: gEnv });
+  var optQ = prC.optQ, optP = prC.optP, curPr = prC.curProfit;
+  var gap = Math.round(prC.gap/1000);
   var pgc = gap>200 ? 'ceo-amber' : 'ceo-green';
   var pgl = gap>200 ? '+$'+gap+'K/yr left on table' : '✓ Near optimal';
   var pgd = gap>200 ? 'Consider raising to $'+Math.round(optP).toLocaleString() : 'Pricing well calibrated';
-  // AI savings estimate
-  var rev = parseFloat((document.getElementById('sl-rev-ai')||{value:20}).value)||20;
-  var lab = parseFloat((document.getElementById('sl-labour')||{value:35}).value)||35;
-  var aiEst = Math.round(rev*(lab/100)*0.05*10)/10;
+  // AI savings estimate — same Model call as the AI Advantage module
+  var rev = safeVal('sl-rev-ai',20,0.1,999);
+  var lab = safeVal('sl-labour',35,0,99);
+  var mgC = safeVal('sl-margin',12,-99,99);
+  var aiEstFull = Model.aiSavings({ revenueM: rev, marginPct: mgC, labourPctOfCosts: lab, sector: SEC }).savingsM;
+  var aiEst = Math.round(aiEstFull*10)/10;
+  // Hiring capacity & runway — same Model calls as the Workforce module
+  var hdC = Math.round(safeVal('sl-head',280,1,9999)), salC = Math.round(safeVal('sl-sal',48,1,999)), hrC = Math.round(safeVal('sl-hire',15,0,9999)), cashC = safeVal('sl-cash',1.2,0,9999);
+  var runwayC = Model.runwayMonths(cashC, Model.monthlyPayrollK(hdC, salC));
+  var shC = Model.safeHires({ planned: hrC, runwayMonths: runwayC, env: gEnv, sector: SEC, annualPayrollK: hdC*salC, annualProfitK: rev*1000*(mgC/100), salaryK: salC });
+  RS_METRICS.ceo = { safeHires: shC.safe, runwayMonths: runwayC, aiSavingsM: aiEstFull };
   // Sector-specific top 3 actions
   var acts = {
     manufacturing:['Lock all equipment financing to fixed rate now — window may close','Review inventory levels — reduce overstock to free working capital','Adjust price toward recommended level — analysis shows you are likely underpriced'],
@@ -3415,7 +3512,7 @@ function updateCEO() {
     '<div class="ceo-grid">' +
     '<div class="ceo-card '+rc+'"><div class="ceo-card-label">Rate Environment</div><div class="ceo-card-val">'+rl+'</div><div class="ceo-card-sub" style="font-size:11px;margin-top:3px;opacity:.8">'+rd+'</div></div>' +
     '<div class="ceo-card '+pgc+'"><div class="ceo-card-label">Pricing Opportunity</div><div class="ceo-card-val">'+pgl+'</div><div class="ceo-card-sub" style="font-size:11px;margin-top:3px;opacity:.8">'+pgd+'</div></div>' +
-    '<div class="ceo-card ceo-b"><div class="ceo-card-label">AI Advantage Potential</div><div class="ceo-card-val">~$'+aiEst.toFixed(1)+'M / yr</div><div class="ceo-card-sub" style="font-size:11px;margin-top:3px;opacity:.8">Conservative estimate</div></div>' +
+    '<div class="ceo-card ceo-b"><div class="ceo-card-label">AI Advantage Potential</div><div class="ceo-card-val">~$'+aiEst.toFixed(1)+'M / yr</div><div class="ceo-card-sub" style="font-size:11px;margin-top:3px;opacity:.8">Safe hires: '+shC.safe+' of '+hrC+' · runway '+(isFinite(runwayC)?runwayC.toFixed(1)+' mo':'∞')+'</div></div>' +
     '</div>' +
     '<div class="ceo-actions"><div class="ceo-actions-title">Top 3 actions right now — '+s.name+'</div>' +
     a3.map(function(x){return '<div class="ceo-action"><div class="ceo-dot"></div>'+x+'</div>';}).join('') +
@@ -3635,25 +3732,31 @@ function calcPredRate(cpi, un, tr, gdp, pce) {
   return Math.round(Math.max(.25, Math.min(7, 2.5+sc2*.4))*4)/4;
 }
 
+// Scenario metrics read the same inputs the modules use (runScenario has already
+// written the scenario's macro values and multipliers to the inputs and run
+// updateF, so gEnv reflects the scenario) and call the same Model functions,
+// so the simulator always agrees with the Workforce and AI modules.
 function calcSafeHires(sc) {
-  var hr = parseInt((document.getElementById('sl-hire')||{value:15}).value)||15;
-  var cash = parseFloat((document.getElementById('sl-cash')||{value:1.2}).value)||1.2;
-  var head = parseInt((document.getElementById('sl-head')||{value:280}).value)||280;
-  var sal = parseInt((document.getElementById('sl-sal')||{value:48}).value)||48;
-  var moBurn = head*sal/12;
-  var runway = cash>0&&moBurn>0 ? (cash*1000)/moBurn : 0;
-  // Determine env from scenario
-  var env = sc.gdp < 0 ? 'high' : sc.gdp > 3 ? 'low' : 'transition';
-  var envF = env==='high' ? 0.25 : env==='low' ? 1.0 : 0.55;
-  var maxAff = runway>=6 ? hr : runway>=3 ? Math.round(hr*.55) : Math.round(hr*.2);
-  return Math.max(0, Math.round(Math.min(hr, maxAff)*envF));
+  var hr = Math.round(safeVal('sl-hire',15,0,9999));
+  var cash = safeVal('sl-cash',1.2,0,9999);
+  var head = Math.round(safeVal('sl-head',280,1,9999));
+  var sal = Math.round(safeVal('sl-sal',48,1,999));
+  var rev = safeVal('sl-rev-h',20,0.1,999);
+  var mgn = safeVal('sl-margin',12,-99,99);
+  var runway = Model.runwayMonths(cash, Model.monthlyPayrollK(head, sal));
+  var sh = Model.safeHires({ planned: hr, runwayMonths: runway, env: gEnv, sector: SEC, annualPayrollK: head*sal, annualProfitK: rev*1000*(mgn/100), salaryK: sal });
+  RS_METRICS.simulator = RS_METRICS.simulator || {};
+  RS_METRICS.simulator.safeHires = sh.safe;
+  RS_METRICS.simulator.runwayMonths = runway;
+  return sh.safe;
 }
 
 function calcAIGain(sc, rev, lab) {
-  var lb = Math.min(80, Math.max(5, Math.round(lab * sc.labourMult)));
-  var autoProxy = Math.min(1, (lb/100)/0.65);
-  var savePct = autoProxy * 0.12 * sc.labourMult;
-  var aiSave = rev * (lb/100) * savePct;
+  var lb = safeVal('sl-labour',35,0,99);
+  var mgn = safeVal('sl-margin',12,-99,99);
+  var aiSave = Model.aiSavings({ revenueM: safeVal('sl-rev-ai',rev,0.1,999), marginPct: mgn, labourPctOfCosts: lb, sector: SEC }).savingsM;
+  RS_METRICS.simulator = RS_METRICS.simulator || {};
+  RS_METRICS.simulator.aiSavingsM = aiSave;
   return Math.round(aiSave * 10) / 10;
 }
 
@@ -3675,11 +3778,8 @@ function calcOptPrice(sc) {
   var output = parseFloat((document.getElementById('sl-eq-output')||{value:8000}).value)||8000;
   var vc = parseFloat((document.getElementById('sl-eq-vc')||{value:578}).value)||578;
   var elas = parseFloat((document.getElementById('sl-eq-elas')||{value:1.4}).value)||1.4;
-  var rsens = {manufacturing:.008,technology:.003,retail:.012,restaurant:.015,construction:.018,healthcare:.010,logistics:.014,realestate:.025,professional:.004,consumer:.011}[SEC]||.010;
-  var vcAdj = vc * sc.vcMult * (1+((sc.fed-2.5)*rsens));
-  var b = price/(output*elas), a = price+b*output;
-  var optQ = Math.max(1,(a-vcAdj)/(2*b));
-  return Math.max(vcAdj, a-b*optQ);
+  var fc = parseFloat((document.getElementById('sl-eq-fc')||{value:1700000}).value)||1700000;
+  return Model.optimalPricing({ price: price, output: output, vc: vc * sc.vcMult, fc: fc, elas: elas, fed: sc.fed, sector: SEC, env: gEnv }).optP;
 }
 
 function updateSimCharts() {
@@ -3696,15 +3796,11 @@ function updateSimCharts() {
   var vc     = parseFloat((document.getElementById('sl-eq-vc')     || {value:578}).value)     || 578;
   var fc     = parseFloat((document.getElementById('sl-eq-fc')     || {value:1700000}).value) || 1700000;
   var elas   = parseFloat((document.getElementById('sl-eq-elas')   || {value:1.4}).value)     || 1.4;
-  var rsens  = {manufacturing:.008,technology:.003,retail:.012,restaurant:.015,construction:.018,healthcare:.010,logistics:.014,realestate:.025,professional:.004,consumer:.011}[SEC] || .010;
 
   var profitData = scKeys.map(function(k) {
     var sc = SCENARIOS[k];
-    var vcAdj = vc * sc.vcMult * (1 + ((sc.fed - 2.5) * rsens));
-    var b = price / (output * elas), a = price + b * output;
-    var optQ = Math.max(1, (a - vcAdj) / (2 * b));
-    var optP = Math.max(vcAdj, a - b * optQ);
-    return Math.round((optP * optQ - vcAdj * optQ - fc) / 1000);
+    var scEnv = sc.gdp < 0 ? 'high' : sc.gdp > 3 ? 'low' : 'transition';
+    return Math.round(Model.optimalPricing({ price: price, output: output, vc: vc * sc.vcMult, fc: fc, elas: elas, fed: sc.fed, sector: SEC, env: scEnv }).optProfit / 1000);
   });
 
   var optPriceData = scKeys.map(function(k) {

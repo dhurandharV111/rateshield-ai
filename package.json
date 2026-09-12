@@ -1,0 +1,14 @@
+{
+  "name": "rateshield-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RateShield AI — single-file financial decision app (index.html) with Vercel serverless functions in api/",
+  "scripts": {
+    "test": "node --test test/model.test.js test/qa.test.js",
+    "test:unit": "node --test test/model.test.js",
+    "test:qa": "node --test test/qa.test.js"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.1"
+  }
+}
