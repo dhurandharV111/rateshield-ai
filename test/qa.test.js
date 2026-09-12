@@ -13,10 +13,10 @@ const INPUT_IDS = [
   'sl-rev-h', 'sl-head', 'sl-sal', 'sl-hire', 'sl-debt', 'sl-cash', 'sl-margin-h',
   'sl-rev-ai', 'sl-margin', 'sl-labour', 'sl-rawmat', 'sl-fixed',
   'cd-cash', 'cd-opex', 'cd-buffer', 'cd-checking', 'cd-mmf', 'cd-tbill', 'cd-cd',
-  'fed-slider', 'sl-debt-fixed-pct', 'sl-debt-fixed-rate',
+  'fed-slider', 'sl-debt-fixed-pct', 'sl-debt-fixed-rate', 'sl-debt-term',
   'sl-eq-price', 'sl-eq-output', 'sl-eq-vc', 'sl-eq-fc', 'sl-eq-elas'
 ];
-const OUTPUT_IDS = ['pred-rate', 'sec-impact-text', 'hiring-result', 'ai-result', 'lr-total', 'lr-annual', 'lr-exposed',
+const OUTPUT_IDS = ['pred-rate', 'sec-impact-text', 'hiring-result', 'ai-result', 'lr-total', 'lr-annual', 'lr-exposed', 'lr-amort',
   'eq-kpis', 'eq-rec', 'ceo-content', 'hm-score', 'hm-liq', 'hm-ai', 'cd-idle', 'cd-current', 'cd-optimized', 'cd-gap', 'cd-t1-amt', 'cd-t2-amt', 'cd-t3-amt'];
 
 function snapshot(window) {
@@ -243,6 +243,32 @@ test('pricing guardrails render: low/base/high range, far-from-current warning, 
   setVal(window, 'sl-eq-elas', '0.1');
   assert.deepEqual(badValues(window, 'tiny-elas'), []);
   assert.ok(txt(window, 'eq-price-range').includes('elasticity floored at ' + window.CONFIG.pricing.minElasticity));
+  assert.deepEqual(errors, []);
+});
+
+test('debt module: interest-only figures are labelled as interest, SBA is the variable ceiling, and an amortising payment uses the term input', () => {
+  const fs = require('fs');
+  const src = fs.readFileSync(require('./helpers/loadApp').HTML_PATH, 'utf8');
+  assert.ok(!/Monthly payment =/.test(src), '"Monthly payment" formula renamed');
+  assert.ok(src.includes('Monthly interest = (balance × annual_rate ÷ 100) ÷ 12'));
+  assert.ok(src.includes('Amortising payment = P × (r ÷ 12)'));
+  const { window, errors } = boot('manufacturing');
+  assert.ok(/\/mo interest$/.test(txt(window, 'lr-prime-pay')), txt(window, 'lr-prime-pay'));
+  assert.ok(txt(window, 'm4-analyst-tbody').includes('SBA variable ceiling (Prime + 2.75%)'));
+  assert.ok(src.includes('SBA variable ceiling (Prime + 2.75%)</div>'), 'SBA card formula label');
+  const amort = txt(window, 'lr-amort');
+  assert.ok(/Full amortising payment \(10-yr term\): \$[\d,]+\/mo principal \+ interest/.test(amort), amort);
+  const D = window.RS_METRICS.debt;
+  assert.ok(D.amortisingPayment > D.monthlyInterest, 'principal + interest exceeds interest only');
+  assert.ok(txt(window, 'm4-amort-th').includes('10-yr term'));
+  // shorter term → higher amortising payment, interest unchanged
+  setVal(window, 'sl-debt-term', '5');
+  const D2 = window.RS_METRICS.debt;
+  assert.equal(D2.termYears, 5);
+  assert.ok(D2.amortisingPayment > D.amortisingPayment);
+  assert.equal(D2.monthlyInterest, D.monthlyInterest);
+  assert.ok(txt(window, 'lr-amort').includes('5-yr term'));
+  assert.deepEqual(badValues(window, 'debt'), []);
   assert.deepEqual(errors, []);
 });
 

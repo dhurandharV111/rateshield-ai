@@ -278,6 +278,28 @@ test('priceRange: low ≤ base ≤ high over elasticity ±band, and the deviatio
   assert.equal(nearOpt.range.warn, false);
 });
 
+test('monthlyInterest is interest only: balance × rate ÷ 12', () => {
+  near(Model.monthlyInterest(500000, 6.75), 500000 * 0.0675 / 12);
+  assert.equal(Model.monthlyInterest(0, 6.75), 0);
+});
+
+test('amortisingPayment matches the standard annuity formula and edge cases', () => {
+  // $100,000 at 6% over 10 years → $1,110.21/mo (textbook)
+  near(Model.amortisingPayment(100000, 6, 10), 1110.205, 0.01);
+  // $200,000 at 5% over 30 years → $1,073.64/mo
+  near(Model.amortisingPayment(200000, 5, 30), 1073.64, 0.01);
+  // zero rate ⇒ straight-line principal
+  near(Model.amortisingPayment(120000, 0, 10), 1000);
+  assert.equal(Model.amortisingPayment(0, 6, 10), 0);
+  // amortising payment always exceeds interest-only for a positive rate
+  assert.ok(Model.amortisingPayment(100000, 6, 10) > Model.monthlyInterest(100000, 6));
+});
+
+test('loanRates applies CONFIG.debt.spreads', () => {
+  const r = Model.loanRates(3.75);
+  near(r.prime, 6.75); near(r.sba, 9.5); near(r.sofr, 6.9); near(r.cre, 7.45); near(r.equip, 7.25);
+});
+
 test('optimalPricing composes isLm + pricing and is finite for every sector', () => {
   SECTORS.forEach((s) => {
     const r = Model.optimalPricing({ price: 850, output: 8000, vc: 578, fc: 1700000, elas: 1.4, fed: 3.75, sector: s, env: 'transition' });
