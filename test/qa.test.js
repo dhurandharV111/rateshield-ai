@@ -315,6 +315,20 @@ test('debt module: interest-only figures are labelled as interest, SBA is the va
   assert.deepEqual(errors, []);
 });
 
+test('simulator: the recession scenario shows fewer safe hires than the base case in every sector', () => {
+  SECTORS.forEach((sector) => {
+    const { window, errors } = boot(sector);
+    window.runScenario('base');
+    const base = window.RS_METRICS.simulator.safeHires;
+    window.runScenario('recession');
+    const rec = window.RS_METRICS.simulator.safeHires;
+    assert.ok(rec < base, `${sector}: recession ${rec} should be < base ${base}`);
+    assert.ok(txt(window, 'sm-hire').startsWith(rec + ' '));
+    assert.ok(txt(window, 'm2-analyst-tbody').includes('Demand factor'));
+    assert.deepEqual(errors, []);
+  });
+});
+
 test('negative margin renders without NaN and the simulator does not floor it to +2%', () => {
   const { window, errors } = boot('manufacturing');
   setVal(window, 'sl-margin', '-25');

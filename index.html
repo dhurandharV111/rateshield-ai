@@ -983,7 +983,13 @@ var CONFIG = {
     profitCoverageBoostDefault: 1.0,
     // Share of operating profit a business can commit to new payroll.
     profitHireShare: 0.40,
-    minCombinedFactor: 0.05
+    minCombinedFactor: 0.05,
+    // Demand factor from GDP growth (pts): ≥ fullAt → full; low..fullAt → linear
+    // lowEdge..full; min..low → linear minEdge..lowEdge; below min → floor.
+    demandFactor: { fullAt: 2, low: 0, min: -2, full: 1.0, lowEdge: 0.8, minEdge: 0.4, floor: 0.3 },
+    // In a contraction (GDP below gdpBelow) rate cuts are a symptom of weak demand,
+    // not a hiring green light: the rate-environment factor is capped at envCap.
+    contraction: { gdpBelow: 0, envCap: 0.25 }
   },
 
   ai: {
@@ -1142,12 +1148,25 @@ var Model = {
   },
 
   // ── Safe hires ───────────────────────────────────────────────────
-  // Uses BOTH cash runway and the rate environment, plus the sector hiring risk and
-  // a profitability boost, so every panel that quotes "safe hires" agrees.
+  // Piecewise-linear demand factor from GDP growth (see CONFIG.hiring.demandFactor).
+  demandFactor: function(gdpGrowth) {
+    var D = CONFIG.hiring.demandFactor;
+    var g = (typeof gdpGrowth === 'number' && isFinite(gdpGrowth)) ? gdpGrowth : D.fullAt;
+    if (g >= D.fullAt) return D.full;
+    if (g >= D.low) return D.lowEdge + (D.full - D.lowEdge) * (g - D.low) / (D.fullAt - D.low);
+    if (g >= D.min) return D.minEdge + (D.lowEdge - D.minEdge) * (g - D.min) / (D.low - D.min);
+    return D.floor;
+  },
+  // Uses cash runway, the rate environment AND demand (GDP growth), plus the sector
+  // hiring risk and a profitability boost, so every panel that quotes "safe hires" agrees.
   safeHires: function(o) {
     var H = CONFIG.hiring;
     var planned = Math.max(0, Math.round(o.planned || 0));
     var envF = H.envFactor[o.env] !== undefined ? H.envFactor[o.env] : H.envFactor.transition;
+    var gdp = (typeof o.gdpGrowth === 'number' && isFinite(o.gdpGrowth)) ? o.gdpGrowth : H.demandFactor.fullAt;
+    var demandF = Model.demandFactor(gdp);
+    var envCapped = false;
+    if (gdp < H.contraction.gdpBelow && envF > H.contraction.envCap) { envF = H.contraction.envCap; envCapped = true; }
     var runwayF = o.runwayMonths >= H.runway.safeMonths ? H.runway.safe : o.runwayMonths >= H.runway.cautionMonths ? H.runway.caution : H.runway.danger;
     var sectorM = Model._sec(H.sectorRisk, o.sector);
     var payrollK = o.annualPayrollK || 0;
@@ -1157,13 +1176,14 @@ var Model = {
     for (var i = 0; i < H.profitCoverageBoost.length; i++) {
       if (coverage >= H.profitCoverageBoost[i][0]) { boost = H.profitCoverageBoost[i][1]; break; }
     }
-    var combined = Math.min(1, Math.max(H.minCombinedFactor, envF * sectorM * boost));
+    var combined = Math.min(1, Math.max(H.minCombinedFactor, envF * sectorM * boost * demandF));
     var cashAff = Math.round(planned * runwayF);
     var profitAff = profitK > 0 && o.salaryK > 0 ? Math.floor((profitK * H.profitHireShare) / o.salaryK) : 0;
     var maxAff = profitK > 0 ? Math.max(cashAff, Math.min(planned, profitAff)) : cashAff;
     var safe = Math.max(0, Math.round(Math.min(planned, maxAff) * combined));
-    return { safe: safe, risky: planned - safe, envFactor: envF, runwayFactor: runwayF, sectorFactor: sectorM,
-             profitBoost: boost, combinedFactor: combined, profitCoverage: coverage, cashAffordable: cashAff, profitAffordable: profitAff };
+    return { safe: safe, risky: planned - safe, envFactor: envF, envCapped: envCapped, runwayFactor: runwayF, sectorFactor: sectorM,
+             demandFactor: demandF, gdpGrowth: gdp, profitBoost: boost, combinedFactor: combined, profitCoverage: coverage,
+             cashAffordable: cashAff, profitAffordable: profitAff };
   },
 
   // ── IS-LM demand overlay (Growth & Pricing) ───────────────────────
@@ -1637,6 +1657,9 @@ function updateHealth() {
   if(rt) rt.textContent = rec;
 }
 
+// GDP growth as currently entered (live FRED / scenario / user) — the demand input to Model.safeHires.
+function currentGdpGrowth() { return safeVal('f-gdp', CONFIG.macroDefaults.gdp, -10, 10); }
+
 // ── Input validation helper
 function safeVal(id, def, min, max) {
   var el = document.getElementById(id);
@@ -1688,7 +1711,7 @@ function updateAnalystPanels() {
   var runway = Model.formatRunway(runwayN, '');
   var debtPay = hd*sal*1000;
   var dRatio = debtPay > 0 ? (debt*1000000/debtPay).toFixed(2) : '0';
-  var sh2 = Model.safeHires({ planned: hr, runwayMonths: runwayN, env: gEnv, sector: SEC, annualPayrollK: hd*sal, annualProfitK: rev*1000*(mgn2/100), salaryK: sal });
+  var sh2 = Model.safeHires({ gdpGrowth: currentGdpGrowth(), planned: hr, runwayMonths: runwayN, env: gEnv, sector: SEC, annualPayrollK: hd*sal, annualProfitK: rev*1000*(mgn2/100), salaryK: sal });
   var envF = sh2.envFactor;
   var safeH = sh2.safe;
   var m2tb = document.getElementById('m2-analyst-tbody');
@@ -1699,7 +1722,8 @@ function updateAnalystPanels() {
       ['Cash runway', liq2.cashFlowPositive ? 'Cash-flow positive' : runway+' months', '6+ months = safe hire zone', runwayN >= 6 ? '🟢 Safe' : runwayN >= 3 ? '🟡 Caution' : '🔴 Danger'],
       ['Payroll coverage', Model.formatMonths(liq2.payrollCoverageMonths)+' months', 'liquidity buffer: cash ÷ monthly payroll', liq2.payrollCoverageMonths >= 6 ? '🟢 Strong' : liq2.payrollCoverageMonths >= 3 ? '🟡 Adequate' : '🔴 Thin'],
       ['Debt / annual payroll', dRatio+'×', '<1.0× safe · >1.5× risk', parseFloat(dRatio) < 1.0 ? '🟢 Safe' : parseFloat(dRatio) < 1.5 ? '🟡 Caution' : '🔴 High risk'],
-      ['Rate environment factor', Math.round(envF*100)+'%', 'HIGH=25% · TRANS=55% · LOW=100%', gEnv==='low' ? '🟢 Hire freely' : gEnv==='high' ? '🔴 Restrict' : '🟡 Cautious'],
+      ['Rate environment factor', Math.round(envF*100)+'%'+(sh2.envCapped?' (capped — GDP contracting)':''), 'HIGH=25% · TRANS=55% · LOW=100%', gEnv==='low' && !sh2.envCapped ? '🟢 Hire freely' : gEnv==='high' || sh2.envCapped ? '🔴 Restrict' : '🟡 Cautious'],
+      ['Demand factor (GDP '+sh2.gdpGrowth.toFixed(1)+'%)', Math.round(sh2.demandFactor*100)+'%', '≥2% GDP = 100% · 0% = 80% · −2% = 40%', sh2.demandFactor >= 1 ? '🟢 Demand intact' : sh2.demandFactor >= 0.8 ? '🟡 Softening' : '🔴 Weak demand'],
       ['Safe hire count', safeH+' of '+hr+' planned', 'min(planned, affordable) × env × sector × profit factors', safeH === hr ? '🟢 All safe' : '🟡 Partial']
     ].map(function(r) {
       return '<tr><td><strong>'+r[0]+'</strong></td><td>'+r[1]+'</td><td>'+r[2]+'</td><td>'+r[3]+'</td></tr>';
@@ -2855,7 +2879,7 @@ function updateH() {
   var payrollBench={manufacturing:'20–28%',technology:'40–55%',retail:'12–18%',restaurant:'28–35%',construction:'28–38%',healthcare:'38–48%',logistics:'32–42%',realestate:'12–20%',professional:'50–65%',consumer:'15–22%'}[SEC]||'under 35%';
   // Profitability gate: a profitable business funds payroll from revenue, not from its cash balance.
   var annualProfitK = rev*1000*(mgnH/100);
-  var sh = Model.safeHires({ planned: hr, runwayMonths: runwayN, env: gEnv, sector: SEC, annualPayrollK: curPayroll, annualProfitK: annualProfitK, salaryK: sal });
+  var sh = Model.safeHires({ gdpGrowth: currentGdpGrowth(), planned: hr, runwayMonths: runwayN, env: gEnv, sector: SEC, annualPayrollK: curPayroll, annualProfitK: annualProfitK, salaryK: sal });
   var secHireM = sh.sectorFactor;
   var profitCoverage = sh.profitCoverage;
   var safe=sh.safe;
@@ -3749,7 +3773,7 @@ function updateCEO() {
   var hdC = Math.round(safeVal('sl-head',280,1,9999)), salC = Math.round(safeVal('sl-sal',48,1,999)), hrC = Math.round(safeVal('sl-hire',15,0,9999)), cashC = safeVal('sl-cash',1.2,0,9999);
   var liqC = Model.liquidity({ cashM: cashC, revenueM: safeVal('sl-rev-h',20,0.1,999), marginPct: mgC, headcount: hdC, salaryK: salC });
   var runwayC = liqC.runwayMonths;
-  var shC = Model.safeHires({ planned: hrC, runwayMonths: runwayC, env: gEnv, sector: SEC, annualPayrollK: hdC*salC, annualProfitK: rev*1000*(mgC/100), salaryK: salC });
+  var shC = Model.safeHires({ gdpGrowth: currentGdpGrowth(), planned: hrC, runwayMonths: runwayC, env: gEnv, sector: SEC, annualPayrollK: hdC*salC, annualProfitK: rev*1000*(mgC/100), salaryK: salC });
   RS_METRICS.ceo = { safeHires: shC.safe, runwayMonths: runwayC, aiSavingsM: aiEstFull };
   // Sector-specific top 3 actions
   var acts = {
@@ -3996,7 +4020,7 @@ function calcSafeHires(sc) {
   var rev = safeVal('sl-rev-h',20,0.1,999);
   var mgn = safeVal('sl-margin',12,-99,99);
   var runway = Model.liquidity({ cashM: cash, revenueM: rev, marginPct: mgn, headcount: head, salaryK: sal }).runwayMonths;
-  var sh = Model.safeHires({ planned: hr, runwayMonths: runway, env: gEnv, sector: SEC, annualPayrollK: head*sal, annualProfitK: rev*1000*(mgn/100), salaryK: sal });
+  var sh = Model.safeHires({ gdpGrowth: currentGdpGrowth(), planned: hr, runwayMonths: runway, env: gEnv, sector: SEC, annualPayrollK: head*sal, annualProfitK: rev*1000*(mgn/100), salaryK: sal });
   RS_METRICS.simulator = RS_METRICS.simulator || {};
   RS_METRICS.simulator.safeHires = sh.safe;
   RS_METRICS.simulator.runwayMonths = runway;

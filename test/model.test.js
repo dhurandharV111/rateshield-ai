@@ -145,6 +145,36 @@ test('safeHires: uses BOTH runway and rate environment', () => {
   assert.equal(highLong.envFactor, CONFIG.hiring.envFactor.high);
 });
 
+test('demandFactor: piecewise in GDP growth — ≥2 → 1.0, 0–2 linear 0.8–1.0, −2–0 linear 0.4–0.8, below −2 → 0.3', () => {
+  near(Model.demandFactor(3), 1.0);
+  near(Model.demandFactor(2), 1.0);
+  near(Model.demandFactor(1), 0.9);
+  near(Model.demandFactor(0), 0.8);
+  near(Model.demandFactor(-1), 0.6);
+  near(Model.demandFactor(-2), 0.4);
+  near(Model.demandFactor(-2.5), 0.3);
+  near(Model.demandFactor(undefined), 1.0, 1e-9);
+  // continuous at the knots
+  near(Model.demandFactor(1.999), Model.demandFactor(2), 1e-3);
+  near(Model.demandFactor(-0.001), Model.demandFactor(0), 1e-3);
+});
+
+test('safeHires: weak demand reduces safe hires, and a contraction caps the rate-environment factor', () => {
+  const base = { planned: 20, sector: 'manufacturing', annualPayrollK: 12000, annualProfitK: 1500, salaryK: 50, runwayMonths: Infinity };
+  const expansion = Model.safeHires(Object.assign({}, base, { env: 'transition', gdpGrowth: 2.1 }));
+  const recession = Model.safeHires(Object.assign({}, base, { env: 'low', gdpGrowth: -0.8 }));
+  assert.equal(expansion.demandFactor, 1);
+  near(recession.demandFactor, 0.64);
+  assert.equal(recession.envCapped, true);
+  assert.equal(recession.envFactor, CONFIG.hiring.contraction.envCap);
+  assert.ok(recession.safe < expansion.safe, `recession ${recession.safe} < expansion ${expansion.safe}`);
+  // mild slowdown (GDP 1.0) is not a contraction: env factor untouched, demand 0.9
+  const slow = Model.safeHires(Object.assign({}, base, { env: 'low', gdpGrowth: 1.0 }));
+  assert.equal(slow.envCapped, false);
+  near(slow.demandFactor, 0.9);
+  assert.ok(slow.combinedFactor < Model.safeHires(Object.assign({}, base, { env: 'low', gdpGrowth: 3 })).combinedFactor);
+});
+
 test('safeHires: never exceeds the plan, never negative, risky = planned − safe', () => {
   const r = Model.safeHires({ planned: 15, runwayMonths: Infinity, env: 'low', sector: 'technology', annualPayrollK: 9216, annualProfitK: 5000, salaryK: 128 });
   assert.ok(r.safe >= 0 && r.safe <= 15);
