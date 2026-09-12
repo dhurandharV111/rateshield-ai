@@ -629,8 +629,8 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
 <div class="adv-only">
   <div class="analyst-panel">
     <div class="analyst-panel-title">Analyst Notes — AI Savings Model</div>
-    <div class="analyst-formula">AI labour saving = revenue × (labour_% ÷ 100) × automation_proxy × sector_multiplier</div>
-    <div class="analyst-formula">Automation proxy = min(1, (labour_share ÷ 0.65)) — higher labour share = more automatable</div>
+    <div class="analyst-formula">Total costs = revenue × (1 − margin_%) · Labour cost = total_costs × (labour_% of costs ÷ 100)</div>
+    <div class="analyst-formula">AI labour saving = labour_cost × sector_automatable_share (CONFIG.ai.automatableShare — e.g. technology 22%, professional services 20%, construction 8%)</div>
     <div class="analyst-formula">Net profit gain = AI_saving − implementation_cost_amortised + volume_gain_from_price_cut</div>
     <table class="analyst-table">
       <thead><tr><th>Cost component</th><th>% of costs</th><th>AI impact</th><th>Annual saving</th></tr></thead>
@@ -1157,7 +1157,7 @@ var Model = {
 // ═══════════════════════════════════════════════
 var SECTORS = {
   manufacturing:{name:'Manufacturing',emoji:'🏭',color:'#1a3a6b',bg:'#eef3fc',
-    margin:9,labour:28,rawmat:38,fixed:25,aiAutoRate:0.14,
+    margin:9,labour:28,rawmat:38,fixed:25,
     debtEquity:0.86,currentRatio:1.8,dso:45,inventoryTurns:5.3,
     rateImpact:{
       high:'🔴 Equipment financing spreads have risen to 7.40% pre-tax yield (ELFA 2024). Every 1% rate rise on $1.8M equipment debt = $18K/yr direct hit. Delay discretionary capex. Lock ALL floating equipment loans to fixed immediately — SBA 504 rates are your priority.',
@@ -1180,7 +1180,7 @@ var SECTORS = {
     pricingStrategy:'Cost-plus is dominant but leaves 8–15% on the table vs MR=MC optimisation. Manufacturers with D/E above 1.5 are particularly underpriced — debt service pressure drives underpricing. Review pricing every quarter against input cost changes.',
     rateLinkage:'ELFA 2024: equipment finance pre-tax yields at 7.40%, up from prior years as cost of funds rose. Every 1% Fed rate rise increases SBA 504 equipment cost ~$18K per $1.8M financed. D/E ratio of 0.86 means most manufacturers have moderate leverage headroom.',
   technology:{name:'Technology / SaaS',emoji:'💻',color:'#085041',bg:'#e1f5ee',
-    margin:22,labour:55,rawmat:3,fixed:35,aiAutoRate:0.22,
+    margin:22,labour:55,rawmat:3,fixed:35,
     debtEquity:0.8,currentRatio:2.1,dso:32,nrr:102,cacPayback:20,
     rateImpact:{
       high:'🔴 D/E ratio for tech averages just 0.8x (MonitorDaily 2024) — you carry little debt, but VC funding dries up and enterprise budgets freeze. NRR below 100% in high-rate environments is a red flag. Lock long-term contracts, move upmarket. PE now represents 46% of SaaS M&A — build to be acquirable.',
@@ -1203,7 +1203,7 @@ var SECTORS = {
     pricingStrategy:'Value-based pricing beats cost-plus for SaaS by 2–3x. Price to customer ROI not your cost structure. Annual price increases of 5–8% are standard and have minimal churn impact below 10% annual increase. Usage-based pricing grows ARR 1.4x faster than seat-based (OpenView 2024).',
     rateLinkage:'Rate rises hit SaaS through valuation compression (3–5x ARR for slow-growth vs 8–12x for high-growth) and enterprise budget freezes, not direct cost increases. Tech D/E averages 0.8x — minimal debt exposure. VC funding availability is the primary rate transmission mechanism.',
   retail:{name:'Retail',emoji:'🏪',color:'#7a4f00',bg:'#fff8e6',
-    margin:5,labour:15,rawmat:55,fixed:28,aiAutoRate:0.14,
+    margin:5,labour:15,rawmat:55,fixed:28,
     debtEquity:2.2,currentRatio:1.4,dso:8,inventoryTurns:7.2,
     rateImpact:{
       high:'🔴 Retail D/E averaged 2.2x in 2024 (MonitorDaily) — highest of major SMB sectors. Every rate rise hits both sides: inventory credit line costs rise AND consumer spending falls. Inventory financing is the most urgent exposure — cut slow SKUs immediately and minimise the credit line balance.',
@@ -1226,7 +1226,7 @@ var SECTORS = {
     pricingStrategy:'Dynamic pricing based on inventory age and credit line cost delivers highest ROI. Mark down early and selectively rather than blanket end-of-season discounts. With 2.2x D/E, every dollar of slow inventory is costing you interest. Price to turn, not to margin.',
     rateLinkage:'Rate rises hit retail twice simultaneously: inventory credit line costs rise immediately AND consumers reduce discretionary spending. With D/E at 2.2x — the highest in SMB sectors — retail has more rate-sensitive debt than almost any other industry. Each 1% Fed rise costs $8K per $800K inventory line.',
   restaurant:{name:'Restaurant / Food Service',emoji:'🍽️',color:'#8b1a1a',bg:'#fef0f0',
-    margin:4,labour:30,rawmat:32,fixed:30,aiAutoRate:0.13,
+    margin:4,labour:30,rawmat:32,fixed:30,
     debtEquity:1.6,currentRatio:0.9,dso:0,primeTarget:55,
     rateImpact:{
       high:'🔴 Full-service restaurant net margins are 3–8% (NRA 2026 State of Industry). Only 42% of US restaurants were profitable in 2024. Equipment loans and SBA buildout debt rise with rates. AI scheduling and waste reduction are your only real margin levers — there is no pricing buffer left.',
@@ -1249,7 +1249,7 @@ var SECTORS = {
     pricingStrategy:'Menu engineering: identify star items (high margin, high popularity) and price to elasticity ceiling. Avoid blanket price increases — they drive traffic loss. Add premium modifiers and upsell items instead. Labour reduction through AI scheduling has faster profitability ROI than any pricing move.',
     rateLinkage:'Labour is the dominant cost and minimum wage increases compound with rate rises independently. D/E at 1.6x with tight current ratio (0.9) means equipment loan resets are dangerous. Only 42% profitable in 2024 — this sector has zero margin for rate increases.',
   construction:{name:'Construction',emoji:'🏗️',color:'#412402',bg:'#fdf0e0',
-    margin:5,labour:35,rawmat:42,fixed:18,aiAutoRate:0.08,
+    margin:5,labour:35,rawmat:42,fixed:18,
     debtEquity:1.3,currentRatio:1.6,dso:57,backlogRatio:1.8,
     rateImpact:{
       high:'🔴 Construction is the most rate-sensitive sector at 2.5% profit impact per 1% Fed move. CFMA 2024: industry D/E steady at 1.3x but bonding capacity shrinks as rates rise. Equipment financing spreads have widened. Target government and infrastructure contracts — budget-protected revenue. CFMA best-in-class: D/E below 0.9x.',
@@ -1272,7 +1272,7 @@ var SECTORS = {
     pricingStrategy:'Include explicit rate escalation clauses for projects over 12 months. Fixed-price bids without escalators are profit destroyers in rising rate environments. CFMA best-in-class companies run D/E below 0.9x and carry less fixed assets (12.9% of assets) vs average (23.7%) — lighter equipment ownership improves flexibility.',
     rateLinkage:'Most rate-sensitive sector: CFMA data shows 2.5% profit impact per 1% Fed move. Both equipment debt AND client project financing move with the Fed simultaneously. Surety bonding capacity (which drives your ability to bid large contracts) directly depends on D/E staying below 1.0x.',
   healthcare:{name:'Healthcare',emoji:'🏥',color:'#1a4a2e',bg:'#e4f5ec',
-    margin:10,labour:45,rawmat:15,fixed:35,aiAutoRate:0.15,
+    margin:10,labour:45,rawmat:15,fixed:35,
     debtEquity:1.2,currentRatio:1.8,dso:42,adminPct:34,
     rateImpact:{
       high:'🔴 Healthcare D/E averaged 1.2x in 2024 (MonitorDaily) — moderate but rising as providers invest in telehealth and equipment. Medicare/Medicaid reimbursement is fixed — you cannot raise prices on 65–75% of revenue. Medical equipment loans over 7–10 years make rate lock critical. Every 1% rise on $3M MRI = $30K/yr for a decade.',
@@ -1295,7 +1295,7 @@ var SECTORS = {
     pricingStrategy:'Revenue cycle optimisation: faster billing, reduced claim denials, better coding improves effective yield per visit $50–150K/yr for mid-size practices without changing any pricing. Cash-pay elective services offer real pricing power — price at market rate not cost-plus.',
     rateLinkage:'Healthcare is rate-insensitive on revenue (payers set rates). Impact comes through equipment financing (7–10 year loans) and real estate. D/E rising from 1.2x toward 1.5x as investments increase — rate lock on equipment is the primary financial risk management action.',
   logistics:{name:'Logistics / Transport',emoji:'🚛',color:'#2d3a6b',bg:'#eaecfc',
-    margin:4,labour:38,rawmat:28,fixed:28,aiAutoRate:0.18,
+    margin:4,labour:38,rawmat:28,fixed:28,
     debtEquity:1.7,currentRatio:1.3,dso:35,emptyMilesPct:20,
     rateImpact:{
       high:'🔴 Logistics D/E averaged 1.7x in 2024 (MonitorDaily) and fleet financing is directly rate-sensitive. Transport net margins are 3–6% — among the thinnest in SMB sectors. Route optimisation and fuel efficiency are the only margin levers when rates are high. UPS, FedEx route optimisation saves $10M+ annually at scale.',
@@ -1318,7 +1318,7 @@ var SECTORS = {
     pricingStrategy:'Dynamic lane pricing based on real-time demand and capacity is standard among top carriers. Static rate cards leave 10–20% revenue on the table during peak periods. Surcharges (fuel, dimensional weight, residential) capture cost increases without repricing core contracts.',
     rateLinkage:'Fleet financing at 1.7x D/E means a 1% rate rise costs $17K per $1M of fleet debt. Fuel is the largest variable cost and moves independently of Fed decisions. Combined rate + fuel exposure makes logistics the second-most operationally sensitive sector after construction.',
   realestate:{name:'Real Estate',emoji:'🏠',color:'#4a1a6b',bg:'#f0eafc',
-    margin:15,labour:20,rawmat:8,fixed:55,aiAutoRate:0.16,
+    margin:15,labour:20,rawmat:8,fixed:55,
     debtEquity:3.1,currentRatio:1.1,dso:5,capRateRange:'5.5–7.5%',
     rateImpact:{
       high:'🔴 Real estate D/E averages 3.1x (FullRatio 2026 — REIT sector highest at 3.09x). CRE loans tied to SOFR — every 1% rise on $8M debt = $80K/yr immediately. Cap rate expansion compresses asset values even if NOI holds. Refinance ALL floating CRE to fixed immediately — this is the most urgent financial action in any sector.',
@@ -1341,7 +1341,7 @@ var SECTORS = {
     pricingStrategy:'Quarterly rent reviews against market comparables. Operators who anchor to historical rents underprice by 5–10% (common in long-tenancy portfolios). AI-powered comparable analysis removes anchoring bias. Lease escalation clauses at 3–5% annually protect against inflation and rate rises.',
     rateLinkage:'Most leveraged sector at D/E 3.09x. Cap rate expansion directly compresses asset values. SOFR-tied CRE debt reprices every 1–3 months. A 2% rate rise on $8M = $160K/yr additional interest — representing 10–20% of net profit for a typical mid-size operator. Rate lock is existential, not optional.',
   professional:{name:'Professional Services',emoji:'💼',color:'#1a3a6b',bg:'#eef3fc',
-    margin:18,labour:60,rawmat:2,fixed:30,aiAutoRate:0.20,
+    margin:18,labour:60,rawmat:2,fixed:30,
     debtEquity:0.7,currentRatio:1.9,dso:38,utilisationTarget:72,
     rateImpact:{
       high:'🔴 Professional services D/E is low at 0.7x — minimal direct rate exposure. Primary risk: client capex budgets tighten. Advisory and consulting are among first cuts. Lock long-term retainer contracts NOW before clients tighten budgets. Annual rate increases of 5–8% are expected even in high-rate environments.',
@@ -1364,7 +1364,7 @@ var SECTORS = {
     pricingStrategy:'Annual rate increases of 5–8% are expected and accepted by retained clients. Firms that skip increases for 2–3 years face resistance when catching up. Value-based pricing (priced to client ROI) delivers 2–3x more revenue than cost-plus billing and is the primary differentiation strategy for top-quartile firms.',
     rateLinkage:'Minimal direct rate sensitivity at D/E 0.7x. Primary risk is indirect: client capex budget tightening in high-rate environments reduces demand for advisory. Firms with 60%+ revenue on retainer are almost immune to rate-cycle demand swings.',
   consumer:{name:'Consumer Goods',emoji:'🛒',color:'#1a6b3a',bg:'#e8f5ee',
-    margin:8,labour:22,rawmat:45,fixed:22,aiAutoRate:0.11,
+    margin:8,labour:22,rawmat:45,fixed:22,
     debtEquity:1.7,currentRatio:1.4,dso:28,inventoryTurns:6.1,
     rateImpact:{
       high:'🔴 Consumer goods D/E averaged 1.7x in 2024 (MonitorDaily). Double threat: inventory financing rises AND consumers have less disposable income. K-shaped economy intensifies — premium and value tiers grow, mid-market shrinks. Cut low-margin SKUs immediately.',
@@ -3111,7 +3111,7 @@ function localAdvisor(txt){
   }[SEC]||'floating-rate debt';
   if(q.includes('hire')||q.includes('hiring')||q.includes('staff')) return 'For <strong>'+s.name+'</strong>, the sector hire risk factor is <strong>'+Math.round(secHireRisk*100)+'%</strong> of the baseline — '+( secHireRisk>1?'above average capacity to hire':'below average — more caution required')+'. In this <strong>'+gEnv+'</strong> rate environment, safe hires are <strong>'+safeHire+'</strong>. '+({manufacturing:'Lock equipment financing before adding payroll.',technology:'Only hire roles AI cannot replace within 3 years.',retail:'Favour seasonal contracts over permanent adds.',restaurant:'Use AI scheduling to squeeze more capacity before hiring.',construction:'Never hire ahead of signed contract backlog.',healthcare:'Admin AI automation before any clinical headcount add.',logistics:'AI dispatch extends capacity before new drivers are needed.',realestate:'Each new manager should cover 35–50 units before you add another.',professional:'Only hire when existing team consistently exceeds 72% billable utilisation.',consumer:'AI demand forecasting unlocks warehouse capacity before headcount adds.'}[SEC]||'Protect cash runway first.');
   if(q.includes('debt')||q.includes('refinance')||q.includes('loan')) return 'For <strong>'+s.name+'</strong>, the primary rate-sensitive debt is <strong>'+debtPriority+'</strong>. At Fed rate <strong>'+fedRate.toFixed(2)+'%</strong>, your rate sensitivity index is <strong>'+Math.round(rsens*1000)/10+'% cost rise per 1% rate increase</strong>. '+s.rateLinkage;
-  if(q.includes('ai')) return 'For <strong>'+s.name+'</strong>, the AI automation rate is <strong>'+Math.round((s.aiAutoRate||0.12)*100)+'% of labour costs</strong> — '+(s.aiAutoRate>0.18?'above average automation potential':'sector-typical automation potential')+'. Your estimated annual AI opportunity is <strong>'+aiSav+'</strong>. Priority: '+s.actions[0].t+'.';
+  if(q.includes('ai')) return 'For <strong>'+s.name+'</strong>, the AI automation rate is <strong>'+Math.round(Model._sec(CONFIG.ai.automatableShare, SEC)*100)+'% of labour costs</strong> — '+(Model._sec(CONFIG.ai.automatableShare, SEC)>0.18?'above average automation potential':'sector-typical automation potential')+'. Your estimated annual AI opportunity is <strong>'+aiSav+'</strong>. Priority: '+s.actions[0].t+'.';
   if(q.includes('price')||q.includes('pricing')) return s.eqInsight+' Your current price is <strong>$'+Math.round(price).toLocaleString()+'</strong>. The MR=MC model recommends <strong>$'+Math.round(optP).toLocaleString()+'</strong> at <strong>'+Math.round(optQ).toLocaleString()+'</strong> units, implying <strong>$'+Math.round(gap/1000).toLocaleString()+'K</strong> additional profit. '+s.pricingStrategy;
   if(q.includes('rate')||q.includes('fed')||q.includes('interest')) return 'The current environment is <strong>'+gEnv.toUpperCase()+'</strong> at <strong>'+fedRate.toFixed(2)+'%</strong>. '+s.rateImpact[gEnv]+' '+s.rateLinkage;
   return s.eqInsight+' For <strong>'+s.name+'</strong> in a <strong>'+gEnv+'</strong> environment, the top priority is: '+s.actions[0].t+'. Estimated pricing gap: <strong>$'+Math.round(gap/1000).toLocaleString()+'K/yr</strong>. Rate sensitivity: <strong>'+Math.round(rsens*1000)/10+'% per 1% Fed move</strong>.';
@@ -3145,7 +3145,7 @@ function sendChat(){
     consumer:'Consumer goods face K-shaped demand: premium and value are growing, mid-market is shrinking. Inventory carrying costs and private label competition are primary margin pressures. Brand investment protects pricing power and moves elasticity below 1.0.'
   }[SEC]||'Mid-size business with mixed debt and standard cost structure.';
 
-  var sys = 'You are RateShield AI — expert financial advisor for mid-size businesses ($5M–$200M revenue).\n\nCompany: '+coName+'\nSector: '+s.name+' '+s.emoji+'\nRate environment: '+gEnv.toUpperCase()+' (Fed: '+safeVal('fed-slider',3.75,0,15).toFixed(2)+'%)\nPayroll to revenue: ~'+Math.round(safeVal('sl-labour',35,0,99))+'% labour cost\nAI automation rate: '+Math.round((s.aiAutoRate||0.12)*100)+'% of labour automatable\n\nSector context: '+secContext+'\n\nRate linkage for this sector: '+s.rateLinkage+'\n\nPricing insight: '+s.eqInsight+'\n\nBe highly specific. Use real numbers from their inputs. Reference sector benchmarks. Never give generic advice. If asked about hiring, reference the sector safe-hire framework. If asked about pricing, reference the MR=MC equilibrium model. If asked about loans, reference the sector debt mix. No bullet-point lists — give direct, specific, numbered recommendations.';
+  var sys = 'You are RateShield AI — expert financial advisor for mid-size businesses ($5M–$200M revenue).\n\nCompany: '+coName+'\nSector: '+s.name+' '+s.emoji+'\nRate environment: '+gEnv.toUpperCase()+' (Fed: '+safeVal('fed-slider',3.75,0,15).toFixed(2)+'%)\nPayroll to revenue: ~'+Math.round(safeVal('sl-labour',35,0,99))+'% labour cost\nAI automation rate: '+Math.round(Model._sec(CONFIG.ai.automatableShare, SEC)*100)+'% of labour automatable\n\nSector context: '+secContext+'\n\nRate linkage for this sector: '+s.rateLinkage+'\n\nPricing insight: '+s.eqInsight+'\n\nBe highly specific. Use real numbers from their inputs. Reference sector benchmarks. Never give generic advice. If asked about hiring, reference the sector safe-hire framework. If asked about pricing, reference the MR=MC equilibrium model. If asked about loans, reference the sector debt mix. No bullet-point lists — give direct, specific, numbered recommendations.';
   (async function(){
     try {
       var res = await fetch('/api/chat', {

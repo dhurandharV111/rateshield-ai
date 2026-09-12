@@ -125,6 +125,19 @@ test('runway is net-burn based: profitable business shows "Cash-flow positive" p
   assert.deepEqual(errors, []);
 });
 
+test('AI savings: the module quotes the CONFIG per-sector automatable share and labour is a share of costs, not revenue', () => {
+  const fs = require('fs');
+  const src = fs.readFileSync(require('./helpers/loadApp').HTML_PATH, 'utf8');
+  assert.ok(!/aiAutoRate/.test(src), 'no duplicate aiAutoRate table left in SECTORS');
+  assert.ok(!/\/0\.65|÷ 0\.65/.test(src), 'labour-share automation proxy removed');
+  const { window } = boot('professional');
+  const share = Math.round(window.CONFIG.ai.automatableShare.professional * 100);
+  assert.ok(txt(window, 'ai-result').includes(share + '% automatable'));
+  assert.ok(txt(window, 'ai-result').includes('% of costs'));
+  const m3 = txt(window, 'm3-analyst-tbody');
+  assert.ok(m3.includes('% of costs') && m3.includes(share + '% automatable'));
+});
+
 test('negative margin renders without NaN and the simulator does not floor it to +2%', () => {
   const { window, errors } = boot('manufacturing');
   setVal(window, 'sl-margin', '-25');
