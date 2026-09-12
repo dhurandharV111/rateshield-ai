@@ -358,6 +358,15 @@ test('simulator: AI Acceleration raises AI savings above base via the automatabl
   });
 });
 
+test('Financing Strategy renders the backtest hit rate from Model.backtest', () => {
+  const { window } = boot('manufacturing');
+  const bt = window.Model.backtest();
+  assert.equal(txt(window, 'backtest-line'), bt.hits + ' of ' + bt.total + ' historical episodes, direction correct');
+  assert.ok(txt(window, 'backtest-label').startsWith('Backtest: ' + bt.hits + ' of ' + bt.total));
+  const m = window.RS_METRICS.forecast.backtest;
+  assert.equal(m.hits, bt.hits); assert.equal(m.total, bt.total); assert.equal(m.hitRate, bt.hitRate);
+});
+
 test('negative margin renders without NaN and the simulator does not floor it to +2%', () => {
   const { window, errors } = boot('manufacturing');
   setVal(window, 'sl-margin', '-25');

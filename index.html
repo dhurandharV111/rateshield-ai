@@ -526,6 +526,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
           <div class="dr"><span class="dl">In 12 months</span><span class="dv" id="r12">3.25%</span></div>
           <div class="dr"><span class="dl">In 18 months</span><span class="dv" id="r18">3.00%</span></div>
           <div class="dr"><span class="dl">Model confidence (analog-distance heuristic)</span><span class="dv" id="conf">—</span></div>
+          <div class="dr"><span class="dl" id="backtest-label">Backtest</span><span class="dv" id="backtest-line">—</span></div>
         </div>
         <div class="rb rb-amber" id="sec-impact-box">
           <div class="rb-label">What this means for your sector</div>
@@ -1066,21 +1067,31 @@ var CONFIG = {
     scale: { cpi: 2.5, un: 1.5, tr: 2.0, gdp: 1.5, pce: 2.0 },
     matchDecay: 1.5,            // match% = 100 × e^(−distance / matchDecay)
     confidenceBase: 40, confidenceSpan: 55, confidenceMax: 94, // confidence = base + span × e^(−distance)
+    // fedFunds = effective federal funds rate in December of that year (FRED
+    // FEDFUNDS, monthly average). actualChange12m = FEDFUNDS in December of the
+    // FOLLOWING year minus fedFunds, i.e. the realised move over the next 12
+    // months. Source: FRED series FEDFUNDS (https://fred.stlouisfed.org/series/FEDFUNDS);
+    // values are quoted from that series to 2 dp but were entered without live
+    // FRED access at authoring time — verify against the series before relying
+    // on the backtest for anything beyond a directional sanity check.
     years: [
-      { year: 1974, label: 'Oil shock stagflation',        cpi: 11.0, un: 5.6, tr: 7.6,  gdp: -0.5, pce: 9.0 },
-      { year: 1981, label: 'Volcker disinflation',         cpi: 10.3, un: 7.6, tr: 13.9, gdp: 2.5,  pce: 8.7 },
-      { year: 1984, label: 'Post-recession boom',          cpi: 4.3,  un: 7.5, tr: 12.5, gdp: 7.2,  pce: 4.5 },
-      { year: 1990, label: 'Gulf War slowdown',            cpi: 5.4,  un: 5.6, tr: 8.6,  gdp: 1.9,  pce: 4.3 },
-      { year: 1995, label: 'Soft landing',                 cpi: 2.8,  un: 5.6, tr: 6.6,  gdp: 2.7,  pce: 2.3 },
-      { year: 2000, label: 'Dot-com peak',                 cpi: 3.4,  un: 4.0, tr: 6.0,  gdp: 4.1,  pce: 1.7 },
-      { year: 2001, label: 'Dot-com bust',                 cpi: 2.8,  un: 4.7, tr: 5.0,  gdp: 1.0,  pce: 1.6 },
-      { year: 2007, label: 'Pre-GFC late cycle',           cpi: 2.8,  un: 4.6, tr: 4.6,  gdp: 2.0,  pce: 2.3 },
-      { year: 2009, label: 'Financial crisis trough',      cpi: -0.4, un: 9.3, tr: 3.3,  gdp: -2.6, pce: 1.2 },
-      { year: 2015, label: 'Post-ZIRP lift-off',           cpi: 0.1,  un: 5.3, tr: 2.1,  gdp: 2.9,  pce: 1.3 },
-      { year: 2019, label: 'Late-cycle mid-cycle cuts',    cpi: 1.8,  un: 3.7, tr: 2.1,  gdp: 2.3,  pce: 1.7 },
-      { year: 2022, label: 'Post-COVID inflation surge',   cpi: 8.0,  un: 3.6, tr: 3.0,  gdp: 2.1,  pce: 5.2 },
-      { year: 2024, label: 'Disinflation with full employment', cpi: 2.9, un: 4.0, tr: 4.2, gdp: 2.8, pce: 2.8 }
-    ]
+      { year: 1974, label: 'Oil shock stagflation',        cpi: 11.0, un: 5.6, tr: 7.6,  gdp: -0.5, pce: 9.0, fedFunds: 8.53,  actualChange12m: -3.33 },
+      { year: 1981, label: 'Volcker disinflation',         cpi: 10.3, un: 7.6, tr: 13.9, gdp: 2.5,  pce: 8.7, fedFunds: 12.37, actualChange12m: -3.42 },
+      { year: 1984, label: 'Post-recession boom',          cpi: 4.3,  un: 7.5, tr: 12.5, gdp: 7.2,  pce: 4.5, fedFunds: 8.38,  actualChange12m: -0.11 },
+      { year: 1990, label: 'Gulf War slowdown',            cpi: 5.4,  un: 5.6, tr: 8.6,  gdp: 1.9,  pce: 4.3, fedFunds: 7.31,  actualChange12m: -2.88 },
+      { year: 1995, label: 'Soft landing',                 cpi: 2.8,  un: 5.6, tr: 6.6,  gdp: 2.7,  pce: 2.3, fedFunds: 5.60,  actualChange12m: -0.31 },
+      { year: 2000, label: 'Dot-com peak',                 cpi: 3.4,  un: 4.0, tr: 6.0,  gdp: 4.1,  pce: 1.7, fedFunds: 6.40,  actualChange12m: -4.58 },
+      { year: 2001, label: 'Dot-com bust',                 cpi: 2.8,  un: 4.7, tr: 5.0,  gdp: 1.0,  pce: 1.6, fedFunds: 1.82,  actualChange12m: -0.58 },
+      { year: 2007, label: 'Pre-GFC late cycle',           cpi: 2.8,  un: 4.6, tr: 4.6,  gdp: 2.0,  pce: 2.3, fedFunds: 4.24,  actualChange12m: -4.08 },
+      { year: 2009, label: 'Financial crisis trough',      cpi: -0.4, un: 9.3, tr: 3.3,  gdp: -2.6, pce: 1.2, fedFunds: 0.12,  actualChange12m: 0.06 },
+      { year: 2015, label: 'Post-ZIRP lift-off',           cpi: 0.1,  un: 5.3, tr: 2.1,  gdp: 2.9,  pce: 1.3, fedFunds: 0.24,  actualChange12m: 0.30 },
+      { year: 2019, label: 'Late-cycle mid-cycle cuts',    cpi: 1.8,  un: 3.7, tr: 2.1,  gdp: 2.3,  pce: 1.7, fedFunds: 1.55,  actualChange12m: -1.46 },
+      { year: 2022, label: 'Post-COVID inflation surge',   cpi: 8.0,  un: 3.6, tr: 3.0,  gdp: 2.1,  pce: 5.2, fedFunds: 4.10,  actualChange12m: 1.23 },
+      { year: 2024, label: 'Disinflation with full employment', cpi: 2.9, un: 4.0, tr: 4.2, gdp: 2.8, pce: 2.8, fedFunds: 4.48, actualChange12m: -0.84 }
+    ],
+    // Direction backtest: a predicted or actual 12-month change within ±deadZone
+    // counts as "hold"; otherwise "up" / "down". A hit is a matching direction.
+    backtestDeadZone: 0.25
   }
 };
 
@@ -1301,6 +1312,21 @@ var Model = {
     var A = CONFIG.analog;
     return Math.min(A.confidenceMax, Math.max(A.confidenceBase, Math.round(A.confidenceBase + A.confidenceSpan * Math.exp(-distance))));
   },
+  // Directional backtest of predictedRate against every episode in CONFIG.analog.years.
+  backtest: function() {
+    var dz = CONFIG.analog.backtestDeadZone;
+    var dir = function(x) { return x > dz ? 'up' : x < -dz ? 'down' : 'hold'; };
+    var rows = CONFIG.analog.years.map(function(y) {
+      var predicted = Model.predictedRate(Model.rateSignalScore(y));
+      var predictedChange = predicted - y.fedFunds;
+      var pd = dir(predictedChange), ad = dir(y.actualChange12m);
+      return { year: y.year, label: y.label, current: y.fedFunds, predicted: predicted, predictedChange: predictedChange,
+               actualChange12m: y.actualChange12m, predictedDir: pd, actualDir: ad, hit: pd === ad };
+    });
+    var hits = rows.filter(function(r) { return r.hit; }).length;
+    return { rows: rows, hits: hits, total: rows.length, hitRate: rows.length ? hits / rows.length : 0 };
+  },
+
   // Hike / hold / cut probabilities from the predicted 12-month rate change.
   fomcProbabilities: function(predictedRate, currentRate) {
     var F = CONFIG.fomc, z = (predictedRate - currentRate) / F.unitBp;
@@ -2868,6 +2894,12 @@ function updateF() {
   document.getElementById('r12').textContent=r12.toFixed(2)+'%';
   document.getElementById('r18').textContent=r18.toFixed(2)+'%';
   document.getElementById('conf').textContent=conf+'%';
+  var bt=Model.backtest();
+  RS_METRICS.forecast.backtest={ hits: bt.hits, total: bt.total, hitRate: bt.hitRate };
+  var btEl=document.getElementById('backtest-line');
+  if(btEl) btEl.textContent=bt.hits+' of '+bt.total+' historical episodes, direction correct';
+  var btLabel=document.getElementById('backtest-label');
+  if(btLabel) btLabel.textContent='Backtest: '+bt.hits+' of '+bt.total+' historical episodes, direction correct (12-month move, ±'+CONFIG.analog.backtestDeadZone+' = hold)';
   var analogEl=document.getElementById('analog-tag');
   if(analogEl) analogEl.textContent=analog.best.year+' — '+analog.best.matchPct+'% match';
   var analogSub=document.getElementById('analog-label');
