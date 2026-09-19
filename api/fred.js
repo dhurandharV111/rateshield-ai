@@ -21,9 +21,9 @@
 //                   market's pricing of the policy rate over the next two meetings
 //   DGS2            2-year Treasury constant-maturity yield, % (daily)
 //
-// Momentum: for PCEPILFE (yoy) and DGS10 the snapshot also carries the value
-// observed 3 months before the latest observation (corePce3moAgo,
-// treasury10y3moAgo), read from the same observation window — nothing is
+// Momentum: for CPIAUCSL (yoy), PCEPILFE (yoy) and DGS10 the snapshot also
+// carries the value observed 3 months before the latest observation (cpi3moAgo,
+// corePce3moAgo, treasury10y3moAgo), read from the same observation window — nothing is
 // interpolated. If no observation exists on or before that date, the field is
 // null and the app treats momentum as zero.
 
@@ -31,7 +31,7 @@ const FRED_BASE = 'https://api.stlouisfed.org/fred/series/observations';
 
 export const SERIES = {
   fedFunds:     { id: 'DFF',             units: 'lin', limit: 10 },
-  cpi:          { id: 'CPIAUCSL',        units: 'pc1', limit: 3 },
+  cpi:          { id: 'CPIAUCSL',        units: 'pc1', limit: 6 },
   corePce:      { id: 'PCEPILFE',        units: 'pc1', limit: 6 },
   unemployment: { id: 'UNRATE',          units: 'lin', limit: 3 },
   gdpGrowth:    { id: 'A191RL1Q225SBEA', units: 'lin', limit: 3 },
@@ -67,7 +67,7 @@ export function latestValue(observations) {
 }
 
 // Series whose value 3 months before the latest observation is also reported.
-export const MOMENTUM = { corePce: 'corePce3moAgo', treasury10y: 'treasury10y3moAgo' };
+export const MOMENTUM = { cpi: 'cpi3moAgo', corePce: 'corePce3moAgo', treasury10y: 'treasury10y3moAgo' };
 export const MOMENTUM_MONTHS = 3;
 
 // ISO date shifted back by `months` calendar months (day clamped to the month).
@@ -146,6 +146,7 @@ export function buildSnapshot(raw, now) {
     gdpGrowth: 'A191RL1Q225SBEA — real GDP, % change from preceding period, SAAR (used as reported)',
     cpi: 'CPIAUCSL with units=pc1 — year-over-year % change (computed by FRED)',
     corePce: 'PCEPILFE with units=pc1 — year-over-year % change (computed by FRED)',
+    cpi3moAgo: 'CPIAUCSL (pc1) observation ' + MOMENTUM_MONTHS + ' months before the latest one — used for the momentum term',
     corePce3moAgo: 'PCEPILFE (pc1) observation ' + MOMENTUM_MONTHS + ' months before the latest one — used for the momentum term',
     treasury10y3moAgo: 'DGS10 observation on or before ' + MOMENTUM_MONTHS + ' months before the latest one — used for the momentum term'
   };

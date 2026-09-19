@@ -119,7 +119,16 @@ test('momentum: the snapshot carries PCEPILFE and DGS10 values from 3 months ear
   ];
   assert.deepEqual(fred.valueMonthsAgo(daily, '2026-09-11', 3), { value: 4.40, date: '2026-06-11' }, 'first numeric observation on or before the target date');
   assert.equal(fred.valueMonthsAgo(monthly.slice(0, 2), '2026-07-01', 3), null, 'window too short → null, never interpolated');
-  const snap = fred.buildSnapshot(fixture({ PCEPILFE: monthly, DGS10: daily }));
+  const cpiMonthly = [
+    { date: '2026-08-01', value: '3.4' }, { date: '2026-07-01', value: '3.3' }, { date: '2026-06-01', value: '3.1' },
+    { date: '2026-05-01', value: '3.0' }, { date: '2026-04-01', value: '2.9' }
+  ];
+  const snap = fred.buildSnapshot(fixture({ PCEPILFE: monthly, DGS10: daily, CPIAUCSL: cpiMonthly }));
+  assert.equal(snap.cpi, 3.4);
+  assert.equal(snap.cpi3moAgo, 3.0, 'headline CPI three months before the latest observation');
+  assert.equal(snap.dates.CPIAUCSL_3mo, '2026-05-01');
+  assert.ok(fred.SERIES.cpi.limit >= 4);
+  assert.equal(fred.buildSnapshot(fixture()).cpi3moAgo, null);
   assert.equal(snap.corePce, 3.34);
   assert.equal(snap.corePce3moAgo, 3.0);
   assert.equal(snap.dates.PCEPILFE_3mo, '2026-04-01');

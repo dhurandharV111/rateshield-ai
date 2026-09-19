@@ -532,3 +532,24 @@ test('backtest scores 12-month and next-meeting episodes on separate boards', ()
   assert.equal(b2.total, 1); assert.equal(b2.nextMeeting.total, 1); assert.equal(b2.nextMeeting.rows[0].actualDir, 'down');
   CONFIG.analog.years = saved;
 });
+
+test('headline CPI momentum: (cpi − cpi 3 mo ago) × 0.8, clamped ±1.5, zero when missing, and part of the score', () => {
+  const F = CONFIG.forecast;
+  assert.equal(F.cpi.momentumWeight, 0.8);
+  const base = { cpi: 3.4, un: 4.1, tr: 4.95, gdp: 1.5, pce: 3.3 };
+  assert.equal(Model.rateSignalContributions(base).cpiMom, 0);
+  const up = Model.rateSignalContributions(Object.assign({}, base, { cpi3mo: 3.0 }));
+  near(up.cpiMom, 0.4 * 0.8, 1e-9);
+  near(Model.rateSignalScore(Object.assign({}, base, { cpi3mo: 3.0 })) - Model.rateSignalScore(base), 0.32, 1e-9);
+  assert.equal(Model.rateSignalContributions(Object.assign({}, base, { cpi3mo: 0 })).cpiMom, 1.5, '3.4 × 0.8 = 2.72 → clamped');
+  assert.equal(Model.rateSignalContributions(Object.assign({}, base, { cpi3mo: 9 })).cpiMom, -1.5);
+  near(Model.rateSignalContributions(Object.assign({}, base, { cpiMom3m: -1.7 })).cpiMom, -1.36, 1e-9);
+  assert.equal(Model.rateSignalContributions(Object.assign({}, base, { cpi3mo: 3.0 }), { momentum: false }).cpiMom, 0);
+  const c = Model.rateSignalContributions(Object.assign({}, base, { cpi3mo: 3.0, pce3mo: 3.3, tr3mo: 4.4 }));
+  near(Model.rateSignalScore(Object.assign({}, base, { cpi3mo: 3.0, pce3mo: 3.3, tr3mo: 4.4 })), c.cpi + c.pce + c.un + c.tr + c.gdp + c.cpiMom + c.pceMom + c.trMom, 1e-9);
+  for (let ago = 0; ago <= 10; ago = Math.round((ago + 0.02) * 100) / 100) {
+    const a = Model.predictedRate(Model.rateSignalScore(Object.assign({}, base, { cpi3mo: ago })));
+    const b = Model.predictedRate(Model.rateSignalScore(Object.assign({}, base, { cpi3mo: ago + 0.02 })));
+    assert.ok(Math.abs(b - a) <= 0.25 + 1e-9, `cpi3mo ${ago}`);
+  }
+});

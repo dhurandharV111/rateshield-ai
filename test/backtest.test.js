@@ -52,8 +52,8 @@ test('backtest: direction hit rate is reported for all episodes', () => {
   // Same episodes with the momentum term switched off, so the two hit rates can be compared.
   const off = Model.backtest({ momentum: false });
   const F = CONFIG.forecast;
-  console.log('  Momentum term  ON  (pce ×' + F.pce.momentumWeight + ', 10Y ×' + F.tr.momentumWeight + ', clamp ±' + F.momentumClamp + '): ' + bt.hits + ' of ' + bt.total + ' (' + Math.round(bt.hitRate * 100) + '%)');
-  console.log('  Momentum term  OFF: ' + off.hits + ' of ' + off.total + ' (' + Math.round(off.hitRate * 100) + '%)');
+  console.log('  Momentum terms ON  (cpi ×' + F.cpi.momentumWeight + ', pce ×' + F.pce.momentumWeight + ', 10Y ×' + F.tr.momentumWeight + ', clamp ±' + F.momentumClamp + '): ' + bt.hits + ' of ' + bt.total + ' (' + Math.round(bt.hitRate * 100) + '%)');
+  console.log('  Momentum terms OFF: ' + off.hits + ' of ' + off.total + ' (' + Math.round(off.hitRate * 100) + '%)');
   const changed = bt.rows.filter((r) => { const o = off.rows.find((x) => x.year === r.year); return o && o.hit !== r.hit; });
   console.log('  Episodes whose verdict momentum changes: ' + (changed.length ? changed.map((r) => r.year + ' (' + (r.hit ? 'gained' : 'lost') + ')').join(', ') : 'none') + '\n');
   assert.equal(off.total, bt.total);
@@ -79,8 +79,10 @@ test('backtest: direction hit rate is reported for all episodes', () => {
       const p = Model.fomcProbabilities(Model.predictedRate(baseScore + extra), y2026.fedFunds);
       if (Model.fomcDirection(p) === 'hike') { needed = extra; break; }
     }
+    const c26 = Model.rateSignalContributions(y2026);
+    console.log('  2026 momentum contributions: CPI ' + c26.cpiMom.toFixed(2) + ' · core PCE ' + c26.pceMom.toFixed(2) + ' · 10Y ' + c26.trMom.toFixed(2));
     console.log('  2026: score without momentum ' + baseScore.toFixed(2) + ', momentum contribution ' +
-      (Model.rateSignalScore(y2026) - baseScore).toFixed(2) + ' (pceMom3m ' + y2026.pceMom3m + ', trMom3m ' + y2026.trMom3m + ', ' + y2026.momentumSource + ')' +
+      (Model.rateSignalScore(y2026) - baseScore).toFixed(2) + ' (cpiMom3m ' + y2026.cpiMom3m + ', pceMom3m ' + y2026.pceMom3m + ', trMom3m ' + y2026.trMom3m + ', ' + y2026.momentumSource + ')' +
       '; extra score needed for a "hike" call: ' + (needed === null ? '> 6' : '+' + needed.toFixed(2)) + ' (momentum is capped at +3.0 in total)\n');
   }
   assert.equal(nm.total, CONFIG.analog.years.filter((y) => typeof y.actualNextMeeting === 'number').length);
