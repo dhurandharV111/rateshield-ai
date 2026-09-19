@@ -13,6 +13,9 @@
 //   A191RL1Q225SBEA real GDP, % change from preceding period, seasonally
 //                   adjusted annual rate (quarterly) — NOT the nominal GDP level
 //   DGS10           10-year Treasury constant-maturity yield, % (daily)
+//   DGS6MO          6-month Treasury constant-maturity yield, % (daily) — the
+//                   market's pricing of the policy rate over the next two meetings
+//   DGS2            2-year Treasury constant-maturity yield, % (daily)
 
 const FRED_BASE = 'https://api.stlouisfed.org/fred/series/observations';
 
@@ -22,7 +25,9 @@ export const SERIES = {
   corePce:      { id: 'PCEPILFE',        units: 'pc1', limit: 3 },
   unemployment: { id: 'UNRATE',          units: 'lin', limit: 3 },
   gdpGrowth:    { id: 'A191RL1Q225SBEA', units: 'lin', limit: 3 },
-  treasury10y:  { id: 'DGS10',           units: 'lin', limit: 10 }
+  treasury10y:  { id: 'DGS10',           units: 'lin', limit: 10 },
+  treasury6mo:  { id: 'DGS6MO',          units: 'lin', limit: 10 },
+  treasury2y:   { id: 'DGS2',            units: 'lin', limit: 10 }
 };
 
 export const CORE_PCE_VS_CPI_MAX_GAP = 1.0;
@@ -31,7 +36,7 @@ export const CORE_PCE_VS_CPI_MAX_GAP = 1.0;
 // falls back to its CONFIG snapshot, and the reason is reported in `warnings`.
 export const SANITY = {
   fedFunds: [0, 25], cpi: [-5, 25], corePce: [-5, 25], unemployment: [0, 30],
-  gdpGrowth: [-10, 8], treasury10y: [0, 25]
+  gdpGrowth: [-10, 8], treasury10y: [0, 25], treasury6mo: [0, 25], treasury2y: [0, 25]
 };
 
 // FRED encodes a missing daily value as ".". Return the latest numeric observation.

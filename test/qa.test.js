@@ -9,14 +9,14 @@ const { SECTORS, boot, setVal, txt } = require('./helpers/loadApp');
 const { badValues } = require('./helpers/loadApp');
 
 const INPUT_IDS = [
-  'f-cpi', 'f-un', 'f-tr', 'f-gdp', 'f-pce',
+  'f-cpi', 'f-un', 'f-tr', 'f-gdp', 'f-pce', 'f-tr6mo', 'f-tr2y', 'f-cme-hike', 'f-cme-cut',
   'sl-rev-h', 'sl-head', 'sl-sal', 'sl-hire', 'sl-debt', 'sl-cash', 'sl-margin-h',
   'sl-rev-ai', 'sl-margin', 'sl-labour', 'sl-rawmat', 'sl-fixed',
   'cd-cash', 'cd-opex', 'cd-buffer', 'cd-checking', 'cd-mmf', 'cd-tbill', 'cd-cd',
   'fed-slider', 'sl-debt-fixed-pct', 'sl-debt-fixed-rate', 'sl-debt-term',
   'sl-eq-price', 'sl-eq-output', 'sl-eq-vc', 'sl-eq-fc', 'sl-eq-elas'
 ];
-const OUTPUT_IDS = ['pred-rate', 'sec-impact-text', 'hiring-result', 'ai-result', 'lr-total', 'lr-annual', 'lr-exposed', 'lr-amort',
+const OUTPUT_IDS = ['pred-rate', 'sec-impact-text', 'mkt-label', 'pt-mkt-hike', 'pt-mkt-cut', 'pt-cme-hike', 'pt-cme-cut', 'hiring-result', 'ai-result', 'lr-total', 'lr-annual', 'lr-exposed', 'lr-amort',
   'eq-kpis', 'eq-rec', 'ceo-content', 'hm-score', 'hm-liq', 'hm-ai', 'cd-idle', 'cd-current', 'cd-optimized', 'cd-gap', 'cd-t1-amt', 'cd-t2-amt', 'cd-t3-amt'];
 
 function snapshot(window) {
@@ -374,5 +374,55 @@ test('negative margin renders without NaN and the simulator does not floor it to
   window.baselineMargin = -20;
   window.runScenario('recession');
   assert.ok(parseFloat(window.document.getElementById('sl-margin').value) < 0);
+  assert.deepEqual(errors, []);
+});
+
+test('market-implied row: computed from the 6-month Treasury vs Fed funds, disagreement line toggles, CME row only when typed', () => {
+  const fs = require('fs');
+  const src = fs.readFileSync(require('./helpers/loadApp').HTML_PATH, 'utf8');
+  assert.ok(!/Source:[^<]*CME/.test(src), 'CME FedWatch is never cited as a data source');
+  const cmeMentions = src.match(/CME FedWatch/g) || [];
+  cmeMentions.forEach(() => {});
+  assert.ok(src.split('CME FedWatch').every((frag, i) => i === 0 || /^ (hike|cut) % \(optional\)|^ \(entered by you\)/.test(frag)),
+    'every remaining "CME FedWatch" string is either the optional input label or the "entered by you" row label');
+  const { window, errors } = boot('manufacturing');
+  const C = window.CONFIG;
+  // snapshot defaults: 6-mo at the policy rate → hold, bars rendered from Model.marketProbabilities
+  let M = window.RS_METRICS.forecast;
+  const expected = window.Model.marketProbabilities(M.market.sixMonthSpread);
+  assert.deepEqual([txt(window, 'pt-mkt-hike'), txt(window, 'pt-mkt-hold'), txt(window, 'pt-mkt-cut')], [expected.hike + '%', expected.hold + '%', expected.cut + '%']);
+  assert.ok(txt(window, 'mkt-label').startsWith('Market-implied (6-mo Treasury vs Fed funds)'));
+  assert.ok(txt(window, 'mkt-label').includes('→ ' + M.market.direction));
+  assert.equal(window.document.getElementById('cme-row').style.display, 'none', 'CME row hidden until the user types a value');
+  // push the 6-month bill 40 bp above Fed funds: market says hike; model (predicting cuts) disagrees
+  setVal(window, 'f-tr6mo', String(C.currentFedRate + 0.40));
+  M = window.RS_METRICS.forecast;
+  assert.equal(M.market.direction, 'hike');
+  assert.ok(parseInt(txt(window, 'pt-mkt-hike'), 10) > 85);
+  assert.equal(M.disagree, M.modelDirection !== 'hike');
+  assert.equal(window.document.getElementById('mkt-disagree').style.display, M.disagree ? '' : 'none');
+  assert.ok(txt(window, 'mkt-disagree').includes('the market is usually right on the next meeting'));
+  // align the market with the model → line disappears
+  const modelDir = M.modelDirection;
+  setVal(window, 'f-tr6mo', String(C.currentFedRate + (modelDir === 'hike' ? 0.4 : modelDir === 'cut' ? -0.4 : 0)));
+  assert.equal(window.RS_METRICS.forecast.disagree, false);
+  assert.equal(window.document.getElementById('mkt-disagree').style.display, 'none');
+  // CME row: typed values only
+  setVal(window, 'f-cme-hike', '70');
+  assert.equal(window.document.getElementById('cme-row').style.display, '');
+  assert.equal(txt(window, 'pt-cme-hike'), '70%');
+  assert.equal(txt(window, 'pt-cme-hold'), '—', 'hold unknown until cut is entered');
+  setVal(window, 'f-cme-cut', '5');
+  assert.equal(txt(window, 'pt-cme-cut'), '5%');
+  assert.equal(txt(window, 'pt-cme-hold'), '25%');
+  const cme = window.RS_METRICS.forecast.cme;
+  assert.equal(cme.hike, 70); assert.equal(cme.cut, 5); assert.equal(cme.hold, 25);
+  // live FRED data pre-fills the two Treasury inputs and the source note names the series
+  window.applyMarketData({ asOf: 'September 2026', fedFunds: 3.63, cpi: 3.4, corePce: 3.3, unemployment: 4.1, gdpGrowth: 1.5, treasury10y: 4.95, treasury6mo: 3.90, treasury2y: 3.55 });
+  assert.ok(txt(window, 'fed-source-note').includes('DGS6MO 3.9%'));
+  assert.equal(parseFloat(window.document.getElementById('f-tr2y').value), 3.55);
+  assert.equal(window.CONFIG.macroDefaults.tr6mo, 3.9);
+  assert.ok(txt(window, 'mkt-label').includes('2-yr spread'));
+  assert.deepEqual(badValues(window, 'market'), []);
   assert.deepEqual(errors, []);
 });

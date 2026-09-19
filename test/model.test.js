@@ -412,3 +412,52 @@ test('optimalPricing composes isLm + pricing and is finite for every sector', ()
     near(r.elas, r.isLm.isLmElas);
   });
 });
+
+// ── Market-implied expectations (6-month Treasury vs Fed funds) ──────────────
+test('marketImpliedMove: spreads are Treasury minus Fed funds; ±0.10 is the hold band', () => {
+  const m = Model.marketImpliedMove(3.63, 3.90, 3.50);
+  near(m.sixMonthSpread, 0.27); near(m.twoYearSpread, -0.13);
+  assert.equal(m.direction, 'hike');
+  assert.equal(Model.marketImpliedMove(3.63, 3.40, 3.2).direction, 'cut');
+  assert.equal(Model.marketImpliedMove(3.63, 3.70, 3.7).direction, 'hold', '+0.07 is inside the band');
+  assert.equal(Model.marketImpliedMove(3.63, 3.73, 3.7).direction, 'hold', 'exactly +0.10 is still hold');
+  assert.equal(Model.marketImpliedMove(3.63, 3.74, 3.7).direction, 'hike');
+  assert.equal(Model.marketImpliedMove(3.63, 3.52, 3.7).direction, 'cut', '−0.11 → cut');
+  assert.equal(CONFIG.market.directionThreshold, 0.10);
+  // missing inputs never produce NaN or a direction
+  const missing = Model.marketImpliedMove(3.63, null, 3.5);
+  assert.equal(missing.sixMonthSpread, null); assert.equal(missing.direction, null); near(missing.twoYearSpread, -0.13);
+  assert.equal(Model.marketImpliedMove(undefined, 3.9, 3.5).sixMonthSpread, null);
+});
+
+test('marketProbabilities: logistic calibration (+0.25 ≈ 85% hike, 0 ≈ 60% hold, −0.25 ≈ 85% cut), sums to 100, monotone', () => {
+  const up = Model.marketProbabilities(0.25), flat = Model.marketProbabilities(0), down = Model.marketProbabilities(-0.25);
+  [up, flat, down].forEach((p) => assert.equal(p.hike + p.hold + p.cut, 100));
+  assert.ok(Math.abs(up.hike - 85) <= 2, `+0.25 → hike ${up.hike}%`);
+  assert.ok(Math.abs(flat.hold - 60) <= 2, `0 → hold ${flat.hold}%`);
+  assert.equal(flat.hike, flat.cut, 'zero spread is symmetric');
+  assert.ok(Math.abs(down.cut - 85) <= 2, `−0.25 → cut ${down.cut}%`);
+  assert.equal(up.hike, down.cut, 'mirror image');
+  let prev = Model.marketProbabilities(-1);
+  for (let s = -0.95; s <= 1; s = Math.round((s + 0.05) * 100) / 100) {
+    const p = Model.marketProbabilities(s);
+    assert.ok(p.hike >= prev.hike && p.cut <= prev.cut, `monotone at ${s}`);
+    prev = p;
+  }
+  assert.ok(Model.marketProbabilities(1).hike >= 99);
+  assert.equal(Model.marketProbabilities(null), null);
+  assert.equal(Model.marketProbabilities(NaN), null);
+  assert.ok(CONFIG.market.logistic.midpoint > 0 && CONFIG.market.logistic.scale > 0, 'curve constants live in CONFIG.market');
+});
+
+test('fomcDirection picks the most likely outcome and the refactored fomcProbabilities still sums to 100', () => {
+  assert.equal(Model.fomcDirection({ hike: 60, hold: 30, cut: 10 }), 'hike');
+  assert.equal(Model.fomcDirection({ hike: 10, hold: 30, cut: 60 }), 'cut');
+  assert.equal(Model.fomcDirection({ hike: 45, hold: 10, cut: 45 }), 'hold', 'tie → hold');
+  assert.equal(Model.fomcDirection(null), null);
+  for (let d = -2; d <= 2; d += 0.25) {
+    const p = Model.fomcProbabilities(3.75 + d, 3.75);
+    assert.equal(p.hike + p.hold + p.cut, 100, `sum at ${d}`);
+  }
+  assert.deepEqual(Model._pct100({ hike: 1, hold: 1, cut: 1 }).hike + Model._pct100({ hike: 1, hold: 1, cut: 1 }).hold + Model._pct100({ hike: 1, hold: 1, cut: 1 }).cut, 100);
+});

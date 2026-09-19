@@ -504,7 +504,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
     <div class="pg-title">Financing Strategy</div>
     <div class="pg-sub">Enter 5 macro numbers. Get the probability of a rate hike, hold, or cut — and the exact action your sector should take right now.</div>
     <div class="g2">
-      <table style="width:100%;border-collapse:collapse;margin-bottom:1.5rem;border:1px solid rgba(15,15,15,.1);border-radius:12px;overflow:hidden"><thead><tr style="background:#f0ede6"><th style="padding:8px 14px;text-align:left;font-size:10px;font-weight:700;color:#6b6b6b;text-transform:uppercase;border-bottom:2px solid rgba(15,15,15,.1)">Input</th><th style="padding:8px 14px;text-align:right;font-size:10px;font-weight:700;color:#6b6b6b;border-bottom:2px solid rgba(15,15,15,.1)">Value</th><th style="padding:8px 14px;text-align:right;font-size:10px;font-weight:700;color:#6b6b6b;border-bottom:2px solid rgba(15,15,15,.1)">Unit</th></tr></thead><tbody><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">CPI inflation</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="f-cpi" type="number" step="0.1" min="0" value="3.2" oninput="updateF();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% · target 2.0%</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Above 3%: cuts on hold · Below 2%: cuts possible</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Unemployment rate</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="f-un" type="number" step="0.1" min="0" value="4.2" oninput="updateF();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% · full employment ~4.0%</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Above 6%: recession signal · Below 3.5%: hike pressure</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">10Y Treasury yield</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="f-tr" type="number" step="0.1" min="0" value="4.3" oninput="updateF();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% · normal 2–5%</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Rising yield = market expects rates higher for longer</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">GDP growth rate</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="f-gdp" type="number" step="0.1" min="-10" value="2.1" oninput="updateF();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% · recession below 0%</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Negative = emergency cuts (2008,2020) · Above 4%: hike risk</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Core PCE inflation</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="f-pce" type="number" step="0.1" min="0" value="2.8" oninput="updateF();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% · Fed preferred gauge</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Must fall below 2.5% before cuts — the most important signal</td></tr></tbody></table>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:1.5rem;border:1px solid rgba(15,15,15,.1);border-radius:12px;overflow:hidden"><thead><tr style="background:#f0ede6"><th style="padding:8px 14px;text-align:left;font-size:10px;font-weight:700;color:#6b6b6b;text-transform:uppercase;border-bottom:2px solid rgba(15,15,15,.1)">Input</th><th style="padding:8px 14px;text-align:right;font-size:10px;font-weight:700;color:#6b6b6b;border-bottom:2px solid rgba(15,15,15,.1)">Value</th><th style="padding:8px 14px;text-align:right;font-size:10px;font-weight:700;color:#6b6b6b;border-bottom:2px solid rgba(15,15,15,.1)">Unit</th></tr></thead><tbody><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">CPI inflation</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="f-cpi" type="number" step="0.1" min="0" value="3.2" oninput="updateF();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% · target 2.0%</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Above 3%: cuts on hold · Below 2%: cuts possible</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Unemployment rate</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="f-un" type="number" step="0.1" min="0" value="4.2" oninput="updateF();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% · full employment ~4.0%</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Above 6%: recession signal · Below 3.5%: hike pressure</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">10Y Treasury yield</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="f-tr" type="number" step="0.1" min="0" value="4.3" oninput="updateF();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% · normal 2–5%</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Rising yield = market expects rates higher for longer</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">GDP growth rate</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="f-gdp" type="number" step="0.1" min="-10" value="2.1" oninput="updateF();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% · recession below 0%</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Negative = emergency cuts (2008,2020) · Above 4%: hike risk</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">Core PCE inflation</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="f-pce" type="number" step="0.1" min="0" value="2.8" oninput="updateF();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% · Fed preferred gauge</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Must fall below 2.5% before cuts — the most important signal</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">6-month Treasury yield</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="f-tr6mo" type="number" step="0.01" min="0" value="" oninput="updateF();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% · DGS6MO</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Market expectation: above Fed funds = hikes priced, below = cuts priced</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">2-year Treasury yield</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="f-tr2y" type="number" step="0.01" min="0" value="" oninput="updateF();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% · DGS2</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Two-year policy path priced by the market</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">CME FedWatch hike % (optional)</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="f-cme-hike" type="number" step="1" min="0" max="100" value="" placeholder="—" oninput="updateF();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% · not fetched</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Type the FedWatch hike probability if you have it — RateShield never scrapes CME</td></tr><tr><td style="padding:10px 14px 4px;font-size:13px;font-weight:500">CME FedWatch cut % (optional)</td><td style="padding:5px 8px;text-align:right"><input style="border:2px solid #c8c8c8;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:500;font-family:inherit;color:#0f0f0f;background:#ffffff;outline:none;text-align:right;width:160px;box-shadow:0 2px 6px rgba(0,0,0,.09)" id="f-cme-cut" type="number" step="1" min="0" max="100" value="" placeholder="—" oninput="updateF();saveInputsDebounced()"></td><td style="padding:5px 12px;font-size:11px;color:#6b6b6b;white-space:nowrap">% · not fetched</td></tr><tr><td style="padding:1px 14px 9px;font-size:10px;color:#a8a8a8" colspan="3">Hold = 100 − hike − cut</td></tr></tbody></table>
       <div>
         <div class="rb rb-blue">
           <div class="rb-label">Predicted rate — 12 months</div>
@@ -517,6 +517,17 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
             <div class="pb"><span class="pb-name">Rate hike</span><div class="pb-track"><div class="pb-fill" id="pb-hike" style="width:8%;background:#c0392b"></div></div><span class="pb-pct" id="pt-hike" style="color:#8b1a1a">8%</span></div>
             <div class="pb"><span class="pb-name">Hold</span><div class="pb-track"><div class="pb-fill" id="pb-hold" style="width:34%;background:#1a3a6b"></div></div><span class="pb-pct" id="pt-hold" style="color:#1a3a6b">34%</span></div>
             <div class="pb"><span class="pb-name">Rate cut</span><div class="pb-track"><div class="pb-fill" id="pb-cut" style="width:58%;background:#1a6b3a"></div></div><span class="pb-pct" id="pt-cut" style="color:#1a6b3a">58%</span></div>
+            <div class="sn" id="mkt-label" style="margin:10px 0 6px;font-weight:700;color:#6b6b6b">Market-implied (6-mo Treasury vs Fed funds)</div>
+            <div class="pb"><span class="pb-name">Rate hike</span><div class="pb-track"><div class="pb-fill" id="pb-mkt-hike" style="width:0%;background:#c0392b"></div></div><span class="pb-pct" id="pt-mkt-hike" style="color:#8b1a1a">—</span></div>
+            <div class="pb"><span class="pb-name">Hold</span><div class="pb-track"><div class="pb-fill" id="pb-mkt-hold" style="width:0%;background:#1a3a6b"></div></div><span class="pb-pct" id="pt-mkt-hold" style="color:#1a3a6b">—</span></div>
+            <div class="pb"><span class="pb-name">Rate cut</span><div class="pb-track"><div class="pb-fill" id="pb-mkt-cut" style="width:0%;background:#1a6b3a"></div></div><span class="pb-pct" id="pt-mkt-cut" style="color:#1a6b3a">—</span></div>
+            <div class="sn" id="mkt-disagree" style="display:none;color:#8b1a1a;margin-top:4px">Model and market disagree — the market is usually right on the next meeting; RateShield is built for the 12-month path.</div>
+            <div id="cme-row" style="display:none">
+              <div class="sn" style="margin:10px 0 6px;font-weight:700;color:#6b6b6b">CME FedWatch (entered by you)</div>
+              <div class="pb"><span class="pb-name">Rate hike</span><div class="pb-track"><div class="pb-fill" id="pb-cme-hike" style="width:0%;background:#c0392b"></div></div><span class="pb-pct" id="pt-cme-hike" style="color:#8b1a1a">—</span></div>
+              <div class="pb"><span class="pb-name">Hold</span><div class="pb-track"><div class="pb-fill" id="pb-cme-hold" style="width:0%;background:#1a3a6b"></div></div><span class="pb-pct" id="pt-cme-hold" style="color:#1a3a6b">—</span></div>
+              <div class="pb"><span class="pb-name">Rate cut</span><div class="pb-track"><div class="pb-fill" id="pb-cme-cut" style="width:0%;background:#1a6b3a"></div></div><span class="pb-pct" id="pt-cme-cut" style="color:#1a6b3a">—</span></div>
+            </div>
           </div>
         </div>
         <div class="card">
@@ -553,7 +564,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
 <div class="decision-box"><div class="decision-title">Recommended decision</div><div class="decision-grid"><div class="decision-now"><div class="decision-item-label">Do this now</div><div class="decision-item-val">Lock floating rate debt to fixed if in HIGH environment</div></div><div><div class="decision-item-label">Watch this metric</div><div class="decision-item-val">Core PCE — must fall below 2.5% before rate cuts begin</div></div><div><div class="decision-item-label">Revisit when</div><div class="decision-item-val">After next Fed meeting or when CPI moves above 4% or below 2%</div></div></div></div></div>
     <div class="chart-wrap">
       <div class="chart-title">18-month rate path — 3 scenarios</div>
-      <div class="chart-src">Base case + bull (more cuts) + bear (fewer cuts) · Source: CME FedWatch + FRED 55yr data</div>
+      <div class="chart-src">Base case + bull (more cuts) + bear (fewer cuts) · Source: RateShield model on FRED data</div>
       <div class="adv-only"><table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:.875rem"><thead><tr style="background:#f0ede6"><th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#3a3a3a;border-bottom:2px solid rgba(15,15,15,.1)">Period</th><th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:700;color:#1a3a6b;border-bottom:2px solid rgba(15,15,15,.1)">Base case</th><th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:700;color:#1a6b3a;border-bottom:2px solid rgba(15,15,15,.1)">Bull</th><th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:700;color:#8b1a1a;border-bottom:2px solid rgba(15,15,15,.1)">Bear</th><th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">vs. Today</th></tr></thead><tbody id="f-tbody"></tbody></table></div>
       <canvas id="fChart" height="150"></canvas>
     </div>
@@ -947,7 +958,11 @@ var CONFIG = {
   // Every "current rate" label in the UI renders from these two fields.
   currentFedRate: 3.75,
   fedRateAsOf: 'April 2026',
-  macroDefaults: { cpi: 3.2, un: 4.2, tr: 4.3, gdp: 2.1, pce: 2.8 },
+  // tr6mo / tr2y = 6-month and 2-year Treasury yields (DGS6MO, DGS2). The
+  // snapshot values sit within the hold band of the policy rate (spread inside
+  // ±0.10) so that, until live FRED data loads, the market row claims nothing it
+  // cannot back up. The inputs themselves start empty and are filled from here.
+  macroDefaults: { cpi: 3.2, un: 4.2, tr: 4.3, gdp: 2.1, pce: 2.8, tr6mo: 3.78, tr2y: 3.72 },
   fedPeak2023: 5.25,
   fedCovidLow: 0.25,
 
@@ -1059,6 +1074,12 @@ var CONFIG = {
   // holdBias − |z| × holdDecay. Purely a function of the forecast — labelled
   // "model-implied" in the UI.
   fomc: { unitBp: 0.5, temperature: 1.4, holdBias: 0.6, holdDecay: 0.4 },
+  // Market-implied expectations from the 6-month Treasury vs Fed funds spread.
+  // direction: spread > +directionThreshold → hike, < −threshold → cut, else hold.
+  // Probabilities: P(hike) = σ((s − midpoint) / scale), P(cut) = σ((−s − midpoint) / scale),
+  // P(hold) = remainder. Calibrated so s = +0.25 → ≈85% hike, s = 0 → ≈60% hold
+  // (20/20 hike/cut), s = −0.25 → ≈85% cut: midpoint/scale = ln 4, (0.25 − midpoint)/scale = ln(0.85/0.15).
+  market: { directionThreshold: 0.10, logistic: { midpoint: 0.111, scale: 0.08 } },
   // Historical analogs: approximate annual averages from FRED (CPIAUCSL YoY,
   // UNRATE, DGS10, real GDP growth, PCEPILFE YoY). Matching is a normalised
   // Euclidean distance across the five signals; scale ≈ one standard deviation
@@ -1327,16 +1348,54 @@ var Model = {
     return { rows: rows, hits: hits, total: rows.length, hitRate: rows.length ? hits / rows.length : 0 };
   },
 
+  // Normalise {hike, hold, cut} weights to integer percentages summing to exactly
+  // 100 (largest-remainder rounding).
+  _pct100: function(w) {
+    var keys = ['hike', 'hold', 'cut'], sum = 0;
+    keys.forEach(function(k) { sum += w[k]; });
+    var raw = {}, floor = {}, rem = 100;
+    keys.forEach(function(k) { raw[k] = sum > 0 ? w[k] / sum * 100 : 100 / 3; floor[k] = Math.floor(raw[k]); rem -= floor[k]; });
+    keys.slice().sort(function(a, b) { return (raw[b] - floor[b]) - (raw[a] - floor[a]); }).slice(0, rem).forEach(function(k) { floor[k] += 1; });
+    return { hike: floor.hike, hold: floor.hold, cut: floor.cut };
+  },
   // Hike / hold / cut probabilities from the predicted 12-month rate change.
   fomcProbabilities: function(predictedRate, currentRate) {
     var F = CONFIG.fomc, z = (predictedRate - currentRate) / F.unitBp;
     var scores = { hike: z, hold: F.holdBias - Math.abs(z) * F.holdDecay, cut: -z };
-    var keys = ['hike', 'hold', 'cut'], sum = 0, exps = {};
-    keys.forEach(function(k) { exps[k] = Math.exp(scores[k] * F.temperature); sum += exps[k]; });
-    var raw = {}, floor = {}, rem = 100;
-    keys.forEach(function(k) { raw[k] = exps[k] / sum * 100; floor[k] = Math.floor(raw[k]); rem -= floor[k]; });
-    keys.sort(function(a, b) { return (raw[b] - floor[b]) - (raw[a] - floor[a]); }).slice(0, rem).forEach(function(k) { floor[k] += 1; });
-    return { hike: floor.hike, hold: floor.hold, cut: floor.cut, expectedChange: predictedRate - currentRate };
+    var w = {};
+    ['hike', 'hold', 'cut'].forEach(function(k) { w[k] = Math.exp(scores[k] * F.temperature); });
+    var p = Model._pct100(w);
+    return { hike: p.hike, hold: p.hold, cut: p.cut, expectedChange: predictedRate - currentRate };
+  },
+  // The single most likely outcome in a {hike, hold, cut} set (ties → hold).
+  fomcDirection: function(p) {
+    if (!p) return null;
+    if (p.hike > p.hold && p.hike > p.cut) return 'hike';
+    if (p.cut > p.hold && p.cut > p.hike) return 'cut';
+    return 'hold';
+  },
+
+  // ── Market-implied expectations ──────────────────────────────────
+  // What the front end of the Treasury curve prices relative to the policy rate.
+  // A 6-month bill above Fed funds means the market expects hikes inside that
+  // window; below, cuts. Spreads are null when an input is missing.
+  marketImpliedMove: function(fedFunds, dgs6mo, dgs2) {
+    var M = CONFIG.market, fin = function(v) { return typeof v === 'number' && isFinite(v); };
+    var r4 = function(v) { return Math.round(v * 1e4) / 1e4; }; // 3.73 − 3.63 must be exactly 0.10
+    var six = (fin(fedFunds) && fin(dgs6mo)) ? r4(dgs6mo - fedFunds) : null;
+    var two = (fin(fedFunds) && fin(dgs2)) ? r4(dgs2 - fedFunds) : null;
+    var direction = six === null ? null : six > M.directionThreshold ? 'hike' : six < -M.directionThreshold ? 'cut' : 'hold';
+    return { sixMonthSpread: six, twoYearSpread: two, direction: direction };
+  },
+  // Logistic map from the 6-month spread to hike / hold / cut percentages
+  // (constants in CONFIG.market.logistic). null when the spread is unknown.
+  marketProbabilities: function(sixMonthSpread) {
+    if (typeof sixMonthSpread !== 'number' || !isFinite(sixMonthSpread)) return null;
+    var L = CONFIG.market.logistic, sig = function(x) { return 1 / (1 + Math.exp(-x)); };
+    var hike = sig((sixMonthSpread - L.midpoint) / L.scale);
+    var cut = sig((-sixMonthSpread - L.midpoint) / L.scale);
+    var hold = Math.max(0, 1 - hike - cut);
+    return Model._pct100({ hike: hike, hold: hold, cut: cut });
   },
 
   // The number every panel quotes: IS-LM-adjusted elasticity fed into MR = MC.
@@ -2522,7 +2581,7 @@ function trackModuleVisit(moduleId) {
 
 // ─── INPUT SAVE / RESTORE ───────────────────────────
 var INPUT_IDS = [
-  'f-cpi','f-un','f-tr','f-gdp','f-pce',
+  'f-cpi','f-un','f-tr','f-gdp','f-pce','f-tr6mo','f-tr2y','f-cme-hike','f-cme-cut',
   'sl-rev-h','sl-head','sl-sal','sl-hire','sl-debt','sl-cash','sl-margin-h',
   'sl-rev-ai','sl-margin','sl-labour','sl-rawmat','sl-fixed',
   'cd-cash','cd-opex','cd-buffer','cd-checking','cd-mmf','cd-tbill','cd-cd',
@@ -2650,7 +2709,7 @@ function saveInputsDebounced() {
 
 // Inputs that describe the market rather than the business. Live FRED data
 // owns these once it has loaded; a saved profile must not overwrite them.
-var MARKET_INPUT_IDS = ['f-cpi', 'f-un', 'f-tr', 'f-gdp', 'f-pce', 'fed-slider'];
+var MARKET_INPUT_IDS = ['f-cpi', 'f-un', 'f-tr', 'f-gdp', 'f-pce', 'f-tr6mo', 'f-tr2y', 'fed-slider'];
 
 function restoreInputs(values) {
   if (!values) return;
@@ -2883,10 +2942,22 @@ function updateF() {
   // FOMC probabilities are model-implied from the predicted 12-month change.
   var fomc=Model.fomcProbabilities(r12, cur);
   var hp=fomc.hike, hp2=fomc.hold, cp=fomc.cut;
+  // Market-implied row: what the 6-month bill prices against the policy rate.
+  var tr6=safeVal('f-tr6mo',CONFIG.macroDefaults.tr6mo,0,25), tr2=safeVal('f-tr2y',CONFIG.macroDefaults.tr2y,0,25);
+  var mkt=Model.marketImpliedMove(cur, tr6, tr2);
+  var mktP=Model.marketProbabilities(mkt.sixMonthSpread);
+  var modelDir=Model.fomcDirection(fomc);
+  var disagree=!!(mkt.direction && modelDir!==mkt.direction);
+  // FedWatch row: only what the user typed — nothing is fetched or scraped.
+  var optPct=function(id){ var el=document.getElementById(id); if(!el||el.value==='') return null; var v=parseFloat(el.value); return isNaN(v)?null:Math.max(0,Math.min(100,v)); };
+  var cmeH=optPct('f-cme-hike'), cmeC=optPct('f-cme-cut');
+  var cme=(cmeH===null&&cmeC===null)?null:{ hike: cmeH, cut: cmeC, hold: (cmeH!==null&&cmeC!==null&&cmeH+cmeC<=100)?Math.round((100-cmeH-cmeC)*10)/10:null };
   // Closest historical analog (Euclidean distance over the 5 signals) drives confidence.
   var analog=Model.nearestAnalog({ cpi: cpi, un: unem, tr: treas, gdp: gdp, pce: pce });
   var conf=Model.forecastConfidence(analog.best.distance);
-  RS_METRICS.forecast={ score: sc, predicted12: r12, current: cur, currentSource: LAST_MARKET_DATA ? 'FEDFUNDS (live)' : 'CONFIG snapshot', fomc: fomc, analogYear: analog.best.year, analogMatch: analog.best.matchPct, confidence: conf };
+  RS_METRICS.forecast={ score: sc, predicted12: r12, current: cur, currentSource: LAST_MARKET_DATA ? 'FEDFUNDS (live)' : 'CONFIG snapshot', fomc: fomc, modelDirection: modelDir,
+    market: { sixMonthSpread: mkt.sixMonthSpread, twoYearSpread: mkt.twoYearSpread, direction: mkt.direction, probs: mktP, tr6mo: tr6, tr2y: tr2 }, disagree: disagree, cme: cme,
+    analogYear: analog.best.year, analogMatch: analog.best.matchPct, confidence: conf };
   document.getElementById('pred-rate').textContent=r12.toFixed(2)+'%';
   document.getElementById('pred-env').textContent=env;
   document.getElementById('cur-r').textContent=cur.toFixed(2)+'%';
@@ -2907,6 +2978,15 @@ function updateF() {
   document.getElementById('pb-hike').style.width=hp+'%';document.getElementById('pt-hike').textContent=hp+'%';
   document.getElementById('pb-hold').style.width=hp2+'%';document.getElementById('pt-hold').textContent=hp2+'%';
   document.getElementById('pb-cut').style.width=cp+'%';document.getElementById('pt-cut').textContent=cp+'%';
+  var setBar=function(key,v){ var b=document.getElementById('pb-'+key), t=document.getElementById('pt-'+key); if(!b||!t) return;
+    if(v===null||v===undefined){ b.style.width='0%'; t.textContent='—'; } else { b.style.width=v+'%'; t.textContent=v+'%'; } };
+  setBar('mkt-hike', mktP?mktP.hike:null); setBar('mkt-hold', mktP?mktP.hold:null); setBar('mkt-cut', mktP?mktP.cut:null);
+  var mktLbl=document.getElementById('mkt-label');
+  var fmtSp=function(v){ return (v>=0?'+':'')+v.toFixed(2)+' pt'; };
+  if(mktLbl) mktLbl.textContent='Market-implied (6-mo Treasury vs Fed funds)'+(mkt.sixMonthSpread===null?'':' · 6-mo spread '+fmtSp(mkt.sixMonthSpread)+' → '+mkt.direction)+(mkt.twoYearSpread===null?'':' · 2-yr spread '+fmtSp(mkt.twoYearSpread));
+  var dis=document.getElementById('mkt-disagree'); if(dis) dis.style.display=disagree?'':'none';
+  var cmeRow=document.getElementById('cme-row'); if(cmeRow) cmeRow.style.display=cme?'':'none';
+  setBar('cme-hike', cme?cme.hike:null); setBar('cme-hold', cme?cme.hold:null); setBar('cme-cut', cme?cme.cut:null);
   var s=SECTORS[SEC];
   var secImpactEl = document.getElementById('sec-impact-text');
   if(secImpactEl) secImpactEl.textContent=(s.rateImpact[gEnv]||s.rateImpact.transition);
@@ -4359,10 +4439,11 @@ function applyMarketData(d) {
   var dt = d.dates || {};
   var fmtD = function(iso) { return iso ? String(iso).slice(0, 7) : '?'; };
   CONFIG.fedSource = 'Live FRED data as of ' + CONFIG.fedRateAsOf + ' — FEDFUNDS ' + d.fedFunds + '% (' + fmtD(dt.FEDFUNDS) + ') · CPIAUCSL YoY ' + d.cpi + '% (' + fmtD(dt.CPIAUCSL) + ') · PCEPILFE core YoY ' + d.corePce + '% (' + fmtD(dt.PCEPILFE) + ') · UNRATE ' + d.unemployment + '% · A191RL1Q225SBEA real GDP ' + d.gdpGrowth + '% (' + fmtD(dt.A191RL1Q225SBEA) + ') · DGS10 ' + d.treasury10y + '%'
+    + (num(d.treasury6mo) !== null ? ' · DGS6MO ' + d.treasury6mo + '%' : '') + (num(d.treasury2y) !== null ? ' · DGS2 ' + d.treasury2y + '%' : '')
     + ((d.warnings && d.warnings.length) ? ' · ⚠ ' + d.warnings.join(' · ') : '');
   try { console.log('[RateShield] FRED snapshot', d); } catch (e) {}
-  var map = { cpi: 'f-cpi', corePce: 'f-pce', unemployment: 'f-un', gdpGrowth: 'f-gdp', treasury10y: 'f-tr' };
-  var macroKey = { cpi: 'cpi', corePce: 'pce', unemployment: 'un', gdpGrowth: 'gdp', treasury10y: 'tr' };
+  var map = { cpi: 'f-cpi', corePce: 'f-pce', unemployment: 'f-un', gdpGrowth: 'f-gdp', treasury10y: 'f-tr', treasury6mo: 'f-tr6mo', treasury2y: 'f-tr2y' };
+  var macroKey = { cpi: 'cpi', corePce: 'pce', unemployment: 'un', gdpGrowth: 'gdp', treasury10y: 'tr', treasury6mo: 'tr6mo', treasury2y: 'tr2y' };
   Object.keys(map).forEach(function(k) {
     var v = num(d[k]);
     if (v === null) return;
@@ -4396,7 +4477,8 @@ function loadFredData() {
 bindLiveInputs();
 renderMarketDataLabels();
 (function applyMacroDefaults(){
-  var m = { 'f-cpi': CONFIG.macroDefaults.cpi, 'f-un': CONFIG.macroDefaults.un, 'f-tr': CONFIG.macroDefaults.tr, 'f-gdp': CONFIG.macroDefaults.gdp, 'f-pce': CONFIG.macroDefaults.pce, 'fed-slider': CONFIG.currentFedRate };
+  var m = { 'f-cpi': CONFIG.macroDefaults.cpi, 'f-un': CONFIG.macroDefaults.un, 'f-tr': CONFIG.macroDefaults.tr, 'f-gdp': CONFIG.macroDefaults.gdp, 'f-pce': CONFIG.macroDefaults.pce,
+            'f-tr6mo': CONFIG.macroDefaults.tr6mo, 'f-tr2y': CONFIG.macroDefaults.tr2y, 'fed-slider': CONFIG.currentFedRate };
   Object.keys(m).forEach(function(id) { var el = document.getElementById(id); if (el) el.value = m[id]; });
 })();
 

@@ -89,3 +89,15 @@ test('sanity bound: GDP growth above 8% or below −10% is rejected (nulled with
   // the other series get their own bounds too
   assert.equal(fred.buildSnapshot(fixture({ FEDFUNDS: [{ date: '2026-08-01', value: '40' }] })).fedFunds, null);
 });
+
+test('market-expectation series: DGS6MO and DGS2 are fetched and passed through', () => {
+  const S = fred.SERIES;
+  assert.deepEqual([S.treasury6mo.id, S.treasury6mo.units], ['DGS6MO', 'lin']);
+  assert.deepEqual([S.treasury2y.id, S.treasury2y.units], ['DGS2', 'lin']);
+  const snap = fred.buildSnapshot(fixture({ DGS6MO: [{ date: '2026-09-11', value: '.' }, { date: '2026-09-10', value: '3.91' }], DGS2: [{ date: '2026-09-10', value: '3.52' }] }));
+  assert.equal(snap.treasury6mo, 3.91);
+  assert.equal(snap.treasury2y, 3.52);
+  assert.equal(snap.raw.treasury6mo.series, 'DGS6MO');
+  assert.equal(fred.buildSnapshot(fixture()).treasury6mo, null, 'missing series → null, app keeps its snapshot');
+  assert.deepEqual(fred.SANITY.treasury6mo, [0, 25]);
+});
