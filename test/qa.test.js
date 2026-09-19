@@ -190,13 +190,17 @@ test('current Fed rate and as-of date come from CONFIG, not literals, and render
   assert.ok(txt(w2, 'ai-actions').includes('At ' + w2.CONFIG.currentFedRate.toFixed(2) + '% Fed rate'));
 });
 
-test('"Current rate" reads live FEDFUNDS after prefill, and a restored saved profile cannot clobber live market data', async () => {
+test('"Current rate" reads the live daily DFF after prefill with its observation date, and a restored saved profile cannot clobber live market data', async () => {
   const { window, errors } = boot('manufacturing');
-  const snapshot = { asOf: 'August 2026', fedFunds: 3.64, cpi: 2.9, corePce: 2.6, unemployment: 4.3, gdpGrowth: 2.4, treasury10y: 4.05 };
+  const today = new Date().toISOString().slice(0, 10);
+  const snapshot = { asOf: today, fedFundsDate: today, fedFunds: 3.64, cpi: 2.9, corePce: 2.6, unemployment: 4.3, gdpGrowth: 2.4, treasury10y: 4.05, dates: { DFF: today } };
   window.fetch = () => Promise.resolve({ ok: true, json: () => Promise.resolve(snapshot) });
   assert.equal(await window.loadFredData(), true);
-  assert.equal(txt(window, 'cur-r'), '3.64%', 'Rate path "Current rate" shows live FEDFUNDS');
-  assert.equal(window.RS_METRICS.forecast.currentSource, 'FEDFUNDS (live)');
+  assert.equal(txt(window, 'cur-r'), '3.64% · as of ' + today, 'Rate path "Current rate" shows the live DFF value and its date');
+  assert.equal(window.RS_METRICS.forecast.currentSource, 'DFF (live, daily)');
+  const asOf = window.RS_METRICS.forecast.currentAsOf;
+  assert.ok(Math.abs((new Date(asOf) - new Date(today)) / 86400000) <= 7, 'as-of date within 7 days of today');
+  assert.ok(txt(window, 'fed-source-note').includes('DFF daily 3.64% (' + today + ')'));
   assert.equal(parseFloat(window.document.getElementById('f-gdp').value), 2.4);
   // a saved profile (loaded later) with stale market values must not overwrite the live ones
   window.restoreInputs({ 'fed-slider': '3.75', 'f-cpi': '3.2', 'f-gdp': '2.1', 'sl-head': '300' });
@@ -204,11 +208,11 @@ test('"Current rate" reads live FEDFUNDS after prefill, and a restored saved pro
   assert.equal(parseFloat(window.document.getElementById('f-cpi').value), 2.9, 'saved CPI ignored');
   assert.equal(parseFloat(window.document.getElementById('f-gdp').value), 2.4, 'saved GDP ignored');
   assert.equal(parseFloat(window.document.getElementById('sl-head').value), 300, 'business inputs still restored');
-  assert.equal(txt(window, 'cur-r'), '3.64%');
+  assert.equal(txt(window, 'cur-r'), '3.64% · as of ' + today);
   assert.equal(txt(window, 'fed-current-tag'), '3.64%');
   // the Fed input remains a what-if lever: dragging it changes loans but not the "Current rate" row
   setVal(window, 'fed-slider', '6');
-  assert.equal(txt(window, 'cur-r'), '3.64%');
+  assert.equal(txt(window, 'cur-r'), '3.64% · as of ' + today);
   assert.ok(window.document.getElementById('fed-slider')._userSet, 'manual edit marks the input as user-set');
   // ...and a later live refresh respects the manual edit
   window.applyMarketData(Object.assign({}, snapshot, { fedFunds: 3.5 }));
@@ -225,15 +229,15 @@ test('FRED prefill applies a snapshot and falls back to CONFIG when the fetch fa
   assert.equal(failed, false);
   assert.equal(window.CONFIG.currentFedRate, before);
   // success path
-  window.fetch = () => Promise.resolve({ ok: true, json: () => Promise.resolve({ asOf: 'August 2026', fedFunds: 3.64, cpi: 2.9, corePce: 2.6, unemployment: 4.3, gdpGrowth: 4.5, treasury10y: 4.05 }) });
+  window.fetch = () => Promise.resolve({ ok: true, json: () => Promise.resolve({ asOf: '2026-08-14', fedFunds: 3.64, cpi: 2.9, corePce: 2.6, unemployment: 4.3, gdpGrowth: 4.5, treasury10y: 4.05 }) });
   const ok = await window.loadFredData();
   assert.equal(ok, true);
   assert.equal(window.CONFIG.currentFedRate, 3.64);
-  assert.equal(window.CONFIG.fedRateAsOf, 'August 2026');
+  assert.equal(window.CONFIG.fedRateAsOf, '2026-08-14');
   assert.equal(parseFloat(window.document.getElementById('fed-slider').value), 3.64);
   assert.equal(parseFloat(window.document.getElementById('f-cpi').value), 2.9);
   assert.equal(parseFloat(window.document.getElementById('f-gdp').value), 4.5);
-  assert.equal(txt(window, 'fed-asof-label'), 'Current rate — August 2026');
+  assert.equal(txt(window, 'fed-asof-label'), 'Current rate — 2026-08-14');
   assert.equal(txt(window, 'fed-current-tag'), '3.64%');
   assert.ok(txt(window, 'fed-source-note').includes('Live FRED'));
   assert.equal(window.SCENARIOS.base.fed, 3.64);
@@ -264,7 +268,7 @@ test('confidence, historical analog and FOMC probabilities are computed from the
   assert.ok(M2.fomc.hike > M.fomc.hike, 'inflation shock raises hike probability');
   assert.ok(txt(window, 'sec-impact-text').length > 0);
   // the "current rate" row is the actual policy rate, not a treasury proxy
-  assert.equal(txt(window, 'cur-r'), window.CONFIG.currentFedRate.toFixed(2) + '%');
+  assert.equal(txt(window, 'cur-r'), window.CONFIG.currentFedRate.toFixed(2) + '% · as of ' + window.CONFIG.fedRateAsOf);
   assert.ok(src.includes('FOMC probabilities (model-implied)'));
 });
 

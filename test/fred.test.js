@@ -12,7 +12,8 @@ test('api/fred.js loads as an ES module with pure helpers', async () => {
 
 test('series map: the exact FRED ids and units requested', () => {
   const S = fred.SERIES;
-  assert.deepEqual([S.fedFunds.id, S.fedFunds.units], ['FEDFUNDS', 'lin']);
+  assert.deepEqual([S.fedFunds.id, S.fedFunds.units], ['DFF', 'lin'], 'current rate is the DAILY effective rate, not the monthly average');
+  assert.ok(!Object.values(S).some((s) => s.id === 'FEDFUNDS'), 'nothing else needs the monthly FEDFUNDS series');
   assert.deepEqual([S.cpi.id, S.cpi.units], ['CPIAUCSL', 'pc1'], 'CPI is CPIAUCSL year-over-year % (units=pc1)');
   assert.deepEqual([S.corePce.id, S.corePce.units], ['PCEPILFE', 'pc1'], 'Core PCE is PCEPILFE year-over-year % (units=pc1)');
   assert.deepEqual([S.unemployment.id, S.unemployment.units], ['UNRATE', 'lin']);
@@ -31,7 +32,7 @@ test('latestValue skips FRED "." placeholders', () => {
 });
 
 const fixture = (over) => Object.assign({
-  FEDFUNDS: [{ date: '2026-08-01', value: '3.64' }],
+  DFF: [{ date: '2026-08-14', value: '3.64' }],
   CPIAUCSL: [{ date: '2026-08-01', value: '2.9' }],
   PCEPILFE: [{ date: '2026-07-01', value: '2.6' }],
   UNRATE: [{ date: '2026-08-01', value: '4.3' }],
@@ -40,14 +41,15 @@ const fixture = (over) => Object.assign({
 }, over);
 
 test('buildSnapshot passes each latest value through directly (no % change computed) and rounds to 2dp', () => {
-  const snap = fred.buildSnapshot(fixture());
+  const snap = fred.buildSnapshot(fixture(), '2026-08-15'); // "now" pinned a day after the fixture's DFF date
   assert.equal(snap.fedFunds, 3.64);
   assert.equal(snap.cpi, 2.9);
   assert.equal(snap.corePce, 2.6);
   assert.equal(snap.unemployment, 4.3);
   assert.equal(snap.gdpGrowth, 2.4, 'A191RL1Q225SBEA value used as reported');
   assert.equal(snap.treasury10y, 4.05);
-  assert.equal(snap.asOf, 'August 2026');
+  assert.equal(snap.asOf, '2026-08-14', 'as-of is the exact DFF observation date');
+  assert.equal(snap.fedFundsDate, '2026-08-14');
   assert.equal(snap.dates.A191RL1Q225SBEA, '2026-04-01');
   assert.deepEqual(snap.warnings, []);
   assert.equal(fred.buildSnapshot({}).fedFunds, null);
@@ -87,7 +89,7 @@ test('sanity bound: GDP growth above 8% or below −10% is rejected (nulled with
   const edgeLo = fred.buildSnapshot(fixture({ A191RL1Q225SBEA: [{ date: '2026-04-01', value: '-10' }] }));
   assert.equal(edgeLo.gdpGrowth, -10, 'exactly −10% is allowed');
   // the other series get their own bounds too
-  assert.equal(fred.buildSnapshot(fixture({ FEDFUNDS: [{ date: '2026-08-01', value: '40' }] })).fedFunds, null);
+  assert.equal(fred.buildSnapshot(fixture({ DFF: [{ date: '2026-08-14', value: '40' }] })).fedFunds, null);
 });
 
 test('market-expectation series: DGS6MO and DGS2 are fetched and passed through', () => {
@@ -129,4 +131,23 @@ test('momentum: the snapshot carries PCEPILFE and DGS10 values from 3 months ear
   assert.equal(short.corePce3moAgo, null, 'default fixture has one observation → null');
   assert.equal(short.treasury10y3moAgo, null);
   assert.ok(fred.SERIES.corePce.limit >= 4 && fred.SERIES.treasury10y.limit >= 70, 'windows are long enough to reach 3 months back');
+});
+
+test('current rate comes from DFF and its observation date is within 7 days of today when the fetch succeeds', () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const twoDaysAgo = fred.shiftMonths(today, 0) && new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
+  const fresh = fred.buildSnapshot(fixture({ DFF: [{ date: today, value: '.' }, { date: twoDaysAgo, value: '3.88' }] }));
+  assert.equal(fresh.fedFunds, 3.88);
+  assert.equal(fresh.fedFundsDate, twoDaysAgo);
+  assert.equal(fresh.asOf, twoDaysAgo);
+  assert.equal(fresh.raw.fedFunds.series, 'DFF');
+  assert.ok(fresh.fedFundsAgeDays >= 0 && fresh.fedFundsAgeDays <= 7, `age ${fresh.fedFundsAgeDays} days`);
+  assert.ok(!fresh.warnings.some((w) => w.includes('stale')));
+  // a monthly-average-style date (weeks old) is flagged as stale
+  const stale = fred.buildSnapshot(fixture({ DFF: [{ date: '2026-08-01', value: '3.64' }] }), '2026-09-18');
+  assert.equal(stale.fedFundsAgeDays, 48);
+  assert.ok(stale.warnings.some((w) => w.includes('DFF observation 2026-08-01') && w.includes('stale')));
+  assert.equal(stale.fedFunds, 3.64, 'value is kept, only flagged');
+  assert.equal(fred.daysBetween('2026-09-11', '2026-09-18'), 7);
+  assert.equal(fred.STALE_DAYS, 7);
 });

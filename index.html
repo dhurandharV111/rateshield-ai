@@ -532,7 +532,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
         </div>
         <div class="card">
           <div class="card-head"><div class="card-title">Rate path</div></div>
-          <div class="dr"><span class="dl">Current rate</span><span class="dv" id="cur-r">—</span></div>
+          <div class="dr"><span class="dl">Current rate (effective Fed funds, daily)</span><span class="dv" id="cur-r">—</span></div>
           <div class="dr"><span class="dl">In 6 months</span><span class="dv" id="r6">3.50%</span></div>
           <div class="dr"><span class="dl">In 12 months</span><span class="dv" id="r12">3.25%</span></div>
           <div class="dr"><span class="dl">In 18 months</span><span class="dv" id="r18">3.00%</span></div>
@@ -2999,9 +2999,11 @@ function updateF() {
   var r=function(v){return Math.round(v*4)/4;};
   gEnv=Model.rateEnvironment(sc);
   var env=gEnv==='high'?'HIGH — restrictive environment':gEnv==='low'?'LOW — accommodative environment':'TRANSITION — watch closely';
-  // "Current" is the actual policy rate — live FEDFUNDS once /api/fred has loaded
-  // (applyMarketData writes it to CONFIG.currentFedRate), otherwise the CONFIG
-  // snapshot. It is deliberately NOT the Fed input, which is a what-if lever.
+  // "Current" is the actual policy rate — the latest DAILY effective rate (FRED
+  // DFF) once /api/fred has loaded (applyMarketData writes it to
+  // CONFIG.currentFedRate with its observation date in CONFIG.fedRateAsOf),
+  // otherwise the CONFIG snapshot. It is deliberately NOT the Fed input, which is
+  // a what-if lever.
   var cur=Math.round(CONFIG.currentFedRate*100)/100; // exact, not quarter-rounded like the path
   var r12=r(base),r6=r(base+(sc>0?F.path6:-F.path6)),r18=r(base+(sc>0?F.path18Up:F.path18Down));
   // FOMC probabilities are model-implied from the predicted 12-month change.
@@ -3021,12 +3023,12 @@ function updateF() {
   var analog=Model.nearestAnalog({ cpi: cpi, un: unem, tr: treas, gdp: gdp, pce: pce });
   var conf=Model.forecastConfidence(analog.best.distance);
   RS_METRICS.forecast={ score: sc, contributions: contrib, momentum: { pce3mo: mom.pce3mo, tr3mo: mom.tr3mo, pcePts: contrib.pceMom, trPts: contrib.trMom },
-    predicted12: r12, current: cur, currentSource: LAST_MARKET_DATA ? 'FEDFUNDS (live)' : 'CONFIG snapshot', fomc: fomc, modelDirection: modelDir,
+    predicted12: r12, current: cur, currentAsOf: CONFIG.fedRateAsOf, currentSource: LAST_MARKET_DATA ? 'DFF (live, daily)' : 'CONFIG snapshot', fomc: fomc, modelDirection: modelDir,
     market: { sixMonthSpread: mkt.sixMonthSpread, twoYearSpread: mkt.twoYearSpread, direction: mkt.direction, probs: mktP, tr6mo: tr6, tr2y: tr2 }, disagree: disagree, cme: cme,
     analogYear: analog.best.year, analogMatch: analog.best.matchPct, confidence: conf };
   document.getElementById('pred-rate').textContent=r12.toFixed(2)+'%';
   document.getElementById('pred-env').textContent=env;
-  document.getElementById('cur-r').textContent=cur.toFixed(2)+'%';
+  document.getElementById('cur-r').textContent=cur.toFixed(2)+'% · as of '+CONFIG.fedRateAsOf;
   document.getElementById('r6').textContent=r6.toFixed(2)+'%';
   document.getElementById('r12').textContent=r12.toFixed(2)+'%';
   document.getElementById('r18').textContent=r18.toFixed(2)+'%';
@@ -4493,7 +4495,7 @@ function renderMarketDataLabels() {
   setTxt('fed-source-note', CONFIG.fedSource || ('Snapshot: ' + CONFIG.fedRateAsOf + ' — live FRED data loads on start when available'));
 }
 
-// Applies a /api/fred snapshot: { asOf, fedFunds, cpi, corePce, unemployment, gdpGrowth, treasury10y }.
+// Applies a /api/fred snapshot: { asOf (ISO date of the DFF observation), fedFunds (DFF, daily), cpi, corePce, unemployment, gdpGrowth, treasury10y, ... }.
 // Returns true if anything was applied. Pure with respect to network; testable.
 var LAST_MARKET_DATA = null;
 function applyMarketData(d) {
@@ -4507,8 +4509,8 @@ function applyMarketData(d) {
   if (d.asOf) CONFIG.fedRateAsOf = String(d.asOf);
   // Show each series' value and observation date so any number can be traced to FRED.
   var dt = d.dates || {};
-  var fmtD = function(iso) { return iso ? String(iso).slice(0, 7) : '?'; };
-  var parts = [['FEDFUNDS', d.fedFunds, dt.FEDFUNDS], ['CPIAUCSL YoY', d.cpi, dt.CPIAUCSL], ['PCEPILFE core YoY', d.corePce, dt.PCEPILFE], ['UNRATE', d.unemployment, null],
+  var fmtD = function(iso) { return iso ? String(iso).slice(0, 10) : '?'; };
+  var parts = [['DFF daily', d.fedFunds, dt.DFF], ['CPIAUCSL YoY', d.cpi, dt.CPIAUCSL], ['PCEPILFE core YoY', d.corePce, dt.PCEPILFE], ['UNRATE', d.unemployment, null],
                ['A191RL1Q225SBEA real GDP', d.gdpGrowth, dt.A191RL1Q225SBEA], ['DGS10', d.treasury10y, null], ['DGS6MO', d.treasury6mo, null], ['DGS2', d.treasury2y, null],
                ['PCEPILFE 3 mo earlier', d.corePce3moAgo, dt.PCEPILFE_3mo], ['DGS10 3 mo earlier', d.treasury10y3moAgo, dt.DGS10_3mo]];
   // Only series actually present are listed — a value dropped by a sanity bound is simply absent, never "null%".

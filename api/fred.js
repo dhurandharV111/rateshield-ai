@@ -6,7 +6,11 @@
 //
 // Series (all values are used directly as returned by FRED — nothing is
 // re-derived here):
-//   FEDFUNDS        effective federal funds rate, % (monthly)
+//   DFF             effective federal funds rate, % (DAILY). The monthly FEDFUNDS
+//                   average lags a mid-month FOMC move by up to five weeks, so the
+//                   "current rate" is the latest daily observation instead. The
+//                   observation date travels with it (fedFundsDate) and a value
+//                   older than STALE_DAYS is flagged in `warnings`.
 //   CPIAUCSL        CPI, requested with units=pc1 → year-over-year % change
 //   PCEPILFE        core PCE price index, units=pc1 → year-over-year % change
 //   UNRATE          unemployment rate, %
@@ -26,7 +30,7 @@
 const FRED_BASE = 'https://api.stlouisfed.org/fred/series/observations';
 
 export const SERIES = {
-  fedFunds:     { id: 'FEDFUNDS',        units: 'lin', limit: 3 },
+  fedFunds:     { id: 'DFF',             units: 'lin', limit: 10 },
   cpi:          { id: 'CPIAUCSL',        units: 'pc1', limit: 3 },
   corePce:      { id: 'PCEPILFE',        units: 'pc1', limit: 6 },
   unemployment: { id: 'UNRATE',          units: 'lin', limit: 3 },
@@ -37,6 +41,14 @@ export const SERIES = {
 };
 
 export const CORE_PCE_VS_CPI_MAX_GAP = 1.0;
+// A "current" policy rate older than this many days is stale (DFF is published daily).
+export const STALE_DAYS = 7;
+
+export function daysBetween(isoA, isoB) {
+  const a = new Date(isoA + 'T00:00:00Z'), b = new Date(isoB + 'T00:00:00Z');
+  if (isNaN(a.getTime()) || isNaN(b.getTime())) return null;
+  return Math.round((b.getTime() - a.getTime()) / 86400000);
+}
 
 // Plausibility bounds. A value outside its bound is dropped (null) so the app
 // falls back to its CONFIG snapshot, and the reason is reported in `warnings`.
@@ -93,8 +105,9 @@ export function monthLabel(isoDate) {
 // Turns raw per-series observation arrays (keyed by FRED series id) into the
 // snapshot the app consumes: latest value of each series, rounded to 2 dp,
 // with out-of-bounds values nulled and explained.
-export function buildSnapshot(raw) {
+export function buildSnapshot(raw, now) {
   const out = { dates: {}, warnings: [], raw: {} };
+  const today = now || new Date().toISOString().slice(0, 10);
   Object.keys(SERIES).forEach((key) => {
     const s = SERIES[key];
     // Echo exactly what FRED returned (series id, units requested, last observations)
@@ -121,8 +134,15 @@ export function buildSnapshot(raw) {
   if (out.corePce !== null && out.cpi !== null && out.corePce - out.cpi > CORE_PCE_VS_CPI_MAX_GAP) {
     out.warnings.push(`PCEPILFE (core PCE, ${out.corePce}%) exceeds CPIAUCSL (headline CPI, ${out.cpi}%) by more than ${CORE_PCE_VS_CPI_MAX_GAP} pt — check raw.corePce`);
   }
-  out.asOf = out.dates.FEDFUNDS ? monthLabel(out.dates.FEDFUNDS) : null;
+  // The current rate is the latest DAILY observation; expose its exact date.
+  out.fedFundsDate = out.dates.DFF || null;
+  out.asOf = out.fedFundsDate; // ISO date, e.g. "2026-09-18" — shown next to the rate
+  out.fedFundsAgeDays = out.fedFundsDate ? daysBetween(out.fedFundsDate, today) : null;
+  if (out.fedFundsAgeDays !== null && out.fedFundsAgeDays > STALE_DAYS) {
+    out.warnings.push(`DFF observation ${out.fedFundsDate} is ${out.fedFundsAgeDays} days old — current rate may be stale`);
+  }
   out.notes = {
+    fedFunds: 'DFF — effective federal funds rate, daily, latest observation (not the monthly FEDFUNDS average)',
     gdpGrowth: 'A191RL1Q225SBEA — real GDP, % change from preceding period, SAAR (used as reported)',
     cpi: 'CPIAUCSL with units=pc1 — year-over-year % change (computed by FRED)',
     corePce: 'PCEPILFE with units=pc1 — year-over-year % change (computed by FRED)',
