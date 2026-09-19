@@ -461,3 +461,45 @@ test('fomcDirection picks the most likely outcome and the refactored fomcProbabi
   }
   assert.deepEqual(Model._pct100({ hike: 1, hold: 1, cut: 1 }).hike + Model._pct100({ hike: 1, hold: 1, cut: 1 }).hold + Model._pct100({ hike: 1, hold: 1, cut: 1 }).cut, 100);
 });
+
+// ── Momentum term ────────────────────────────────────────────────────────────
+test('momentum3m: explicit delta wins, else now − 3-months-ago, else 0', () => {
+  near(Model.momentum3m(3.3, 3.0), 0.3);
+  near(Model.momentum3m(3.3, 3.0, -0.6), -0.6, 1e-12);
+  assert.equal(Model.momentum3m(3.3, null), 0);
+  assert.equal(Model.momentum3m(3.3, undefined), 0);
+  assert.equal(Model.momentum3m(3.3, NaN), 0);
+  assert.equal(Model.momentum3m(undefined, 3.0), 0);
+});
+
+test('rateSignalContributions: Core PCE momentum weight 1.0, 10Y momentum weight 0.6, both clamped to ±1.5, zero when the earlier value is missing', () => {
+  const F = CONFIG.forecast;
+  assert.equal(F.pce.momentumWeight, 1.0); assert.equal(F.tr.momentumWeight, 0.6); assert.equal(F.momentumClamp, 1.5);
+  const base = { cpi: 3.4, un: 4.1, tr: 4.95, gdp: 1.5, pce: 3.3 };
+  const none = Model.rateSignalContributions(base);
+  assert.equal(none.pceMom, 0); assert.equal(none.trMom, 0);
+  const up = Model.rateSignalContributions(Object.assign({}, base, { pce3mo: 2.8, tr3mo: 4.45 }));
+  near(up.pceMom, 0.5, 1e-9);           // +0.5 pt over 3 months → +0.5 score
+  near(up.trMom, 0.5 * 0.6, 1e-9);      // +0.5 pt × 0.6
+  near(Model.rateSignalScore(Object.assign({}, base, { pce3mo: 2.8, tr3mo: 4.45 })) - Model.rateSignalScore(base), 0.5 + 0.3, 1e-9);
+  const big = Model.rateSignalContributions(Object.assign({}, base, { pce3mo: 0.5, tr3mo: 1.0 }));
+  assert.equal(big.pceMom, 1.5, 'clamped at +1.5'); assert.equal(big.trMom, 1.5, '3.95 × 0.6 = 2.37 → clamped at +1.5');
+  const fall = Model.rateSignalContributions(Object.assign({}, base, { pce3mo: 6, tr3mo: 9 }));
+  assert.equal(fall.pceMom, -1.5); assert.equal(fall.trMom, -1.5);
+  // explicit 3-month deltas (backtest episodes) are honoured
+  const ep = Model.rateSignalContributions(Object.assign({}, base, { pceMom3m: -0.6, trMom3m: 0.1 }));
+  near(ep.pceMom, -0.6, 1e-9); near(ep.trMom, 0.06, 1e-9);
+  // the switch used by the backtest
+  const off = Model.rateSignalContributions(Object.assign({}, base, { pce3mo: 2.8, tr3mo: 4.45 }), { momentum: false });
+  assert.equal(off.pceMom, 0); assert.equal(off.trMom, 0);
+  near(Model.rateSignalScore(Object.assign({}, base, { pce3mo: 2.8 }), { momentum: false }), Model.rateSignalScore(base), 1e-9);
+  // the score is still the sum of every contribution
+  const c = Model.rateSignalContributions(Object.assign({}, base, { pce3mo: 2.8, tr3mo: 4.45 }));
+  near(Model.rateSignalScore(Object.assign({}, base, { pce3mo: 2.8, tr3mo: 4.45 })), c.cpi + c.pce + c.un + c.tr + c.gdp + c.pceMom + c.trMom, 1e-9);
+  // a 0.02 change in the 3-month-ago value never jumps the forecast by more than 25 bp
+  for (let ago = 0; ago <= 8; ago = Math.round((ago + 0.02) * 100) / 100) {
+    const a = Model.predictedRate(Model.rateSignalScore(Object.assign({}, base, { pce3mo: ago })));
+    const b = Model.predictedRate(Model.rateSignalScore(Object.assign({}, base, { pce3mo: ago + 0.02 })));
+    assert.ok(Math.abs(b - a) <= 0.25 + 1e-9, `pce3mo ${ago}`);
+  }
+});

@@ -101,3 +101,32 @@ test('market-expectation series: DGS6MO and DGS2 are fetched and passed through'
   assert.equal(fred.buildSnapshot(fixture()).treasury6mo, null, 'missing series → null, app keeps its snapshot');
   assert.deepEqual(fred.SANITY.treasury6mo, [0, 25]);
 });
+
+test('momentum: the snapshot carries PCEPILFE and DGS10 values from 3 months earlier, read from the observation window', () => {
+  assert.equal(fred.shiftMonths('2026-07-01', 3), '2026-04-01');
+  assert.equal(fred.shiftMonths('2026-03-31', 1), '2026-02-28', 'day clamped to the shorter month');
+  assert.equal(fred.shiftMonths('2026-01-15', 3), '2025-10-15', 'crosses the year boundary');
+  const monthly = [
+    { date: '2026-07-01', value: '3.34' }, { date: '2026-06-01', value: '3.2' }, { date: '2026-05-01', value: '3.1' },
+    { date: '2026-04-01', value: '3.0' }, { date: '2026-03-01', value: '2.9' }
+  ];
+  assert.deepEqual(fred.valueMonthsAgo(monthly, '2026-07-01', 3), { value: 3.0, date: '2026-04-01' });
+  const daily = [
+    { date: '2026-09-11', value: '4.95' }, { date: '2026-09-10', value: '4.9' }, { date: '2026-06-12', value: '.' },
+    { date: '2026-06-11', value: '4.40' }, { date: '2026-06-10', value: '4.38' }
+  ];
+  assert.deepEqual(fred.valueMonthsAgo(daily, '2026-09-11', 3), { value: 4.40, date: '2026-06-11' }, 'first numeric observation on or before the target date');
+  assert.equal(fred.valueMonthsAgo(monthly.slice(0, 2), '2026-07-01', 3), null, 'window too short → null, never interpolated');
+  const snap = fred.buildSnapshot(fixture({ PCEPILFE: monthly, DGS10: daily }));
+  assert.equal(snap.corePce, 3.34);
+  assert.equal(snap.corePce3moAgo, 3.0);
+  assert.equal(snap.dates.PCEPILFE_3mo, '2026-04-01');
+  assert.equal(snap.treasury10y, 4.95);
+  assert.equal(snap.treasury10y3moAgo, 4.4);
+  assert.equal(snap.dates.DGS10_3mo, '2026-06-11');
+  assert.ok(snap.notes.corePce3moAgo.includes('3 months'));
+  const short = fred.buildSnapshot(fixture());
+  assert.equal(short.corePce3moAgo, null, 'default fixture has one observation → null');
+  assert.equal(short.treasury10y3moAgo, null);
+  assert.ok(fred.SERIES.corePce.limit >= 4 && fred.SERIES.treasury10y.limit >= 70, 'windows are long enough to reach 3 months back');
+});

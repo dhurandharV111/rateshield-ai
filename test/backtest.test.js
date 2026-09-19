@@ -39,6 +39,16 @@ test('backtest: direction hit rate is reported for all episodes', () => {
   });
   console.log('  Hit rate: ' + bt.hits + ' of ' + bt.total + ' (' + Math.round(bt.hitRate * 100) + '%)\n');
 
+  // Same episodes with the momentum term switched off, so the two hit rates can be compared.
+  const off = Model.backtest({ momentum: false });
+  const F = CONFIG.forecast;
+  console.log('  Momentum term  ON  (pce ×' + F.pce.momentumWeight + ', 10Y ×' + F.tr.momentumWeight + ', clamp ±' + F.momentumClamp + '): ' + bt.hits + ' of ' + bt.total + ' (' + Math.round(bt.hitRate * 100) + '%)');
+  console.log('  Momentum term  OFF: ' + off.hits + ' of ' + off.total + ' (' + Math.round(off.hitRate * 100) + '%)');
+  const changed = bt.rows.filter((r) => { const o = off.rows.find((x) => x.year === r.year); return o && o.hit !== r.hit; });
+  console.log('  Episodes whose verdict momentum changes: ' + (changed.length ? changed.map((r) => r.year + ' (' + (r.hit ? 'gained' : 'lost') + ')').join(', ') : 'none') + '\n');
+  assert.equal(off.total, bt.total);
+  assert.ok(bt.hits >= off.hits - 1, 'momentum may cost at most one historical episode');
+
   // Regression floor: the model must at least beat a coin flip on direction.
   assert.ok(bt.hitRate >= 0.5, `hit rate ${bt.hitRate} below 50%`);
 });

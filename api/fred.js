@@ -16,16 +16,22 @@
 //   DGS6MO          6-month Treasury constant-maturity yield, % (daily) — the
 //                   market's pricing of the policy rate over the next two meetings
 //   DGS2            2-year Treasury constant-maturity yield, % (daily)
+//
+// Momentum: for PCEPILFE (yoy) and DGS10 the snapshot also carries the value
+// observed 3 months before the latest observation (corePce3moAgo,
+// treasury10y3moAgo), read from the same observation window — nothing is
+// interpolated. If no observation exists on or before that date, the field is
+// null and the app treats momentum as zero.
 
 const FRED_BASE = 'https://api.stlouisfed.org/fred/series/observations';
 
 export const SERIES = {
   fedFunds:     { id: 'FEDFUNDS',        units: 'lin', limit: 3 },
   cpi:          { id: 'CPIAUCSL',        units: 'pc1', limit: 3 },
-  corePce:      { id: 'PCEPILFE',        units: 'pc1', limit: 3 },
+  corePce:      { id: 'PCEPILFE',        units: 'pc1', limit: 6 },
   unemployment: { id: 'UNRATE',          units: 'lin', limit: 3 },
   gdpGrowth:    { id: 'A191RL1Q225SBEA', units: 'lin', limit: 3 },
-  treasury10y:  { id: 'DGS10',           units: 'lin', limit: 10 },
+  treasury10y:  { id: 'DGS10',           units: 'lin', limit: 110 },
   treasury6mo:  { id: 'DGS6MO',          units: 'lin', limit: 10 },
   treasury2y:   { id: 'DGS2',            units: 'lin', limit: 10 }
 };
@@ -44,6 +50,36 @@ export function latestValue(observations) {
   for (let i = 0; i < (observations || []).length; i++) {
     const v = parseFloat(observations[i].value);
     if (isFinite(v)) return { value: v, date: observations[i].date };
+  }
+  return null;
+}
+
+// Series whose value 3 months before the latest observation is also reported.
+export const MOMENTUM = { corePce: 'corePce3moAgo', treasury10y: 'treasury10y3moAgo' };
+export const MOMENTUM_MONTHS = 3;
+
+// ISO date shifted back by `months` calendar months (day clamped to the month).
+export function shiftMonths(isoDate, months) {
+  const d = new Date(isoDate + 'T00:00:00Z');
+  if (isNaN(d.getTime())) return null;
+  const day = d.getUTCDate();
+  d.setUTCDate(1);
+  d.setUTCMonth(d.getUTCMonth() - months);
+  const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(day, last));
+  return d.toISOString().slice(0, 10);
+}
+
+// Latest numeric observation on or before `months` months prior to `latestDate`
+// (observations are newest-first, as FRED returns them with sort_order=desc).
+export function valueMonthsAgo(observations, latestDate, months) {
+  const target = shiftMonths(latestDate, months);
+  if (!target) return null;
+  for (let i = 0; i < (observations || []).length; i++) {
+    const o = observations[i];
+    if (o.date > target) continue;
+    const v = parseFloat(o.value);
+    if (isFinite(v)) return { value: v, date: o.date };
   }
   return null;
 }
@@ -74,6 +110,11 @@ export function buildSnapshot(raw) {
       out[key] = Math.round(latest.value * 100) / 100;
     }
     out.dates[s.id] = latest.date;
+    if (MOMENTUM[key]) {
+      const ago = valueMonthsAgo(raw[s.id], latest.date, MOMENTUM_MONTHS);
+      out[MOMENTUM[key]] = ago ? Math.round(ago.value * 100) / 100 : null;
+      out.dates[s.id + '_3mo'] = ago ? ago.date : null;
+    }
   });
   // Cross-check: core PCE normally runs at or below headline CPI. A gap of more than
   // CORE_PCE_VS_CPI_MAX_GAP points is flagged (not dropped) so it can be investigated.
@@ -84,7 +125,9 @@ export function buildSnapshot(raw) {
   out.notes = {
     gdpGrowth: 'A191RL1Q225SBEA — real GDP, % change from preceding period, SAAR (used as reported)',
     cpi: 'CPIAUCSL with units=pc1 — year-over-year % change (computed by FRED)',
-    corePce: 'PCEPILFE with units=pc1 — year-over-year % change (computed by FRED)'
+    corePce: 'PCEPILFE with units=pc1 — year-over-year % change (computed by FRED)',
+    corePce3moAgo: 'PCEPILFE (pc1) observation ' + MOMENTUM_MONTHS + ' months before the latest one — used for the momentum term',
+    treasury10y3moAgo: 'DGS10 observation on or before ' + MOMENTUM_MONTHS + ' months before the latest one — used for the momentum term'
   };
   return out;
 }

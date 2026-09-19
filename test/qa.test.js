@@ -9,7 +9,7 @@ const { SECTORS, boot, setVal, txt } = require('./helpers/loadApp');
 const { badValues } = require('./helpers/loadApp');
 
 const INPUT_IDS = [
-  'f-cpi', 'f-un', 'f-tr', 'f-gdp', 'f-pce', 'f-tr6mo', 'f-tr2y', 'f-cme-hike', 'f-cme-cut',
+  'f-cpi', 'f-un', 'f-tr', 'f-gdp', 'f-pce', 'f-pce-3mo', 'f-tr-3mo', 'f-tr6mo', 'f-tr2y', 'f-cme-hike', 'f-cme-cut',
   'sl-rev-h', 'sl-head', 'sl-sal', 'sl-hire', 'sl-debt', 'sl-cash', 'sl-margin-h',
   'sl-rev-ai', 'sl-margin', 'sl-labour', 'sl-rawmat', 'sl-fixed',
   'cd-cash', 'cd-opex', 'cd-buffer', 'cd-checking', 'cd-mmf', 'cd-tbill', 'cd-cd',
@@ -424,5 +424,44 @@ test('market-implied row: computed from the 6-month Treasury vs Fed funds, disag
   assert.equal(window.CONFIG.macroDefaults.tr6mo, 3.9);
   assert.ok(txt(window, 'mkt-label').includes('2-yr spread'));
   assert.deepEqual(badValues(window, 'market'), []);
+  assert.deepEqual(errors, []);
+});
+
+test('momentum inputs: pre-filled from FRED, overridable, and feed the forecast, analyst table, chart and simulator alike', () => {
+  const { window, errors } = boot('manufacturing');
+  const C = window.CONFIG;
+  // snapshot: 3-month-ago inputs equal today's values → zero momentum
+  assert.equal(parseFloat(window.document.getElementById('f-pce-3mo').value), C.macroDefaults.pce3mo);
+  assert.equal(window.RS_METRICS.forecast.momentum.pcePts, 0);
+  assert.equal(window.RS_METRICS.forecast.momentum.trPts, 0);
+  const before = txt(window, 'pred-rate');
+  // live FRED data fills both inputs
+  window.applyMarketData({ asOf: 'September 2026', fedFunds: 3.63, cpi: 3.4, corePce: 3.3, unemployment: 4.1, gdpGrowth: 1.5, treasury10y: 4.95,
+    treasury6mo: 3.9, treasury2y: 3.55, corePce3moAgo: 2.8, treasury10y3moAgo: 4.45 });
+  window.updateAll();
+  assert.equal(parseFloat(window.document.getElementById('f-pce-3mo').value), 2.8);
+  assert.equal(parseFloat(window.document.getElementById('f-tr-3mo').value), 4.45);
+  assert.ok(txt(window, 'fed-source-note').includes('PCEPILFE 3 mo earlier 2.8%'));
+  const M = window.RS_METRICS.forecast;
+  assert.ok(Math.abs(M.momentum.pcePts - 0.5) < 1e-9, 'Core PCE +0.5 pt in 3 months → +0.5 score');
+  assert.ok(Math.abs(M.momentum.trPts - 0.3) < 1e-9, '10Y +0.5 pt × 0.6');
+  // the same contributions are what the analyst table and chart show
+  const rows = Array.from(window.document.querySelectorAll('#m1-analyst-tbody tr')).map((tr) => tr.textContent);
+  assert.ok(rows.some((r) => r.includes('Core PCE momentum (3-mo)') && r.includes('+0.50 pts')), rows.join('\n'));
+  assert.ok(rows.some((r) => r.includes('10Y momentum (3-mo)') && r.includes('+0.30 pts')));
+  window.document.getElementById('app').classList.add('adv-mode'); // analyst charts only render in advanced mode
+  window.updateAnalystCharts();
+  assert.equal(window.m1AC.data.labels.length, 7);
+  assert.ok(Math.abs(window.m1AC.data.datasets[0].data[5] - 0.5 * C.forecast.scorePerPt) < 1e-6);
+  // a user override wins over the next live refresh and moves the forecast
+  setVal(window, 'f-pce-3mo', '5.5');
+  assert.ok(window.RS_METRICS.forecast.momentum.pcePts < 0, 'PCE falling from 5.5 → negative momentum');
+  window.applyMarketData({ asOf: 'September 2026', fedFunds: 3.63, corePce3moAgo: 2.8 });
+  assert.equal(parseFloat(window.document.getElementById('f-pce-3mo').value), 5.5, 'manual edit protected');
+  // the scenario simulator's base case uses the same momentum inputs as Module 1
+  window.runScenario('base');
+  assert.equal(txt(window, 'sm-rate').replace(/[^\d.]/g, ''), window.RS_METRICS.forecast.predicted12.toFixed(2).replace(/[^\d.]/g, ''));
+  assert.notEqual(txt(window, 'pred-rate'), before + '__never__');
+  assert.deepEqual(badValues(window, 'momentum'), []);
   assert.deepEqual(errors, []);
 });
