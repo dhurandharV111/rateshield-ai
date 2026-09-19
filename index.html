@@ -537,7 +537,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
           <div class="dr"><span class="dl">In 12 months</span><span class="dv" id="r12">3.25%</span></div>
           <div class="dr"><span class="dl">In 18 months</span><span class="dv" id="r18">3.00%</span></div>
           <div class="dr"><span class="dl">Model confidence (analog-distance heuristic)</span><span class="dv" id="conf">—</span></div>
-          <div class="dr"><span class="dl" id="backtest-label">Backtest</span><span class="dv" id="backtest-line">—</span></div>
+          <div class="dr" id="backtest-row" style="display:block"><div class="dl" id="backtest-label" style="font-size:11px;color:#6b6b6b;margin-bottom:2px">Backtest (12-month direction, ±0.25 = hold)</div><div class="dv" id="backtest-line" style="white-space:normal">—</div></div>
         </div>
         <div class="rb rb-amber" id="sec-impact-box">
           <div class="rb-label">What this means for your sector</div>
@@ -3036,10 +3036,11 @@ function updateF() {
   var bt=Model.backtest();
   RS_METRICS.forecast.backtest={ hits: bt.hits, total: bt.total, hitRate: bt.hitRate, nextMeeting: { hits: bt.nextMeeting.hits, total: bt.nextMeeting.total } };
   var nmTxt=bt.nextMeeting.total?' · Next-meeting calls: '+bt.nextMeeting.hits+' of '+bt.nextMeeting.total:'';
+  // One full-width row: a short static label above, the sentence rendered exactly once below.
   var btEl=document.getElementById('backtest-line');
-  if(btEl) btEl.textContent=bt.hits+' of '+bt.total+' historical episodes, direction correct'+nmTxt;
+  if(btEl) btEl.textContent='Backtest: '+bt.hits+' of '+bt.total+' historical episodes, direction correct'+nmTxt;
   var btLabel=document.getElementById('backtest-label');
-  if(btLabel) btLabel.textContent='Backtest: '+bt.hits+' of '+bt.total+' historical episodes, direction correct (12-month move, ±'+CONFIG.analog.backtestDeadZone+' = hold)'+nmTxt;
+  if(btLabel) btLabel.textContent='Backtest (12-month direction, ±'+CONFIG.analog.backtestDeadZone+' = hold)';
   var analogEl=document.getElementById('analog-tag');
   if(analogEl) analogEl.textContent=analog.best.year+' — '+analog.best.matchPct+'% match';
   var analogSub=document.getElementById('analog-label');

@@ -366,9 +366,19 @@ test('Financing Strategy renders the backtest hit rate from Model.backtest', () 
   const { window } = boot('manufacturing');
   const bt = window.Model.backtest();
   const nm = ' · Next-meeting calls: ' + bt.nextMeeting.hits + ' of ' + bt.nextMeeting.total;
-  assert.equal(txt(window, 'backtest-line'), bt.hits + ' of ' + bt.total + ' historical episodes, direction correct' + nm);
-  assert.ok(txt(window, 'backtest-label').startsWith('Backtest: ' + bt.hits + ' of ' + bt.total));
-  assert.ok(txt(window, 'backtest-label').endsWith(nm));
+  assert.equal(txt(window, 'backtest-line'), 'Backtest: ' + bt.hits + ' of ' + bt.total + ' historical episodes, direction correct' + nm);
+  assert.equal(txt(window, 'backtest-label'), 'Backtest (12-month direction, ±' + window.CONFIG.analog.backtestDeadZone + ' = hold)');
+  // rendered exactly once, as its own full-width row directly below "Model confidence"
+  const panel = window.document.getElementById('backtest-row').parentElement;
+  assert.ok(panel.textContent.includes('Rate path'), 'row lives in the Rate path card');
+  assert.equal((panel.textContent.match(/historical episodes/g) || []).length, 1, '"historical episodes" appears exactly once in the panel');
+  const visible = window.document.body.cloneNode(true);
+  visible.querySelectorAll('script,style').forEach((n) => n.remove());
+  assert.equal((visible.textContent.match(/historical episodes/g) || []).length, 1, 'and exactly once in the visible page text');
+  const rows = Array.from(panel.querySelectorAll('.dr'));
+  const confIdx = rows.findIndex((r) => r.textContent.includes('Model confidence'));
+  assert.equal(rows[confIdx + 1].id, 'backtest-row', 'directly below Model confidence');
+  assert.equal(window.getComputedStyle(rows[confIdx + 1]).display, 'block', 'full-width row, not a two-column flex row');
   assert.equal(bt.total, 13); assert.equal(bt.nextMeeting.total, 1);
   const m = window.RS_METRICS.forecast.backtest;
   assert.equal(m.hits, bt.hits); assert.equal(m.total, bt.total); assert.equal(m.hitRate, bt.hitRate);
