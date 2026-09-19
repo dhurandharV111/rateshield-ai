@@ -288,7 +288,7 @@ test('nearestAnalog: an exact historical year matches itself at 100% with zero d
   assert.equal(r.best.year, 1995);
   assert.equal(r.best.distance, 0);
   assert.equal(r.best.matchPct, 100);
-  assert.equal(r.ranked.length, CONFIG.analog.years.length);
+  assert.equal(r.ranked.length, Model.historicalEpisodes().length);
   assert.ok(r.ranked[1].distance >= r.ranked[0].distance);
 });
 
@@ -502,4 +502,33 @@ test('rateSignalContributions: Core PCE momentum weight 1.0, 10Y momentum weight
     const b = Model.predictedRate(Model.rateSignalScore(Object.assign({}, base, { pce3mo: ago + 0.02 })));
     assert.ok(Math.abs(b - a) <= 0.25 + 1e-9, `pce3mo ${ago}`);
   }
+});
+
+// ── Scorekeeping: episodes without a 12-month outcome ───────────────────────
+test('nearestAnalog only considers episodes with a realised 12-month outcome — today cannot be its own analog', () => {
+  const y2026 = CONFIG.analog.years.find((y) => y.year === 2026);
+  const r = Model.nearestAnalog(y2026);
+  assert.notEqual(r.best.year, 2026);
+  assert.ok(r.ranked.every((x) => x.year !== 2026));
+  assert.equal(r.ranked.length, Model.historicalEpisodes().length);
+  assert.ok(r.best.matchPct < 100, 'no trivial 100% self-match');
+});
+
+test('backtest scores 12-month and next-meeting episodes on separate boards', () => {
+  const bt = Model.backtest();
+  assert.equal(bt.total, 13);
+  assert.ok(bt.rows.every((r) => r.year !== 2026), '2026 has no 12-month outcome → not on the 12-month board');
+  assert.equal(bt.nextMeeting.total, 1);
+  const r = bt.nextMeeting.rows[0];
+  assert.equal(r.year, 2026);
+  assert.equal(r.actualDir, 'up');
+  assert.equal(r.predictedDir, { hike: 'up', cut: 'down', hold: 'hold' }[Model.fomcDirection(r.probs)]);
+  assert.equal(r.hit, r.predictedDir === 'up');
+  assert.ok(Math.abs(bt.nextMeeting.hitRate - bt.nextMeeting.hits / bt.nextMeeting.total) < 1e-12);
+  // an episode with both outcomes would sit on both boards; one with neither on none
+  const saved = CONFIG.analog.years;
+  CONFIG.analog.years = [Object.assign({}, saved[0], { actualNextMeeting: -0.5 }), Object.assign({}, saved[1], { actualChange12m: null, actualNextMeeting: undefined })];
+  const b2 = Model.backtest();
+  assert.equal(b2.total, 1); assert.equal(b2.nextMeeting.total, 1); assert.equal(b2.nextMeeting.rows[0].actualDir, 'down');
+  CONFIG.analog.years = saved;
 });

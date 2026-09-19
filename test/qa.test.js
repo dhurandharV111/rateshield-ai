@@ -361,10 +361,19 @@ test('simulator: AI Acceleration raises AI savings above base via the automatabl
 test('Financing Strategy renders the backtest hit rate from Model.backtest', () => {
   const { window } = boot('manufacturing');
   const bt = window.Model.backtest();
-  assert.equal(txt(window, 'backtest-line'), bt.hits + ' of ' + bt.total + ' historical episodes, direction correct');
+  const nm = ' · Next-meeting calls: ' + bt.nextMeeting.hits + ' of ' + bt.nextMeeting.total;
+  assert.equal(txt(window, 'backtest-line'), bt.hits + ' of ' + bt.total + ' historical episodes, direction correct' + nm);
   assert.ok(txt(window, 'backtest-label').startsWith('Backtest: ' + bt.hits + ' of ' + bt.total));
+  assert.ok(txt(window, 'backtest-label').endsWith(nm));
+  assert.equal(bt.total, 13); assert.equal(bt.nextMeeting.total, 1);
   const m = window.RS_METRICS.forecast.backtest;
   assert.equal(m.hits, bt.hits); assert.equal(m.total, bt.total); assert.equal(m.hitRate, bt.hitRate);
+  assert.equal(m.nextMeeting.hits, bt.nextMeeting.hits); assert.equal(m.nextMeeting.total, 1);
+  // with today's live-style inputs the analog is a historical year, never 2026
+  window.applyMarketData({ asOf: 'September 2026', fedFunds: 3.63, cpi: 3.4, corePce: 3.3, unemployment: 4.1, gdpGrowth: 1.5, treasury10y: 4.95 });
+  window.updateAll();
+  assert.notEqual(window.RS_METRICS.forecast.analogYear, 2026);
+  assert.ok(!txt(window, 'analog-tag').startsWith('2026'));
 });
 
 test('negative margin renders without NaN and the simulator does not floor it to +2%', () => {

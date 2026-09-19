@@ -1117,7 +1117,15 @@ var CONFIG = {
       { year: 2015, label: 'Post-ZIRP lift-off',           cpi: 0.1,  un: 5.3, tr: 2.1,  gdp: 2.9,  pce: 1.3, fedFunds: 0.24,  actualChange12m: 0.30, pceMom3m: 0.1, trMom3m: 0.07 },
       { year: 2019, label: 'Late-cycle mid-cycle cuts',    cpi: 1.8,  un: 3.7, tr: 2.1,  gdp: 2.3,  pce: 1.7, fedFunds: 1.55,  actualChange12m: -1.46, pceMom3m: -0.1, trMom3m: 0.16 },
       { year: 2022, label: 'Post-COVID inflation surge',   cpi: 8.0,  un: 3.6, tr: 3.0,  gdp: 2.1,  pce: 5.2, fedFunds: 4.10,  actualChange12m: 1.23, pceMom3m: -0.6, trMom3m: 0.10 },
-      { year: 2024, label: 'Disinflation with full employment', cpi: 2.9, un: 4.0, tr: 4.2, gdp: 2.8, pce: 2.8, fedFunds: 4.48, actualChange12m: -0.84, pceMom3m: 0.2, trMom3m: 0.67 }
+      { year: 2024, label: 'Disinflation with full employment', cpi: 2.9, un: 4.0, tr: 4.2, gdp: 2.8, pce: 2.8, fedFunds: 4.48, actualChange12m: -0.84, pceMom3m: 0.2, trMom3m: 0.67 },
+      // Live scorekeeping: no 12-month outcome yet, so this episode is scored on the
+      // direction of the next FOMC decision (actualNextMeeting, in rate points) and
+      // is excluded from analog matching (today cannot be its own analog).
+      // pceMom3m / trMom3m here are the June→September 2026 changes and are an
+      // ESTIMATE entered without FRED access — replace with PCEPILFE (pc1) and
+      // DGS10 from FRED before quoting the momentum result.
+      { year: 2026, label: 'Energy-driven re-acceleration', cpi: 3.4, un: 4.1, tr: 4.95, gdp: 1.5, pce: 3.3, fedFunds: 3.63, actualChange12m: null,
+        actualNextMeeting: 0.25, source: 'FOMC statement 2026-09-16', pceMom3m: 0.3, trMom3m: 0.55, momentumSource: 'estimate — verify against FRED' }
     ],
     // Direction backtest: a predicted or actual 12-month change within ±deadZone
     // counts as "hold"; otherwise "up" / "down". A hit is a matching direction.
@@ -1341,9 +1349,13 @@ var Model = {
     return score >= CONFIG.forecast.envHighScore ? 'high' : score <= CONFIG.forecast.envLowScore ? 'low' : 'transition';
   },
   // Nearest historical analog by normalised Euclidean distance over 5 signals.
+  // Episodes with a realised 12-month outcome — the only ones usable as analogs.
+  historicalEpisodes: function() {
+    return CONFIG.analog.years.filter(function(y) { return typeof y.actualChange12m === 'number' && isFinite(y.actualChange12m); });
+  },
   nearestAnalog: function(o) {
     var A = CONFIG.analog, keys = ['cpi', 'un', 'tr', 'gdp', 'pce'];
-    var ranked = A.years.map(function(y) {
+    var ranked = Model.historicalEpisodes().map(function(y) {
       var d2 = 0;
       keys.forEach(function(k) { var z = (o[k] - y[k]) / A.scale[k]; d2 += z * z; });
       var d = Math.sqrt(d2);
@@ -1356,19 +1368,37 @@ var Model = {
     var A = CONFIG.analog;
     return Math.min(A.confidenceMax, Math.max(A.confidenceBase, Math.round(A.confidenceBase + A.confidenceSpan * Math.exp(-distance))));
   },
-  // Directional backtest of predictedRate against every episode in CONFIG.analog.years.
+  // Directional backtest of predictedRate against CONFIG.analog.years.
+  //  • 12-month scoreboard: episodes with a realised actualChange12m — predicted
+  //    12-month move vs realised move, ±backtestDeadZone = hold.
+  //  • Next-meeting scoreboard: episodes with actualNextMeeting (the size of the
+  //    next FOMC decision) — the model's most likely FOMC outcome (argmax of
+  //    fomcProbabilities) vs the sign of that decision. Any non-zero decision
+  //    counts as a move; there is no dead zone on a single meeting.
   backtest: function(opts) {
-    var dz = CONFIG.analog.backtestDeadZone;
+    var dz = CONFIG.analog.backtestDeadZone, fin = function(v) { return typeof v === 'number' && isFinite(v); };
     var dir = function(x) { return x > dz ? 'up' : x < -dz ? 'down' : 'hold'; };
-    var rows = CONFIG.analog.years.map(function(y) {
+    var toDir = { hike: 'up', cut: 'down', hold: 'hold' };
+    var rows = [], next = [];
+    CONFIG.analog.years.forEach(function(y) {
       var predicted = Model.predictedRate(Model.rateSignalScore(y, opts));
       var predictedChange = predicted - y.fedFunds;
-      var pd = dir(predictedChange), ad = dir(y.actualChange12m);
-      return { year: y.year, label: y.label, current: y.fedFunds, predicted: predicted, predictedChange: predictedChange,
-               actualChange12m: y.actualChange12m, predictedDir: pd, actualDir: ad, hit: pd === ad };
+      if (fin(y.actualChange12m)) {
+        var pd = dir(predictedChange), ad = dir(y.actualChange12m);
+        rows.push({ year: y.year, label: y.label, current: y.fedFunds, predicted: predicted, predictedChange: predictedChange,
+                    actualChange12m: y.actualChange12m, predictedDir: pd, actualDir: ad, hit: pd === ad });
+      }
+      if (fin(y.actualNextMeeting)) {
+        var probs = Model.fomcProbabilities(predicted, y.fedFunds);
+        var npd = toDir[Model.fomcDirection(probs)], nad = y.actualNextMeeting > 0 ? 'up' : y.actualNextMeeting < 0 ? 'down' : 'hold';
+        next.push({ year: y.year, label: y.label, current: y.fedFunds, predicted: predicted, predictedChange: predictedChange, probs: probs,
+                    actualNextMeeting: y.actualNextMeeting, predictedDir: npd, actualDir: nad, hit: npd === nad, source: y.source || null });
+      }
     });
     var hits = rows.filter(function(r) { return r.hit; }).length;
-    return { rows: rows, hits: hits, total: rows.length, hitRate: rows.length ? hits / rows.length : 0 };
+    var nHits = next.filter(function(r) { return r.hit; }).length;
+    return { rows: rows, hits: hits, total: rows.length, hitRate: rows.length ? hits / rows.length : 0,
+             nextMeeting: { rows: next, hits: nHits, total: next.length, hitRate: next.length ? nHits / next.length : 0 } };
   },
 
   // Normalise {hike, hold, cut} weights to integer percentages summing to exactly
@@ -3002,11 +3032,12 @@ function updateF() {
   document.getElementById('r18').textContent=r18.toFixed(2)+'%';
   document.getElementById('conf').textContent=conf+'%';
   var bt=Model.backtest();
-  RS_METRICS.forecast.backtest={ hits: bt.hits, total: bt.total, hitRate: bt.hitRate };
+  RS_METRICS.forecast.backtest={ hits: bt.hits, total: bt.total, hitRate: bt.hitRate, nextMeeting: { hits: bt.nextMeeting.hits, total: bt.nextMeeting.total } };
+  var nmTxt=bt.nextMeeting.total?' · Next-meeting calls: '+bt.nextMeeting.hits+' of '+bt.nextMeeting.total:'';
   var btEl=document.getElementById('backtest-line');
-  if(btEl) btEl.textContent=bt.hits+' of '+bt.total+' historical episodes, direction correct';
+  if(btEl) btEl.textContent=bt.hits+' of '+bt.total+' historical episodes, direction correct'+nmTxt;
   var btLabel=document.getElementById('backtest-label');
-  if(btLabel) btLabel.textContent='Backtest: '+bt.hits+' of '+bt.total+' historical episodes, direction correct (12-month move, ±'+CONFIG.analog.backtestDeadZone+' = hold)';
+  if(btLabel) btLabel.textContent='Backtest: '+bt.hits+' of '+bt.total+' historical episodes, direction correct (12-month move, ±'+CONFIG.analog.backtestDeadZone+' = hold)'+nmTxt;
   var analogEl=document.getElementById('analog-tag');
   if(analogEl) analogEl.textContent=analog.best.year+' — '+analog.best.matchPct+'% match';
   var analogSub=document.getElementById('analog-label');

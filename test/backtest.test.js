@@ -7,19 +7,29 @@ const { loadModel } = require('./helpers/loadModel');
 
 const { CONFIG, Model } = loadModel();
 
-test('every historical episode carries a December Fed funds level and the realised 12-month change', () => {
-  assert.ok(CONFIG.analog.years.length >= 13);
+test('every episode carries a Fed funds level and either the realised 12-month change or a next-meeting outcome', () => {
+  assert.ok(CONFIG.analog.years.length >= 14);
   CONFIG.analog.years.forEach((y) => {
     assert.equal(typeof y.fedFunds, 'number', `${y.year} fedFunds`);
     assert.ok(y.fedFunds >= 0 && y.fedFunds <= 20, `${y.year} fedFunds plausible`);
-    assert.equal(typeof y.actualChange12m, 'number', `${y.year} actualChange12m`);
-    assert.ok(Math.abs(y.actualChange12m) <= 6, `${y.year} 12-month move plausible`);
+    const has12 = typeof y.actualChange12m === 'number', hasNext = typeof y.actualNextMeeting === 'number';
+    assert.ok(has12 || hasNext, `${y.year} needs an outcome to be scored on`);
+    if (has12) assert.ok(Math.abs(y.actualChange12m) <= 6, `${y.year} 12-month move plausible`);
+    if (hasNext) assert.ok(Math.abs(y.actualNextMeeting) <= 1, `${y.year} single-meeting move plausible`);
   });
+  assert.equal(Model.historicalEpisodes().length, 13, '13 episodes with a realised 12-month outcome');
+  const y2026 = CONFIG.analog.years.find((y) => y.year === 2026);
+  assert.ok(y2026, 'September 2026 episode present');
+  assert.equal(y2026.label, 'Energy-driven re-acceleration');
+  assert.deepEqual([y2026.cpi, y2026.un, y2026.tr, y2026.gdp, y2026.pce, y2026.fedFunds], [3.4, 4.1, 4.95, 1.5, 3.3, 3.63]);
+  assert.equal(y2026.actualChange12m, null);
+  assert.equal(y2026.actualNextMeeting, 0.25);
+  assert.equal(y2026.source, 'FOMC statement 2026-09-16');
 });
 
 test('backtest: direction hit rate is reported for all episodes', () => {
   const bt = Model.backtest();
-  assert.equal(bt.total, CONFIG.analog.years.length);
+  assert.equal(bt.total, Model.historicalEpisodes().length);
   assert.ok(bt.hits >= 0 && bt.hits <= bt.total);
   assert.ok(Math.abs(bt.hitRate - bt.hits / bt.total) < 1e-12);
   bt.rows.forEach((r) => {
@@ -48,6 +58,39 @@ test('backtest: direction hit rate is reported for all episodes', () => {
   console.log('  Episodes whose verdict momentum changes: ' + (changed.length ? changed.map((r) => r.year + ' (' + (r.hit ? 'gained' : 'lost') + ')').join(', ') : 'none') + '\n');
   assert.equal(off.total, bt.total);
   assert.ok(bt.hits >= off.hits - 1, 'momentum may cost at most one historical episode');
+
+  // Next-meeting scoreboard (episodes without a 12-month outcome yet).
+  const nm = bt.nextMeeting, nmOff = off.nextMeeting;
+  console.log('  Next-meeting calls (model\'s most likely FOMC outcome vs the actual decision):');
+  console.log('  ' + pad('year', 6) + pad('episode', 34) + pad('fed now', 9) + pad('pred 12m', 10) + pad('hike/hold/cut', 16) + pad('pred', 6) + pad('actual', 8) + 'hit');
+  nm.rows.forEach((r) => {
+    const o = nmOff.rows.find((x) => x.year === r.year);
+    console.log('  ' + pad(r.year, 6) + pad(r.label, 34) + pad(r.current.toFixed(2), 9) + pad(r.predicted.toFixed(2), 10) +
+      pad(r.probs.hike + '/' + r.probs.hold + '/' + r.probs.cut, 16) + pad(r.predictedDir, 6) + pad(r.actualDir + ' (' + (r.actualNextMeeting >= 0 ? '+' : '') + r.actualNextMeeting + ')', 12) + (r.hit ? '✓' : '✗') +
+      '   momentum OFF: pred 12m ' + o.predicted.toFixed(2) + ' → ' + o.predictedDir + ' ' + (o.hit ? '✓' : '✗'));
+  });
+  console.log('  Next-meeting calls: ' + nm.hits + ' of ' + nm.total + ' with momentum ON · ' + nmOff.hits + ' of ' + nmOff.total + ' with momentum OFF');
+  // What it would take: score needed for the model's most likely outcome to be a hike from today's level.
+  const y2026 = CONFIG.analog.years.find((y) => y.year === 2026);
+  if (y2026) {
+    const baseScore = Model.rateSignalScore(y2026, { momentum: false });
+    let needed = null;
+    for (let extra = 0; extra <= 6; extra = Math.round((extra + 0.05) * 100) / 100) {
+      const p = Model.fomcProbabilities(Model.predictedRate(baseScore + extra), y2026.fedFunds);
+      if (Model.fomcDirection(p) === 'hike') { needed = extra; break; }
+    }
+    console.log('  2026: score without momentum ' + baseScore.toFixed(2) + ', momentum contribution ' +
+      (Model.rateSignalScore(y2026) - baseScore).toFixed(2) + ' (pceMom3m ' + y2026.pceMom3m + ', trMom3m ' + y2026.trMom3m + ', ' + y2026.momentumSource + ')' +
+      '; extra score needed for a "hike" call: ' + (needed === null ? '> 6' : '+' + needed.toFixed(2)) + ' (momentum is capped at +3.0 in total)\n');
+  }
+  assert.equal(nm.total, CONFIG.analog.years.filter((y) => typeof y.actualNextMeeting === 'number').length);
+  nm.rows.forEach((r) => {
+    assert.ok(['up', 'down', 'hold'].includes(r.predictedDir) && ['up', 'down', 'hold'].includes(r.actualDir));
+    assert.equal(r.hit, r.predictedDir === r.actualDir);
+    assert.equal(r.probs.hike + r.probs.hold + r.probs.cut, 100);
+  });
+  const r2026 = nm.rows.find((r) => r.year === 2026);
+  assert.equal(r2026.actualDir, 'up', '+25 bp on 2026-09-16 is a hike');
 
   // Regression floor: the model must at least beat a coin flip on direction.
   assert.ok(bt.hitRate >= 0.5, `hit rate ${bt.hitRate} below 50%`);
