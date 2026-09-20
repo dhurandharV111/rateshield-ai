@@ -553,3 +553,24 @@ test('headline CPI momentum: (cpi − cpi 3 mo ago) × 0.8, clamped ±1.5, zero 
     assert.ok(Math.abs(b - a) <= 0.25 + 1e-9, `cpi3mo ${ago}`);
   }
 });
+
+// ── Fed stance from the daily brief ─────────────────────────────────────────
+test('fedStanceContribution: score × 0.75, clamped ±1.5, zero when there is no brief', () => {
+  const S = CONFIG.forecast.fedStance;
+  assert.equal(S.weight, 0.75); assert.equal(S.clamp, 1.5);
+  near(Model.fedStanceContribution(1.0), 0.75);
+  near(Model.fedStanceContribution(-1.0), -0.75);
+  assert.equal(Model.fedStanceContribution(2), 1.5);
+  assert.equal(Model.fedStanceContribution(-2), -1.5);
+  assert.equal(Model.fedStanceContribution(7), 1.5, 'out-of-range scores are clamped, never amplified');
+  assert.equal(Model.fedStanceContribution(null), 0);
+  assert.equal(Model.fedStanceContribution(undefined), 0);
+  assert.equal(Model.fedStanceContribution(NaN), 0);
+  const base = { cpi: 3.4, un: 4.1, tr: 4.95, gdp: 1.5, pce: 3.3 };
+  assert.equal(Model.rateSignalContributions(base).fedStance, 0);
+  near(Model.rateSignalScore(Object.assign({ fedStance: 1.5 }, base)) - Model.rateSignalScore(base), 1.125, 1e-9);
+  const c = Model.rateSignalContributions(Object.assign({ fedStance: -0.8 }, base));
+  near(Model.rateSignalScore(Object.assign({ fedStance: -0.8 }, base)), c.cpi + c.pce + c.un + c.tr + c.gdp + c.cpiMom + c.pceMom + c.trMom + c.fedStance, 1e-9);
+  // the historical episodes carry no stance yet, so the backtest is unaffected
+  CONFIG.analog.years.forEach((y) => assert.equal(Model.rateSignalContributions(y).fedStance, 0, y.year));
+});

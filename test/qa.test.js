@@ -478,7 +478,7 @@ test('momentum inputs: pre-filled from FRED, overridable, and feed the forecast,
   assert.ok(rows.some((r) => r.includes('10Y momentum (3-mo)') && r.includes('+0.30 pts')));
   window.document.getElementById('app').classList.add('adv-mode'); // analyst charts only render in advanced mode
   window.updateAnalystCharts();
-  assert.equal(window.m1AC.data.labels.length, 8);
+  assert.equal(window.m1AC.data.labels.length, 9);
   assert.ok(Math.abs(window.m1AC.data.datasets[0].data[5] - 0.32 * C.forecast.scorePerPt) < 1e-6, 'CPI momentum bar');
   assert.ok(Math.abs(window.m1AC.data.datasets[0].data[6] - 0.5 * C.forecast.scorePerPt) < 1e-6, 'PCE momentum bar');
   // a user override wins over the next live refresh and moves the forecast
@@ -491,5 +491,39 @@ test('momentum inputs: pre-filled from FRED, overridable, and feed the forecast,
   assert.equal(txt(window, 'sm-rate').replace(/[^\d.]/g, ''), window.RS_METRICS.forecast.predicted12.toFixed(2).replace(/[^\d.]/g, ''));
   assert.notEqual(txt(window, 'pred-rate'), before + '__never__');
   assert.deepEqual(badValues(window, 'momentum'), []);
+  assert.deepEqual(errors, []);
+});
+
+test('Fed stance row: "No brief yet" and zero contribution without a brief; a mocked fed_briefs row renders the score, date and why-tooltip and moves the forecast', () => {
+  const { window, errors } = boot('manufacturing');
+  assert.equal(txt(window, 'f-fed-stance-val'), 'No brief yet');
+  assert.equal(window.RS_METRICS.forecast.fedStance.pts, 0);
+  assert.equal(window.RS_METRICS.forecast.fedStance.score, null);
+  const before = window.RS_METRICS.forecast.score;
+  const brief = { id: 1, brief_date: '2026-09-20', stance_score: 1.5, next_meeting_lean: 'hike', next_meeting_date: '2026-10-28',
+    summary: 'Officials signalled further tightening. A hike in October is the base case.', key_phrases: ['further tightening'],
+    sources: [{ title: 'FOMC statement', url: 'https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm', published: '2026-09-16' }], fed_funds_at_brief: 3.88 };
+  assert.equal(window.applyFedBrief(brief), true);
+  window.updateAll();
+  const val = window.document.getElementById('f-fed-stance-val');
+  assert.equal(val.textContent, '+1.50 hawkish');
+  assert.ok(val.title.startsWith('Why: Officials signalled further tightening.'), val.title);
+  assert.ok(val.title.includes('Contribution +1.13'));
+  assert.equal(txt(window, 'f-fed-stance-unit'), 'brief of 20 Sep · read-only');
+  assert.ok(!window.document.querySelector('#f-fed-stance-row input'), 'read-only: no input element');
+  const M = window.RS_METRICS.forecast;
+  assert.ok(Math.abs(M.fedStance.pts - 1.125) < 1e-9);
+  assert.equal(M.fedStance.briefDate, '2026-09-20');
+  assert.ok(Math.abs(M.score - before - 1.125) < 1e-9, 'forecast score moved by the stance contribution');
+  const rows = Array.from(window.document.querySelectorAll('#m1-analyst-tbody tr')).map((tr) => tr.textContent);
+  assert.ok(rows.some((r) => r.includes('Fed stance (daily brief)') && r.includes('+1.50') && r.includes('+1.13 pts')), rows.join('\n'));
+  // simulator base case carries the same term
+  window.runScenario('base');
+  assert.equal(txt(window, 'sm-rate').replace(/[^\d.]/g, ''), M.predicted12.toFixed(2));
+  // a malformed row is ignored and the app returns to "No brief yet"
+  assert.equal(window.applyFedBrief({ stance_score: 'hawkish' }), false);
+  assert.equal(txt(window, 'f-fed-stance-val'), 'No brief yet');
+  assert.equal(window.applyFedBrief(null), false);
+  assert.deepEqual(badValues(window, 'fed-stance'), []);
   assert.deepEqual(errors, []);
 });
