@@ -562,6 +562,14 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
   </div>
 </div>
 <div class="decision-box"><div class="decision-title">Recommended decision</div><div class="decision-grid"><div class="decision-now"><div class="decision-item-label">Do this now</div><div class="decision-item-val">Lock floating rate debt to fixed if in HIGH environment</div></div><div><div class="decision-item-label">Watch this metric</div><div class="decision-item-val">Core PCE — must fall below 2.5% before rate cuts begin</div></div><div><div class="decision-item-label">Revisit when</div><div class="decision-item-val">After next Fed meeting or when CPI moves above 4% or below 2%</div></div></div></div></div>
+    <div class="card" id="rate-outlook" style="margin-bottom:1rem">
+      <div class="card-head"><div class="card-title">Rate Outlook — Fed watch</div><span class="sn" id="fed-watch-asof" style="margin:0">No brief yet</span></div>
+      <div class="card-body" style="padding-top:.5rem">
+        <div id="fed-watch-line" style="font-size:13px;font-weight:700;color:#0f0f0f;margin-bottom:4px">Fed stance: no brief yet</div>
+        <div id="fed-watch-summary" style="font-size:12px;color:#3a3a3a;line-height:1.45">The daily Fed briefing assistant has not written a brief yet. Once it runs (7 am ET), the Fed's stance, its last statement and the next FOMC meeting appear here.</div>
+        <div class="sn" id="fed-watch-sources" style="margin-top:6px"></div>
+      </div>
+    </div>
     <div class="chart-wrap">
       <div class="chart-title">18-month rate path — 3 scenarios</div>
       <div class="chart-src">Base case + bull (more cuts) + bear (fewer cuts) · Source: RateShield model on FRED data</div>
@@ -1852,7 +1860,33 @@ function applyFedBrief(row) {
   renderFedStanceRow();
   return ok;
 }
+// "Fed watch" strip on the Rate Outlook card above the rate-path chart.
+function renderFedWatch() {
+  var line = document.getElementById('fed-watch-line'), sum = document.getElementById('fed-watch-summary'), asof = document.getElementById('fed-watch-asof'), src = document.getElementById('fed-watch-sources');
+  if (!line) return;
+  var b = LAST_FED_BRIEF, score = fedStanceInput();
+  if (score === null) {
+    line.textContent = 'Fed stance: no brief yet';
+    if (sum) sum.textContent = 'The daily Fed briefing assistant has not written a brief yet. Once it runs (7 am ET), the Fed\'s stance, its last statement and the next FOMC meeting appear here.';
+    if (asof) asof.textContent = 'No brief yet';
+    if (src) src.textContent = '';
+    return;
+  }
+  var sources = Array.isArray(b.sources) ? b.sources : [];
+  var latest = sources.map(function(x) { return x && x.published; }).filter(Boolean).sort().pop() || (b.model_json && b.model_json.last_statement) || null;
+  var lastTxt = latest ? fmtShortDate(latest) : 'none since ' + fmtShortDate(b.brief_date);
+  line.textContent = 'Fed stance: ' + fedStanceLabel(score) + ' ' + (score >= 0 ? '+' : '') + score.toFixed(1)
+    + ' · last statement ' + lastTxt + ' · next meeting ' + (b.next_meeting_date ? fmtShortDate(b.next_meeting_date) : 'unknown')
+    + (b.next_meeting_lean ? ' (lean: ' + b.next_meeting_lean + ')' : '');
+  if (sum) sum.textContent = b.summary || '';
+  if (asof) asof.textContent = 'as of ' + fmtShortDate(b.brief_date) + (b.fed_funds_at_brief !== null && b.fed_funds_at_brief !== undefined ? ' · Fed funds ' + Number(b.fed_funds_at_brief).toFixed(2) + '%' : '');
+  if (src) src.innerHTML = sources.slice(0, 3).map(function(x) {
+    var url = String(x.url || ''); if (url.indexOf('https://www.federalreserve.gov/') !== 0) return '';
+    return '<a href="' + url.replace(/"/g, '&quot;') + '" target="_blank" rel="noopener" style="color:#1a3a6b">' + String(x.title || url).replace(/</g, '&lt;') + '</a>' + (x.published ? ' (' + fmtShortDate(x.published) + ')' : '');
+  }).filter(Boolean).join(' · ') + (sources.length ? ' · Source: federalreserve.gov' : '');
+}
 function renderFedStanceRow() {
+  renderFedWatch();
   var val = document.getElementById('f-fed-stance-val'), unit = document.getElementById('f-fed-stance-unit');
   if (!val) return;
   var score = fedStanceInput();

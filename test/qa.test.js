@@ -527,3 +527,29 @@ test('Fed stance row: "No brief yet" and zero contribution without a brief; a mo
   assert.deepEqual(badValues(window, 'fed-stance'), []);
   assert.deepEqual(errors, []);
 });
+
+test('Rate Outlook card: the Fed watch strip renders from a mocked fed_briefs row above the rate-path chart', () => {
+  const { window, errors } = boot('manufacturing');
+  const card = window.document.getElementById('rate-outlook');
+  assert.ok(card, 'Rate Outlook card exists');
+  const chart = window.document.getElementById('fChart').closest('.chart-wrap');
+  assert.equal(card.nextElementSibling, chart, 'strip sits directly above the 18-month rate-path chart');
+  assert.equal(txt(window, 'fed-watch-line'), 'Fed stance: no brief yet');
+  assert.equal(txt(window, 'fed-watch-asof'), 'No brief yet');
+  window.applyFedBrief({ id: 2, brief_date: '2026-09-20', stance_score: 1.5, next_meeting_lean: 'hike', next_meeting_date: '2026-10-28',
+    summary: 'Officials signalled further tightening after the energy-driven re-acceleration. A 25 bp hike on 28 October is the base case.',
+    key_phrases: ['further tightening'], fed_funds_at_brief: 3.88,
+    sources: [{ title: 'Federal Reserve issues FOMC statement', url: 'https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm', published: '2026-09-16' },
+              { title: 'Speech', url: 'https://example.com/not-the-fed', published: '2026-09-18' }] });
+  assert.equal(txt(window, 'fed-watch-line'), 'Fed stance: hawkish +1.5 · last statement 18 Sep · next meeting 28 Oct (lean: hike)');
+  assert.equal(txt(window, 'fed-watch-summary'), 'Officials signalled further tightening after the energy-driven re-acceleration. A 25 bp hike on 28 October is the base case.');
+  assert.equal(txt(window, 'fed-watch-asof'), 'as of 20 Sep · Fed funds 3.88%');
+  const links = Array.from(window.document.querySelectorAll('#fed-watch-sources a')).map((a) => a.href);
+  assert.deepEqual(links, ['https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm'], 'only federalreserve.gov links are rendered');
+  // a brief with no sources (copied forward) still renders
+  window.applyFedBrief({ brief_date: '2026-09-21', stance_score: -0.75, next_meeting_lean: 'cut', next_meeting_date: '2026-10-28', summary: 'Copied.', sources: [] });
+  assert.equal(txt(window, 'fed-watch-line'), 'Fed stance: dovish -0.8 · last statement none since 21 Sep · next meeting 28 Oct (lean: cut)');
+  assert.equal(txt(window, 'fed-watch-sources'), '');
+  assert.deepEqual(badValues(window, 'fed-watch'), []);
+  assert.deepEqual(errors, []);
+});
