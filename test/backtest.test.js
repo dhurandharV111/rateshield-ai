@@ -85,6 +85,8 @@ test('backtest: direction hit rate is reported for all episodes', () => {
       (Model.rateSignalScore(y2026) - baseScore).toFixed(2) + ' (cpiMom3m ' + y2026.cpiMom3m + ', pceMom3m ' + y2026.pceMom3m + ', trMom3m ' + y2026.trMom3m + ', ' + y2026.momentumSource + ')' +
       '; extra score needed for a "hike" call: ' + (needed === null ? '> 6' : '+' + needed.toFixed(2)) + ' (momentum is capped at +3.0 in total)\n');
   }
+  const withStance = CONFIG.analog.years.filter((y) => typeof y.fedStance === 'number');
+  console.log('  Fed stance term: ' + (withStance.length ? withStance.length + ' episodes carry fedStance' : 'no episode carries fedStance yet (all null → contributes 0)') + '\n');
   assert.equal(nm.total, CONFIG.analog.years.filter((y) => typeof y.actualNextMeeting === 'number').length);
   nm.rows.forEach((r) => {
     assert.ok(['up', 'down', 'hold'].includes(r.predictedDir) && ['up', 'down', 'hold'].includes(r.actualDir));
@@ -106,4 +108,15 @@ test('backtest: a known episode is scored the way the rule says', () => {
   assert.equal(y2000.hit, true);
   const y2009 = bt.rows.find((r) => r.year === 2009);
   assert.equal(y2009.actualDir, 'hold'); // +0.06 within the dead zone
+});
+
+test('every episode carries a fedStance slot (null until filled from the FOMC statement archives) and the backtest honours it when set', () => {
+  CONFIG.analog.years.forEach((y) => assert.ok('fedStance' in y, `${y.year} has fedStance`));
+  const saved = CONFIG.analog.years;
+  // give 2022 a hawkish stance: the December 2022 predicted level rises, so a populated field changes the verdict path
+  CONFIG.analog.years = saved.map((y) => (y.year === 2022 ? Object.assign({}, y, { fedStance: 2 }) : y));
+  const withStance = Model.backtest().rows.find((r) => r.year === 2022);
+  CONFIG.analog.years = saved;
+  const without = Model.backtest().rows.find((r) => r.year === 2022);
+  assert.ok(withStance.predicted > without.predicted, 'a +2 stance lifts the predicted level (+1.5 score → +0.6 pts)');
 });

@@ -41,6 +41,24 @@ Run each file in `supabase/migrations/` once, in filename order, in the Supabase
 
 1. `20260920000000_fed_briefs.sql` — creates `fed_briefs` with row-level security
    (anon/authenticated can `SELECT`; only the service role can write).
+2. `20260920000001_fed_brief_scores.sql` — creates `fomc_decisions` (one row per meeting, entered by hand)
+   and the `fed_brief_scores` / `fed_brief_score_summary` views that mark each brief's
+   `next_meeting_lean` as hit or miss once the meeting's decision is entered.
+
+## Scorekeeping after each FOMC meeting
+
+Every daily brief logs its `next_meeting_lean` and `next_meeting_date`. After a meeting, enter the decision once
+(SQL Editor), e.g. a 25 bp hike on 28 October 2026:
+
+```sql
+insert into public.fomc_decisions (meeting_date, change_pts, source)
+values ('2026-10-28', 0.25, 'FOMC statement 2026-10-28')
+on conflict (meeting_date) do update set change_pts = excluded.change_pts, source = excluded.source;
+```
+
+Then `select * from fed_brief_scores;` shows hit / miss per brief and `select * from fed_brief_score_summary;`
+the tally per meeting. The historical backtest in `index.html` has a `fedStance` slot on every episode
+(currently `null`); fill them from the FOMC statement archives to backtest the stance term.
 
 ## Tests
 
