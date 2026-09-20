@@ -9,6 +9,10 @@
       "destination": "/api/fred.js"
     },
     {
+      "source": "/api/fed-brief",
+      "destination": "/api/fed-brief.js"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

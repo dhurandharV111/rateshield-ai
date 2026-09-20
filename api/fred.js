@@ -157,11 +157,26 @@ export function seriesUrl(s, apiKey) {
   return `${FRED_BASE}?series_id=${encodeURIComponent(s.id)}&units=${s.units}&api_key=${encodeURIComponent(apiKey)}&file_type=json&sort_order=desc&limit=${s.limit}`;
 }
 
-async function fetchSeries(s, apiKey) {
-  const res = await fetch(seriesUrl(s, apiKey));
+async function fetchSeries(s, apiKey, fetchImpl) {
+  const res = await fetchImpl(seriesUrl(s, apiKey));
   if (!res.ok) throw new Error(`FRED ${s.id} ${res.status}`);
   const json = await res.json();
   return json.observations || [];
+}
+
+// Fetches every series and builds the snapshot. Shared by /api/fred and
+// /api/fed-brief; `fetchImpl` is injectable so callers can be tested offline.
+export async function fetchSnapshot(apiKey, fetchImpl = fetch) {
+  const keys = Object.keys(SERIES);
+  const results = await Promise.all(keys.map((k) => fetchSeries(SERIES[k], apiKey, fetchImpl)));
+  const raw = {};
+  keys.forEach((k, i) => { raw[SERIES[k].id] = results[i]; });
+  // Server-side trace of the core PCE fetch (visible in Vercel → Logs).
+  console.log('[fred] PCEPILFE units=pc1 raw observations:', JSON.stringify((raw.PCEPILFE || []).slice(0, 3)));
+  console.log('[fred] CPIAUCSL units=pc1 raw observations:', JSON.stringify((raw.CPIAUCSL || []).slice(0, 3)));
+  const snapshot = buildSnapshot(raw);
+  if (snapshot.warnings.length) console.warn('[fred] warnings:', snapshot.warnings.join(' | '));
+  return snapshot;
 }
 
 export default async function handler(req, res) {
@@ -169,15 +184,7 @@ export default async function handler(req, res) {
   const apiKey = process.env.FRED_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'FRED_API_KEY is not configured' });
   try {
-    const keys = Object.keys(SERIES);
-    const results = await Promise.all(keys.map((k) => fetchSeries(SERIES[k], apiKey)));
-    const raw = {};
-    keys.forEach((k, i) => { raw[SERIES[k].id] = results[i]; });
-    // Server-side trace of the core PCE fetch (visible in Vercel → Logs).
-    console.log('[fred] PCEPILFE units=pc1 raw observations:', JSON.stringify((raw.PCEPILFE || []).slice(0, 3)));
-    console.log('[fred] CPIAUCSL units=pc1 raw observations:', JSON.stringify((raw.CPIAUCSL || []).slice(0, 3)));
-    const snapshot = buildSnapshot(raw);
-    if (snapshot.warnings.length) console.warn('[fred] warnings:', snapshot.warnings.join(' | '));
+    const snapshot = await fetchSnapshot(apiKey);
     res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
     return res.status(200).json(snapshot);
   } catch (error) {

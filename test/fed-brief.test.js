@@ -1,0 +1,204 @@
+'use strict';
+// Offline tests for api/fed-brief.js: feed/calendar parsing, answer validation,
+// copy-forward when nothing is new, fallback when the model answer is unusable,
+// and endpoint authorisation. Every network call goes through an injected fetch.
+const test = require('node:test');
+const assert = require('node:assert/strict');
+
+let fb;
+test('api/fed-brief.js loads', async () => {
+  fb = await import('../api/fed-brief.js');
+  assert.equal(typeof fb.default, 'function');
+  assert.ok(fb.FEEDS.every((f) => f.url.startsWith('https://www.federalreserve.gov/')), 'official URLs only');
+  assert.ok(fb.FOMC_CALENDAR_URL.startsWith('https://www.federalreserve.gov/'));
+});
+
+const RSS = `<?xml version="1.0"?><rss><channel>
+<item><title><![CDATA[Federal Reserve issues FOMC statement]]></title><link>https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm</link><pubDate>Wed, 16 Sep 2026 18:00:00 GMT</pubDate><description>&lt;p&gt;The Committee decided to raise the target range.&lt;/p&gt;</description></item>
+<item><title>Speech by Governor X: The Outlook</title><link>https://www.federalreserve.gov/newsevents/speech/x20260918a.htm</link><pubDate>Fri, 18 Sep 2026 14:30:00 GMT</pubDate><description>Remarks</description></item>
+<item><title>Duplicate</title><link>https://www.federalreserve.gov/newsevents/speech/x20260918a.htm</link><pubDate>Fri, 18 Sep 2026 14:30:00 GMT</pubDate></item>
+<item><title>Not the Fed</title><link>https://example.com/fed</link><pubDate>Sat, 19 Sep 2026 10:00:00 GMT</pubDate></item>
+</channel></rss>`;
+
+test('parseRss: official items only, CDATA/entities decoded, de-duplicated, newest first', () => {
+  const items = fb.parseRss(RSS);
+  assert.equal(items.length, 2);
+  assert.equal(items[0].title, 'Speech by Governor X: The Outlook');
+  assert.equal(items[0].published, '2026-09-18T14:30:00.000Z');
+  assert.equal(items[1].title, 'Federal Reserve issues FOMC statement');
+  assert.equal(items[1].description, 'The Committee decided to raise the target range.');
+  assert.ok(items.every((i) => fb.isOfficial(i.link)));
+  // Atom form as well
+  const atom = '<feed><entry><title>T</title><link href="https://www.federalreserve.gov/a.htm"/><published>2026-09-01T00:00:00Z</published></entry></feed>';
+  assert.equal(fb.parseRss(atom)[0].link, 'https://www.federalreserve.gov/a.htm');
+  assert.deepEqual(fb.parseRss(''), []);
+});
+
+const CALENDAR = `<html><body>
+<div class="panel-heading"><h4>2026 FOMC Meetings</h4></div>
+<div class="row fomc-meeting"><div class="fomc-meeting__month"><strong>January</strong></div><div class="fomc-meeting__date">27-28</div></div>
+<div class="row fomc-meeting"><div class="fomc-meeting__month"><strong>Apr/May</strong></div><div class="fomc-meeting__date">30-1</div></div>
+<div class="row fomc-meeting"><div class="fomc-meeting__month"><strong>September</strong></div><div class="fomc-meeting__date">15-16*</div></div>
+<div class="row fomc-meeting"><div class="fomc-meeting__month"><strong>October</strong></div><div class="fomc-meeting__date">27-28</div></div>
+<div class="row fomc-meeting"><div class="fomc-meeting__month"><strong>December</strong></div><div class="fomc-meeting__date">8-9*</div></div>
+<div class="panel-heading"><h4>2027 FOMC Meetings</h4></div>
+<div class="row fomc-meeting"><div class="fomc-meeting__month"><strong>January</strong></div><div class="fomc-meeting__date">26-27</div></div>
+<div class="row fomc-meeting"><div class="fomc-meeting__month"><strong>March</strong></div><div class="fomc-meeting__date">(unscheduled)</div></div>
+</body></html>`;
+
+test('parseFomcCalendar: next scheduled meeting end-date on or after today', () => {
+  assert.equal(fb.parseFomcCalendar(CALENDAR, '2026-09-20'), '2026-10-28');
+  assert.equal(fb.parseFomcCalendar(CALENDAR, '2026-09-16'), '2026-09-16', 'meeting day itself still counts');
+  assert.equal(fb.parseFomcCalendar(CALENDAR, '2026-04-30'), '2026-05-01', 'Apr/May 30-1 ends on 1 May');
+  assert.equal(fb.parseFomcCalendar(CALENDAR, '2026-12-10'), '2027-01-27', 'rolls into the next year');
+  assert.equal(fb.parseFomcCalendar('<html>nothing here</html>', '2026-09-20'), null);
+});
+
+test('validateBrief: stance clamped to [-2, 2], lean normalised, summary cut to two sentences, bad answers rejected', () => {
+  const ok = fb.validateBrief({ stance_score: 3.7, next_meeting_lean: 'HIKE', next_meeting_date: '2026-10-28', summary: 'One. Two. Three.', key_phrases: ['a', 7, ' b '], confidence: 1.4 });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.brief.stance_score, 2);
+  assert.equal(ok.brief.next_meeting_lean, 'hike');
+  assert.equal(ok.brief.summary, 'One. Two.');
+  assert.deepEqual(ok.brief.key_phrases, ['a', 'b']);
+  assert.equal(ok.brief.confidence, 1);
+  assert.equal(fb.validateBrief({ stance_score: -5, next_meeting_lean: 'cut', summary: 'x.', key_phrases: [] }).brief.stance_score, -2);
+  assert.equal(fb.validateBrief({ stance_score: 0.456, next_meeting_lean: 'hold', summary: 'x.', key_phrases: [] }).brief.stance_score, 0.46);
+  assert.equal(fb.validateBrief('{"stance_score": 1, "next_meeting_lean": "hold", "summary": "Fine.", "key_phrases": []}').ok, true, 'JSON string accepted');
+  assert.equal(fb.validateBrief('I cannot produce that').ok, false);
+  assert.equal(fb.validateBrief({ stance_score: 'hawkish', next_meeting_lean: 'hold', summary: 'x.' }).ok, false);
+  assert.equal(fb.validateBrief({ stance_score: 1, next_meeting_lean: 'maybe', summary: 'x.' }).ok, false);
+  assert.equal(fb.validateBrief({ stance_score: 1, next_meeting_lean: 'hold', summary: '' }).ok, false);
+  const badDate = fb.validateBrief({ stance_score: 1, next_meeting_lean: 'hold', next_meeting_date: 'soon', summary: 'x.' }, { fallbackMeetingDate: '2026-10-28' });
+  assert.equal(badDate.brief.next_meeting_date, '2026-10-28', 'unparseable date → calendar date');
+  assert.equal(fb.STANCE_MIN, -2); assert.equal(fb.STANCE_MAX, 2);
+});
+
+// ── A fake network for runBrief ──────────────────────────────────────────────
+const PREV = { id: 1, brief_date: '2026-09-19', stance_score: 1.25, next_meeting_lean: 'hike', next_meeting_date: '2026-10-28',
+  summary: 'The Fed is leaning hawkish. A hike is likely in October.', key_phrases: ['energy-driven re-acceleration'], sources: [{ title: 'x', url: 'https://www.federalreserve.gov/x', published: '2026-09-16' }],
+  fed_funds_at_brief: 3.63, model_json: {} };
+const FRED_OBS = { DFF: [{ date: '2026-09-18', value: '3.88' }], CPIAUCSL: [{ date: '2026-08-01', value: '3.4' }], PCEPILFE: [{ date: '2026-07-01', value: '3.3' }], UNRATE: [{ date: '2026-08-01', value: '4.1' }],
+  A191RL1Q225SBEA: [{ date: '2026-04-01', value: '1.5' }], DGS10: [{ date: '2026-09-18', value: '4.95' }], DGS6MO: [{ date: '2026-09-18', value: '4.05' }], DGS2: [{ date: '2026-09-18', value: '4.0' }] };
+
+function fakeNet(o) {
+  const calls = [];
+  const json = (body, status) => ({ ok: (status || 200) < 300, status: status || 200, json: async () => body, text: async () => JSON.stringify(body) });
+  const text = (body, status) => ({ ok: (status || 200) < 300, status: status || 200, text: async () => body, json: async () => { throw new Error('not json'); } });
+  const fetchImpl = async (url, opts) => {
+    calls.push({ url, opts: opts || {} });
+    if (url.includes('/rest/v1/fed_briefs') && (!opts || !opts.method)) return json(o.prev ? [o.prev] : []);
+    if (url.includes('/rest/v1/fed_briefs') && opts.method === 'POST') return json([Object.assign({ id: 99 }, JSON.parse(opts.body))]);
+    if (url.includes('/feeds/press_all.xml')) return text(o.rss || '');
+    if (url.includes('/feeds/')) return text('<rss><channel></channel></rss>');
+    if (url.includes('fomccalendars')) return text(CALENDAR);
+    if (url.includes('api.stlouisfed.org')) { const id = url.match(/series_id=([A-Z0-9]+)/)[1]; return json({ observations: FRED_OBS[id] || [] }); }
+    if (url.includes('api.anthropic.com')) { if (o.anthropic === undefined) throw new Error('Anthropic must not be called'); return json(o.anthropic); }
+    if (url.startsWith('https://www.federalreserve.gov/')) return text('<html><body><div id="article"><h3>Title</h3><p>' + (o.article || 'Body text of the statement.') + '</p></div><div class="lastUpdate">x</div></body></html>');
+    if (url.includes('/auth/v1/user')) return o.authUser ? json(o.authUser) : json({ error: 'bad' }, 401);
+    throw new Error('unexpected fetch ' + url);
+  };
+  return { fetchImpl, calls };
+}
+const ENV = { ANTHROPIC_API_KEY: 'k', FRED_API_KEY: 'f', SUPABASE_SERVICE_ROLE_KEY: 'svc', CRON_SECRET: 'cron-secret' };
+const logs = [];
+const log = (m) => logs.push(m);
+
+test('copy-forward: no new Fed items since the last brief → previous stance and summary under today\'s date, sources [], Anthropic NOT called', async () => {
+  const net = fakeNet({ prev: PREV, rss: RSS }); // newest item 18 Sep < last brief 19 Sep
+  const out = await fb.runBrief({ env: ENV, fetch: net.fetchImpl, today: '2026-09-20', log });
+  assert.equal(out.action, 'copied');
+  assert.equal(out.anthropicCalled, false);
+  assert.ok(!net.calls.some((c) => c.url.includes('api.anthropic.com')), 'no Anthropic request');
+  const row = out.row;
+  assert.equal(row.brief_date, '2026-09-20');
+  assert.equal(row.stance_score, 1.25);
+  assert.equal(row.summary, PREV.summary);
+  assert.equal(row.next_meeting_lean, 'hike');
+  assert.deepEqual(row.sources, []);
+  assert.equal(row.fed_funds_at_brief, 3.88, 'today\'s DFF, not the old one');
+  assert.equal(row.next_meeting_date, '2026-10-28');
+  assert.equal(row.model_json.copied_from, '2026-09-19');
+  const write = net.calls.find((c) => c.url.includes('/rest/v1/fed_briefs') && c.opts.method === 'POST');
+  assert.ok(write.url.includes('on_conflict=brief_date'));
+  assert.equal(write.opts.headers.Authorization, 'Bearer svc', 'written with the service-role key');
+  assert.ok(logs.some((l) => l.includes('copied forward')));
+});
+
+test('generated: new items → statement bodies fetched from federalreserve.gov, Anthropic asked for strict JSON, validated row written with sources', async () => {
+  const answer = { stance_score: 1.5, next_meeting_lean: 'hike', next_meeting_date: '2026-10-28', summary: 'Officials signalled further tightening. Markets should expect a hike in October.', key_phrases: ['further tightening'], confidence: 0.8 };
+  const net = fakeNet({ prev: Object.assign({}, PREV, { brief_date: '2026-09-15' }), rss: RSS, anthropic: { content: [{ type: 'text', text: JSON.stringify(answer) }], stop_reason: 'end_turn', model: 'claude-opus-5', usage: { input_tokens: 10, output_tokens: 5 } } });
+  const out = await fb.runBrief({ env: ENV, fetch: net.fetchImpl, today: '2026-09-20', log });
+  assert.equal(out.action, 'generated');
+  const req = net.calls.find((c) => c.url.includes('api.anthropic.com'));
+  const body = JSON.parse(req.opts.body);
+  assert.equal(req.opts.headers['x-api-key'], 'k');
+  assert.equal(body.model, fb.MODEL);
+  assert.equal(body.output_config.format.type, 'json_schema', 'JSON mode so the answer is always parseable');
+  assert.equal(body.output_config.format.schema.additionalProperties, false);
+  assert.ok(body.messages[0].content.includes('Federal Reserve issues FOMC statement'));
+  assert.ok(body.messages[0].content.includes('Body text of the statement.'), 'statement body included');
+  assert.ok(body.messages[0].content.includes('"effective_fed_funds":3.88'), 'FRED snapshot included');
+  assert.ok(body.messages[0].content.includes('Previous brief: {"brief_date":"2026-09-15"'), 'previous brief included');
+  assert.ok(net.calls.some((c) => c.url === 'https://www.federalreserve.gov/newsevents/speech/x20260918a.htm'), 'body fetched from the official URL');
+  assert.equal(out.row.stance_score, 1.5);
+  assert.equal(out.row.sources.length, 2);
+  assert.equal(out.row.sources[0].url, 'https://www.federalreserve.gov/newsevents/speech/x20260918a.htm');
+  assert.equal(out.row.model_json.items_considered, 2);
+  assert.equal(out.row.fed_funds_at_brief, 3.88);
+});
+
+test('fallback: model answer that fails validation → logged, previous brief copied forward, sources still recorded', async () => {
+  const net = fakeNet({ prev: Object.assign({}, PREV, { brief_date: '2026-09-15' }), rss: RSS, anthropic: { content: [{ type: 'text', text: 'Sorry, I cannot score this.' }], stop_reason: 'end_turn' } });
+  logs.length = 0;
+  const out = await fb.runBrief({ env: ENV, fetch: net.fetchImpl, today: '2026-09-20', log });
+  assert.equal(out.action, 'fallback');
+  assert.equal(out.anthropicCalled, true);
+  assert.equal(out.row.stance_score, 1.25);
+  assert.equal(out.row.summary, PREV.summary);
+  assert.equal(out.row.brief_date, '2026-09-20');
+  assert.equal(out.row.sources.length, 2, 'sources kept for inspection');
+  assert.equal(out.row.model_json.reason, 'model answer failed validation');
+  assert.ok(logs.some((l) => l.includes('model answer rejected')));
+  // out-of-range score from the model is clamped rather than rejected
+  const net2 = fakeNet({ prev: PREV, rss: RSS.replace('18 Sep 2026', '20 Sep 2026'), anthropic: { content: [{ type: 'text', text: JSON.stringify({ stance_score: 9, next_meeting_lean: 'hike', next_meeting_date: '2026-10-28', summary: 'Very hawkish.', key_phrases: [], confidence: 0.9 }) }], stop_reason: 'end_turn' } });
+  const out2 = await fb.runBrief({ env: ENV, fetch: net2.fetchImpl, today: '2026-09-21', log });
+  assert.equal(out2.action, 'generated');
+  assert.equal(out2.row.stance_score, 2);
+  // an API error is also a fallback
+  const net3 = fakeNet({ prev: PREV, rss: RSS.replace('18 Sep 2026', '20 Sep 2026'), anthropic: { error: { type: 'overloaded_error', message: 'busy' } } });
+  const out3 = await fb.runBrief({ env: ENV, fetch: net3.fetchImpl, today: '2026-09-21', log });
+  assert.equal(out3.action, 'fallback');
+  assert.equal(out3.row.model_json.reason, 'model call failed');
+});
+
+test('first run with no previous brief and nothing in the window writes a neutral row without calling the model', async () => {
+  const net = fakeNet({ prev: null, rss: '' });
+  const out = await fb.runBrief({ env: ENV, fetch: net.fetchImpl, today: '2026-09-20', log });
+  assert.equal(out.action, 'copied');
+  assert.equal(out.row.stance_score, 0);
+  assert.equal(out.row.next_meeting_lean, 'hold');
+  assert.equal(out.row.next_meeting_date, '2026-10-28', 'calendar still consulted');
+  await assert.rejects(() => fb.runBrief({ env: { CRON_SECRET: 'x' }, fetch: net.fetchImpl, today: '2026-09-20', log }), /Missing env: ANTHROPIC_API_KEY, FRED_API_KEY, SUPABASE_SERVICE_ROLE_KEY/);
+});
+
+test('authorisation: cron secret or the owner\'s Supabase session, nothing else', async () => {
+  const net = fakeNet({ authUser: { email: 'Rajatinpa@gmail.com' } });
+  assert.equal((await fb.authorize({ headers: {} }, ENV, net.fetchImpl)).ok, false);
+  assert.equal((await fb.authorize({ headers: { authorization: 'Bearer wrong' } }, ENV, net.fetchImpl)).ok, false);
+  assert.deepEqual(await fb.authorize({ headers: { authorization: 'Bearer cron-secret' } }, ENV, net.fetchImpl), { ok: true, via: 'cron' });
+  const owner = await fb.authorize({ headers: { authorization: 'Bearer aaa.bbb.ccc' } }, ENV, net.fetchImpl);
+  assert.equal(owner.ok, true); assert.equal(owner.via, 'owner');
+  const other = fakeNet({ authUser: { email: 'someone@else.com' } });
+  assert.equal((await fb.authorize({ headers: { authorization: 'Bearer aaa.bbb.ccc' } }, ENV, other.fetchImpl)).reason, 'not the owner');
+  const custom = await fb.authorize({ headers: { authorization: 'Bearer aaa.bbb.ccc' } }, Object.assign({}, ENV, { OWNER_EMAIL: 'someone@else.com' }), other.fetchImpl);
+  assert.equal(custom.ok, true, 'OWNER_EMAIL env overrides the default');
+  // handler: refuses without the secret configured, 401 without a valid bearer
+  const res = () => { const r = { code: 0, body: null, status(c) { r.code = c; return r; }, json(b) { r.body = b; return r; } }; return r; };
+  const saved = process.env.CRON_SECRET; delete process.env.CRON_SECRET;
+  let r = res(); await fb.default({ method: 'GET', headers: {} }, r); assert.equal(r.code, 500);
+  process.env.CRON_SECRET = 'cron-secret';
+  r = res(); await fb.default({ method: 'GET', headers: { authorization: 'Bearer nope' } }, r); assert.equal(r.code, 401);
+  r = res(); await fb.default({ method: 'DELETE', headers: {} }, r); assert.equal(r.code, 405);
+  if (saved === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = saved;
+});
