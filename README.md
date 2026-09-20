@@ -21,6 +21,19 @@ Single-file financial decision app (`index.html`) with Vercel serverless functio
 | `SUPABASE_URL` | `api/fed-brief.js` | Optional. Defaults to the project URL already in `index.html`. |
 | `OWNER_EMAIL` | `api/fed-brief.js` | Optional. Defaults to the owner address in `index.html`; a logged-in user with this email may trigger the brief manually. |
 
+## Daily Fed brief schedule
+
+`vercel.json` declares one cron: `/api/fed-brief` at `0 11 * * *` (11:00 UTC = 7:00 am ET).
+Vercel calls it with `Authorization: Bearer $CRON_SECRET`, so set `CRON_SECRET` before the first run.
+The **Vercel Hobby plan allows one cron job and it may only run once a day**, which is exactly what
+this schedule uses — adding a second cron or a more frequent schedule requires the Pro plan.
+
+To trigger it by hand:
+
+```
+curl -H "Authorization: Bearer $CRON_SECRET" https://rateshieldai.com/api/fed-brief
+```
+
 ## Supabase: one-time SQL
 
 Run each file in `supabase/migrations/` once, in filename order, in the Supabase dashboard
