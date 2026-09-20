@@ -424,6 +424,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
       <div class="nav-co" id="nav-co">—</div>
       <span class="trial-badge" id="trial-badge" style="display:none">FREE TRIAL</span>
       <div class="nav-sec" id="nav-sec">Sector</div>
+      <button class="nav-out" id="run-brief-btn" style="display:none" onclick="runFedBriefNow()" title="Owner only — run today's Fed brief now instead of waiting for 7 am ET">Run brief now</button>
       <button class="nav-out" onclick="signOut()">Sign out</button>
     </div>
   </nav>
@@ -1901,6 +1902,40 @@ function renderFedStanceRow() {
   val.title = 'Why: ' + (b.summary || '') + (b.next_meeting_lean ? ' · Next meeting lean: ' + b.next_meeting_lean : '') + ' · Contribution ' + (pts >= 0 ? '+' : '') + pts.toFixed(2) + ' score pts';
   if (unit) unit.textContent = 'brief of ' + fmtShortDate(b.brief_date) + ' · read-only';
 }
+// Owner-only manual trigger. The browser never holds the cron secret: the request
+// carries the owner's Supabase session token and /api/fed-brief verifies
+// server-side that it belongs to OWNER_EMAIL before running the brief.
+var OWNER_EMAIL = 'rajatinpa@gmail.com';
+var LAST_BRIEF_RUN = null;
+function setOwnerUi(email) {
+  var btn = document.getElementById('run-brief-btn');
+  if (btn) btn.style.display = (email && String(email).toLowerCase() === OWNER_EMAIL) ? '' : 'none';
+}
+function runFedBriefNow() {
+  var btn = document.getElementById('run-brief-btn');
+  var setBtn = function(t, disabled) { if (btn) { btn.textContent = t; btn.disabled = !!disabled; } };
+  if (!supabase || !supabase.auth) { setBtn('Sign in first'); return Promise.resolve(false); }
+  setBtn('Running…', true);
+  return supabase.auth.getSession().then(function(r) {
+    var token = r && r.data && r.data.session && r.data.session.access_token;
+    if (!token) throw new Error('no session');
+    return fetch('/api/fed-brief', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' } });
+  }).then(function(res) { return res.json().then(function(d) { d._status = res.status; return d; }); })
+    .then(function(d) {
+      LAST_BRIEF_RUN = d;
+      if (!d.ok) throw new Error(d.reason || d.error || ('HTTP ' + d._status));
+      if (d.brief) { applyFedBrief(d.brief); try { updateAll(); } catch (e) {} }
+      setBtn('Brief ' + d.action + (d.brief ? ' · stance ' + (Number(d.brief.stance_score) >= 0 ? '+' : '') + Number(d.brief.stance_score).toFixed(2) : ''), false);
+      setTimeout(function() { setBtn('Run brief now', false); }, 6000);
+      return true;
+    })
+    .catch(function(e) {
+      LAST_BRIEF_RUN = { ok: false, error: e && e.message };
+      setBtn('Brief failed: ' + (e && e.message), false);
+      setTimeout(function() { setBtn('Run brief now', false); }, 8000);
+      return false;
+    });
+}
 function loadFedBrief() {
   if (!supabase || !supabase.from) return Promise.resolve(false);
   return supabase.from('fed_briefs').select('*').order('brief_date', { ascending: false }).limit(1)
@@ -2620,6 +2655,7 @@ function doSignIn() {
     saveUserProfile(result.data.user.id, email, co, sec);
     closeModal();
     launchApp(co, sec, false);
+    setOwnerUi(email);
   });
 }
 
@@ -2900,6 +2936,7 @@ window.addEventListener('load', function() {
       if (result.data && result.data.session) {
         var meta = result.data.session.user.user_metadata || {};
         launchApp(meta.company || 'MY COMPANY', meta.sector || 'manufacturing', false);
+        setOwnerUi(result.data.session.user.email);
       }
     });
   }

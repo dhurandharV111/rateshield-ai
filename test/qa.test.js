@@ -553,3 +553,38 @@ test('Rate Outlook card: the Fed watch strip renders from a mocked fed_briefs ro
   assert.deepEqual(badValues(window, 'fed-watch'), []);
   assert.deepEqual(errors, []);
 });
+
+test('"Run brief now": visible only for the owner email, calls /api/fed-brief with the owner session token (never a secret in the page), applies the returned brief', async () => {
+  const fs = require('fs');
+  const src = fs.readFileSync(require('./helpers/loadApp').HTML_PATH, 'utf8');
+  assert.ok(!/CRON_SECRET|SERVICE_ROLE/.test(src), 'no server secret names anywhere in the page');
+  const { window, errors } = boot('manufacturing');
+  const btn = window.document.getElementById('run-brief-btn');
+  assert.equal(btn.style.display, 'none', 'hidden by default');
+  window.setOwnerUi('someone@else.com');
+  assert.equal(btn.style.display, 'none', 'hidden for other users');
+  window.setOwnerUi('Rajatinpa@gmail.com');
+  assert.equal(btn.style.display, '', 'visible for the owner (case-insensitive)');
+  // no supabase session available in tests → a clear message, no request
+  assert.equal(await window.runFedBriefNow(), false);
+  assert.equal(btn.textContent, 'Sign in first');
+  // stub a signed-in owner and the endpoint
+  const calls = [];
+  window.supabase = { auth: { getSession: () => Promise.resolve({ data: { session: { access_token: 'aaa.bbb.ccc', user: { email: 'rajatinpa@gmail.com' } } } }) } };
+  const brief = { brief_date: '2026-09-20', stance_score: 1.25, next_meeting_lean: 'hike', next_meeting_date: '2026-10-28', summary: 'Hawkish. Hike likely.', key_phrases: [], sources: [], fed_funds_at_brief: 3.88 };
+  window.fetch = (url, opts) => { calls.push({ url, opts }); return Promise.resolve({ status: 200, json: () => Promise.resolve({ ok: true, via: 'owner', action: 'generated', anthropicCalled: true, brief }) }); };
+  assert.equal(await window.runFedBriefNow(), true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, '/api/fed-brief');
+  assert.equal(calls[0].opts.method, 'POST');
+  assert.equal(calls[0].opts.headers.Authorization, 'Bearer aaa.bbb.ccc', 'owner session token, not a cron secret');
+  assert.equal(btn.textContent, 'Brief generated · stance +1.25');
+  assert.equal(txt(window, 'f-fed-stance-val'), '+1.25 hawkish');
+  assert.ok(txt(window, 'fed-watch-line').startsWith('Fed stance: hawkish +1.3'));
+  assert.equal(window.LAST_BRIEF_RUN.action, 'generated');
+  // a 401 from the endpoint is surfaced, not swallowed
+  window.fetch = () => Promise.resolve({ status: 401, json: () => Promise.resolve({ error: 'Unauthorized', reason: 'not the owner' }) });
+  assert.equal(await window.runFedBriefNow(), false);
+  assert.equal(btn.textContent, 'Brief failed: not the owner');
+  assert.deepEqual(errors, []);
+});
