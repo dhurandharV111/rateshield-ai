@@ -569,6 +569,20 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
         <div id="fed-watch-line" style="font-size:13px;font-weight:700;color:#0f0f0f;margin-bottom:4px">Fed stance: no brief yet</div>
         <div id="fed-watch-summary" style="font-size:12px;color:#3a3a3a;line-height:1.45">The daily Fed briefing assistant has not written a brief yet. Once it runs (7 am ET), the Fed's stance, its last statement and the next FOMC meeting appear here.</div>
         <div class="sn" id="fed-watch-sources" style="margin-top:6px"></div>
+        <form id="consensus-form" style="display:none;margin-top:12px;padding:10px 12px;border:1px dashed rgba(15,15,15,.15);border-radius:10px;background:#faf9f6" onsubmit="return submitConsensus(event)">
+          <div style="font-size:12px;font-weight:700;color:#0f0f0f;margin-bottom:6px">Log consensus path <span class="sn" style="margin:0;font-weight:400">(owner only · expected Fed funds %, entered by you — nothing is fetched)</span></div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">
+            <label style="font-size:10px;color:#6b6b6b">As of<br><input id="cs-asof" type="date" style="font-family:inherit;font-size:12px;padding:6px 8px;border:1px solid #c8c8c8;border-radius:6px"></label>
+            <label style="font-size:10px;color:#6b6b6b">Source<br><input id="cs-source" type="text" placeholder="CME FedWatch / StreetStats / Bank note" maxlength="80" style="font-family:inherit;font-size:12px;padding:6px 8px;border:1px solid #c8c8c8;border-radius:6px;width:200px"></label>
+            <label style="font-size:10px;color:#6b6b6b">3 mo %<br><input id="cs-m3" type="number" step="0.01" min="0" max="10" style="font-family:inherit;font-size:12px;padding:6px 8px;border:1px solid #c8c8c8;border-radius:6px;width:72px"></label>
+            <label style="font-size:10px;color:#6b6b6b">6 mo %<br><input id="cs-m6" type="number" step="0.01" min="0" max="10" style="font-family:inherit;font-size:12px;padding:6px 8px;border:1px solid #c8c8c8;border-radius:6px;width:72px"></label>
+            <label style="font-size:10px;color:#6b6b6b">12 mo %<br><input id="cs-m12" type="number" step="0.01" min="0" max="10" style="font-family:inherit;font-size:12px;padding:6px 8px;border:1px solid #c8c8c8;border-radius:6px;width:72px"></label>
+            <label style="font-size:10px;color:#6b6b6b">18 mo %<br><input id="cs-m18" type="number" step="0.01" min="0" max="10" style="font-family:inherit;font-size:12px;padding:6px 8px;border:1px solid #c8c8c8;border-radius:6px;width:72px"></label>
+            <label style="font-size:10px;color:#6b6b6b;flex:1;min-width:160px">Note<br><input id="cs-note" type="text" maxlength="500" style="font-family:inherit;font-size:12px;padding:6px 8px;border:1px solid #c8c8c8;border-radius:6px;width:100%;box-sizing:border-box"></label>
+            <button type="submit" id="cs-submit" class="nav-out" style="color:#1a3a6b;border-color:rgba(26,58,107,.4)">Log path</button>
+          </div>
+          <div class="sn" id="cs-status" style="margin-top:6px">Leave the rate fields empty and only the CME FedWatch hike/cut % box filled to log a 3-month point derived from it (source "FedWatch (manual)").</div>
+        </form>
       </div>
     </div>
     <div class="chart-wrap">
@@ -1907,9 +1921,61 @@ function renderFedStanceRow() {
 // server-side that it belongs to OWNER_EMAIL before running the brief.
 var OWNER_EMAIL = 'rajatinpa@gmail.com';
 var LAST_BRIEF_RUN = null;
+function isOwnerEmail(email) { return !!(email && String(email).toLowerCase() === OWNER_EMAIL); }
 function setOwnerUi(email) {
+  var show = isOwnerEmail(email);
   var btn = document.getElementById('run-brief-btn');
-  if (btn) btn.style.display = (email && String(email).toLowerCase() === OWNER_EMAIL) ? '' : 'none';
+  if (btn) btn.style.display = show ? '' : 'none';
+  var form = document.getElementById('consensus-form');
+  if (form) form.style.display = show ? '' : 'none';
+  var asOf = document.getElementById('cs-asof');
+  if (asOf && show && !asOf.value) asOf.value = new Date().toISOString().slice(0, 10);
+}
+// FedWatch box → 3-month consensus point: current + 0.25 × (hike% − cut%) / 100.
+function fedWatchM3(currentRate, hikePct, cutPct) {
+  var fin = function(v) { return typeof v === 'number' && isFinite(v); };
+  if (!fin(currentRate) || (!fin(hikePct) && !fin(cutPct))) return null;
+  return Math.round((currentRate + 0.25 * ((fin(hikePct) ? hikePct : 0) - (fin(cutPct) ? cutPct : 0)) / 100) * 1000) / 1000;
+}
+// Reads the owner form; when every rate field is empty and the FedWatch box is
+// filled, derives m3 from it. Returns the body to POST, or null with a message.
+function consensusFormBody() {
+  var g = function(id) { var el = document.getElementById(id); return el ? String(el.value).trim() : ''; };
+  var num = function(v) { return v === '' ? null : parseFloat(v); };
+  var body = { as_of: g('cs-asof') || new Date().toISOString().slice(0, 10), source: g('cs-source'), m3: num(g('cs-m3')), m6: num(g('cs-m6')), m12: num(g('cs-m12')), m18: num(g('cs-m18')), note: g('cs-note') || null };
+  var anyRate = ['m3', 'm6', 'm12', 'm18'].some(function(h) { return body[h] !== null && isFinite(body[h]); });
+  if (!anyRate) {
+    var hike = num(g('f-cme-hike')), cut = num(g('f-cme-cut'));
+    var m3 = fedWatchM3(Math.round(CONFIG.currentFedRate * 100) / 100, hike, cut);
+    if (m3 === null) return { error: 'Enter at least one horizon, or fill the CME FedWatch hike/cut % box in Financing Strategy.' };
+    body.m3 = m3; body.source = 'FedWatch (manual)';
+    body.note = (body.note ? body.note + ' · ' : '') + 'derived: ' + CONFIG.currentFedRate.toFixed(2) + '% + 0.25 × (' + (hike === null ? 0 : hike) + '% − ' + (cut === null ? 0 : cut) + '%) / 100';
+  }
+  return { body: body };
+}
+function submitConsensus(ev) {
+  if (ev && ev.preventDefault) ev.preventDefault();
+  var status = document.getElementById('cs-status'), btn = document.getElementById('cs-submit');
+  var say = function(t) { if (status) status.textContent = t; };
+  var built = consensusFormBody();
+  if (built.error) { say(built.error); return Promise.resolve(false); }
+  if (!supabase || !supabase.auth) { say('Sign in first'); return Promise.resolve(false); }
+  if (btn) btn.disabled = true;
+  say('Logging…');
+  return supabase.auth.getSession().then(function(r) {
+    var token = r && r.data && r.data.session && r.data.session.access_token;
+    if (!token) throw new Error('no session');
+    return fetch('/api/consensus', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(built.body) });
+  }).then(function(res) { return res.json().then(function(d) { d._status = res.status; return d; }); })
+    .then(function(d) {
+      if (!d.ok) throw new Error((d.problems && d.problems.join('; ')) || d.reason || d.error || ('HTTP ' + d._status));
+      if (d.row && typeof applyConsensus === 'function') { applyConsensus(d.row); try { updateAll(); } catch (e) {} }
+      say('Logged: ' + d.row.source + ' as of ' + d.row.as_of + ' · 3m ' + (d.row.m3 === null ? '—' : d.row.m3 + '%') + ' · 6m ' + (d.row.m6 === null ? '—' : d.row.m6 + '%') + ' · 12m ' + (d.row.m12 === null ? '—' : d.row.m12 + '%') + ' · 18m ' + (d.row.m18 === null ? '—' : d.row.m18 + '%'));
+      ['cs-m3', 'cs-m6', 'cs-m12', 'cs-m18', 'cs-note'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
+      if (btn) btn.disabled = false;
+      return true;
+    })
+    .catch(function(e) { say('Not logged: ' + (e && e.message)); if (btn) btn.disabled = false; return false; });
 }
 function runFedBriefNow() {
   var btn = document.getElementById('run-brief-btn');

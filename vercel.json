@@ -16,6 +16,10 @@
       "destination": "/api/fed-brief.js"
     },
     {
+      "source": "/api/consensus",
+      "destination": "/api/consensus.js"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

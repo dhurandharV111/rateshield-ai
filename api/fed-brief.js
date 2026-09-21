@@ -208,7 +208,7 @@ async function getText(fetchImpl, url, accept) {
   return res.text();
 }
 
-function sbHeaders(env) {
+export function sbHeaders(env) {
   return { 'apikey': env.SUPABASE_SERVICE_ROLE_KEY, 'Authorization': 'Bearer ' + env.SUPABASE_SERVICE_ROLE_KEY, 'Content-Type': 'application/json' };
 }
 export function supabaseUrl(env) { return (env.SUPABASE_URL || DEFAULT_SUPABASE_URL).replace(/\/$/, ''); }

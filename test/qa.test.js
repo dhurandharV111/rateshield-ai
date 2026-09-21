@@ -403,11 +403,10 @@ test('negative margin renders without NaN and the simulator does not floor it to
 test('market-implied row: computed from the 6-month Treasury vs Fed funds, disagreement line toggles, CME row only when typed', () => {
   const fs = require('fs');
   const src = fs.readFileSync(require('./helpers/loadApp').HTML_PATH, 'utf8');
-  assert.ok(!/Source:[^<]*CME/.test(src), 'CME FedWatch is never cited as a data source');
-  const cmeMentions = src.match(/CME FedWatch/g) || [];
-  cmeMentions.forEach(() => {});
-  assert.ok(src.split('CME FedWatch').every((frag, i) => i === 0 || /^ (hike|cut) % \(optional\)|^ \(entered by you\)/.test(frag)),
-    'every remaining "CME FedWatch" string is either the optional input label or the "entered by you" row label');
+  assert.ok(!src.split('\n').some((line) => /Source:[^<]*CME/.test(line)), 'CME FedWatch is never cited as a data source');
+  const allowed = [/^ (hike|cut) % \(optional\)/, /^ \(entered by you\)/, /^ hike\/cut % box/, /^ \/ StreetStats \/ Bank note/];
+  assert.ok(src.split('CME FedWatch').every((frag, i) => i === 0 || allowed.some((re) => re.test(frag))),
+    'every remaining "CME FedWatch" string is an input label, the "entered by you" row, the FedWatch-box hint, or the consensus source placeholder');
   const { window, errors } = boot('manufacturing');
   const C = window.CONFIG;
   // snapshot defaults: 6-mo at the policy rate → hold, bars rendered from Model.marketProbabilities
@@ -612,5 +611,47 @@ test('Scenario Simulator base-case sentence is generated from the live inputs, n
   assert.ok(txt(window, 'sim-desc-text').startsWith('CPI 2.1% · Unemployment 6.2% · GDP -0.8%'));
   window.runScenario('base');
   assert.ok(txt(window, 'sim-desc-text').startsWith(sentence()));
+  assert.deepEqual(errors, []);
+});
+
+test('consensus form: hidden for non-owners, visible for the owner; empty rates + FedWatch box → derived m3 with source "FedWatch (manual)"; posts with the owner token', async () => {
+  const { window, errors } = boot('manufacturing');
+  const form = window.document.getElementById('consensus-form');
+  assert.equal(form.style.display, 'none', 'hidden by default');
+  window.setOwnerUi('someone@else.com');
+  assert.equal(form.style.display, 'none', 'hidden for non-owners');
+  window.setOwnerUi('rajatinpa@gmail.com');
+  assert.equal(form.style.display, '', 'visible for the owner');
+  assert.equal(window.document.getElementById('cs-asof').value, new Date().toISOString().slice(0, 10), 'as_of defaults to today');
+  // nothing entered anywhere → clear message, no request
+  let built = window.consensusFormBody();
+  assert.ok(built.error && built.error.includes('at least one horizon'));
+  // FedWatch box only → derived 3-month point
+  setVal(window, 'f-cme-hike', '70'); setVal(window, 'f-cme-cut', '5');
+  built = window.consensusFormBody();
+  const cur = Math.round(window.CONFIG.currentFedRate * 100) / 100;
+  assert.equal(built.body.source, 'FedWatch (manual)');
+  assert.ok(Math.abs(built.body.m3 - (cur + 0.25 * 0.65)) < 1e-3, 'm3 = current + 0.25 × (70 − 5) / 100 (3 dp)');
+  assert.equal(built.body.m6, null);
+  assert.ok(built.body.note.includes('derived'));
+  assert.ok(Math.abs(window.fedWatchM3(3.88, 70, 5) - (3.88 + 0.25 * 0.65)) < 1e-3);
+  // typed rates win over the FedWatch box
+  window.document.getElementById('cs-source').value = 'Bank note';
+  window.document.getElementById('cs-m12').value = '4.25';
+  built = window.consensusFormBody();
+  assert.equal(built.body.source, 'Bank note'); assert.equal(built.body.m12, 4.25); assert.equal(built.body.m3, null);
+  // submit → POST /api/consensus with the owner's session token
+  const calls = [];
+  window.supabase = { auth: { getSession: () => Promise.resolve({ data: { session: { access_token: 'aaa.bbb.ccc' } } }) } };
+  window.fetch = (url, opts) => { calls.push({ url, opts }); return Promise.resolve({ status: 200, json: () => Promise.resolve({ ok: true, row: Object.assign({ id: 1, m3: null, m6: null, m18: null }, JSON.parse(opts.body)) }) }); };
+  assert.equal(await window.submitConsensus({ preventDefault() {} }), true);
+  assert.equal(calls[0].url, '/api/consensus');
+  assert.equal(calls[0].opts.headers.Authorization, 'Bearer aaa.bbb.ccc');
+  assert.equal(JSON.parse(calls[0].opts.body).m12, 4.25);
+  assert.ok(txt(window, 'cs-status').startsWith('Logged: Bank note'));
+  window.fetch = () => Promise.resolve({ status: 400, json: () => Promise.resolve({ error: 'Invalid consensus path', problems: ['m12 must be between 0 and 10 %'] }) });
+  window.document.getElementById('cs-m12').value = '12';
+  assert.equal(await window.submitConsensus({ preventDefault() {} }), false);
+  assert.equal(txt(window, 'cs-status'), 'Not logged: m12 must be between 0 and 10 %');
   assert.deepEqual(errors, []);
 });
