@@ -44,6 +44,9 @@ Run each file in `supabase/migrations/` once, in filename order, in the Supabase
 2. `20260920000001_fed_brief_scores.sql` — creates `fomc_decisions` (one row per meeting, entered by hand)
    and the `fed_brief_scores` / `fed_brief_score_summary` views that mark each brief's
    `next_meeting_lean` as hit or miss once the meeting's decision is entered.
+3. `20260921000000_consensus_paths.sql` — creates `consensus_paths` (owner-entered expected Fed funds
+   rate at 3/6/12/18 months from a named source; anon `SELECT`, service-role insert only). These rows are
+   shown and scored against RateShield's outlook but never enter the model.
 
 ## Scorekeeping after each FOMC meeting
 
