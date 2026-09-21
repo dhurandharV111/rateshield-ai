@@ -2999,10 +2999,11 @@ window.addEventListener('load', function() {
   // Check if user has active session
   if (supabase) {
     supabase.auth.getSession().then(function(result) {
-      if (result.data && result.data.session) {
-        var meta = result.data.session.user.user_metadata || {};
+      var sess = result && result.data && result.data.session;
+      if (sess && sess.user) {
+        var meta = sess.user.user_metadata || {};
         launchApp(meta.company || 'MY COMPANY', meta.sector || 'manufacturing', false);
-        setOwnerUi(result.data.session.user.email);
+        setOwnerUi(sess.user.email);
       }
     });
   }

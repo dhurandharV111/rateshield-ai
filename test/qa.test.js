@@ -642,7 +642,7 @@ test('consensus form: hidden for non-owners, visible for the owner; empty rates 
   assert.equal(built.body.source, 'Bank note'); assert.equal(built.body.m12, 4.25); assert.equal(built.body.m3, null);
   // submit → POST /api/consensus with the owner's session token
   const calls = [];
-  window.supabase = { auth: { getSession: () => Promise.resolve({ data: { session: { access_token: 'aaa.bbb.ccc' } } }) } };
+  window.supabase = { auth: { getSession: () => Promise.resolve({ data: { session: { access_token: 'aaa.bbb.ccc', user: { email: 'rajatinpa@gmail.com', user_metadata: {} } } } }) } };
   window.fetch = (url, opts) => { calls.push({ url, opts }); return Promise.resolve({ status: 200, json: () => Promise.resolve({ ok: true, row: Object.assign({ id: 1, m3: null, m6: null, m18: null }, JSON.parse(opts.body)) }) }); };
   assert.equal(await window.submitConsensus({ preventDefault() {} }), true);
   assert.equal(calls[0].url, '/api/consensus');
