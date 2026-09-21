@@ -476,7 +476,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
     </div>
     <div class="sim-desc" id="sim-desc">
       <div class="sim-desc-title" id="sim-desc-title">Base Case — Current environment</div>
-      <div class="sim-desc-text" id="sim-desc-text">CPI 3.2% · Unemployment 4.2% · GDP 2.1% · 10Y Treasury 4.3%. Transition environment with modest cuts ahead.</div>
+      <div class="sim-desc-text" id="sim-desc-text">Loading current environment from the Financing Strategy inputs…</div>
       <div class="sim-desc-text" id="sim-pressure-line" style="margin-top:4px;opacity:.85"></div>
     </div>
     <div class="sim-grid">
@@ -4189,7 +4189,8 @@ function setMode(mode) {
 var SCENARIOS = {
   base: {
     label: 'Base Case', icon: '📊',
-    note: 'Transition environment — Fed likely on hold with modest cuts ahead.',
+    // note is generated at render time from the live environment (see scenarioDescription).
+    note: '',
     cpi:CONFIG.macroDefaults.cpi, un:CONFIG.macroDefaults.un, tr:CONFIG.macroDefaults.tr, gdp:CONFIG.macroDefaults.gdp, pce:CONFIG.macroDefaults.pce, fed:CONFIG.currentFedRate,
     labourMult:1.0, marginMult:1.0, vcMult:1.0, revMult:1.0,
     color:'#1a3a6b', bg:'rgba(26,58,107,.7)'
@@ -4227,6 +4228,30 @@ var SCENARIOS = {
 };
 
 var currentScenario = 'base';
+// The sentence under the scenario buttons. The base case always describes the
+// values currently in the Financing Strategy inputs (live FRED once loaded), so
+// it can never drift from what Module 1 is using.
+function scenarioDescription(key) {
+  var sc = SCENARIOS[key] || SCENARIOS.base;
+  var vals = sc;
+  var note = sc.note || '';
+  if (key === 'base') {
+    vals = { cpi: safeVal('f-cpi', CONFIG.macroDefaults.cpi, 0, 20), un: safeVal('f-un', CONFIG.macroDefaults.un, 0, 15), gdp: safeVal('f-gdp', CONFIG.macroDefaults.gdp, -10, 10),
+             tr: safeVal('f-tr', CONFIG.macroDefaults.tr, 0, 10), pce: safeVal('f-pce', CONFIG.macroDefaults.pce, 0, 10) };
+    var env = Model.rateEnvironment(Model.rateSignalScore({ cpi: vals.cpi, un: vals.un, tr: vals.tr, gdp: vals.gdp, pce: vals.pce, cpi3mo: momentumInputs().cpi3mo, pce3mo: momentumInputs().pce3mo, tr3mo: momentumInputs().tr3mo, fedStance: fedStanceInput() }));
+    var phrase = env === 'high' ? 'Restrictive environment — cuts unlikely near term.' : env === 'low' ? 'Accommodative environment — cuts under way.' : 'Transition environment — Fed likely on hold.';
+    note = 'Current environment (' + (LAST_MARKET_DATA ? 'live FRED as of ' + CONFIG.fedRateAsOf : 'snapshot ' + CONFIG.fedRateAsOf) + '). ' + phrase;
+  }
+  var f = function(v) { return (Math.round(v * 100) / 100) + '%'; };
+  return 'CPI ' + f(vals.cpi) + ' · Unemployment ' + f(vals.un) + ' · GDP ' + f(vals.gdp) + ' · 10Y Treasury ' + f(vals.tr) + ' · Core PCE ' + f(vals.pce) + '. ' + note;
+}
+function renderSimDescription() {
+  var sc = SCENARIOS[currentScenario] || SCENARIOS.base;
+  var dt = document.getElementById('sim-desc-title');
+  var dd = document.getElementById('sim-desc-text');
+  if (dt) dt.textContent = sc.icon + ' ' + sc.label;
+  if (dd) dd.textContent = scenarioDescription(currentScenario);
+}
 var simRateChart = null;
 var simProfitChart = null;
 var baseMetrics = null; // stored on first run for delta comparison
@@ -4243,12 +4268,6 @@ function runScenario(key) {
     if(btn) btn.classList.toggle('active', k===key);
   });
 
-  // ── Update description
-  var dt = document.getElementById('sim-desc-title');
-  var dd = document.getElementById('sim-desc-text');
-  if(dt) dt.textContent = sc.icon + ' ' + sc.label;
-  if(dd) dd.textContent = 'CPI '+sc.cpi+'% · Unemployment '+sc.un+'% · GDP '+sc.gdp+'% · 10Y Treasury '+sc.tr+'% · Core PCE '+sc.pce+'%. '+(sc.note||'');
-
   // ── Set macro inputs to scenario values
   function setVal(id, val) {
     var el = document.getElementById(id);
@@ -4260,6 +4279,9 @@ function runScenario(key) {
   setVal('f-gdp', sc.gdp);
   setVal('f-pce', sc.pce);
   setVal('fed-slider', sc.fed);
+
+  // ── Update description (after the inputs, so the base case reads what Module 1 uses)
+  renderSimDescription();
 
   // ── Scenario multipliers that act on CONFIG rather than on inputs
   SCENARIO_MODS.automatableMult = (typeof sc.automatableMult === 'number' && sc.automatableMult > 0) ? sc.automatableMult : 1;
@@ -4658,6 +4680,8 @@ function applyMarketData(d) {
     SCENARIOS.base.gdp = CONFIG.macroDefaults.gdp; SCENARIOS.base.pce = CONFIG.macroDefaults.pce; SCENARIOS.base.fed = CONFIG.currentFedRate;
   }
   renderMarketDataLabels();
+  // The simulator's base-case sentence must follow the live values immediately.
+  if (typeof renderSimDescription === 'function') { try { renderSimDescription(); } catch (e) {} }
   return applied;
 }
 

@@ -588,3 +588,29 @@ test('"Run brief now": visible only for the owner email, calls /api/fed-brief wi
   assert.equal(btn.textContent, 'Brief failed: not the owner');
   assert.deepEqual(errors, []);
 });
+
+test('Scenario Simulator base-case sentence is generated from the live inputs, never hard-coded', () => {
+  const fs = require('fs');
+  const src = fs.readFileSync(require('./helpers/loadApp').HTML_PATH, 'utf8');
+  assert.ok(!/CPI 3\.2% · Unemployment 4\.2%/.test(src), 'no hard-coded macro sentence in the page');
+  const { window, errors } = boot('manufacturing');
+  window.runScenario('base');
+  const sentence = () => {
+    const v = (id) => Math.round(parseFloat(window.document.getElementById(id).value) * 100) / 100 + '%';
+    return 'CPI ' + v('f-cpi') + ' · Unemployment ' + v('f-un') + ' · GDP ' + v('f-gdp') + ' · 10Y Treasury ' + v('f-tr') + ' · Core PCE ' + v('f-pce') + '.';
+  };
+  assert.ok(txt(window, 'sim-desc-text').startsWith(sentence()), txt(window, 'sim-desc-text'));
+  assert.ok(txt(window, 'sim-desc-text').includes('Current environment (snapshot ' + window.CONFIG.fedRateAsOf + ')'));
+  // live FRED arrives after the simulator initialised → the sentence follows without a click
+  window.applyMarketData({ asOf: '2026-09-18', fedFunds: 3.88, cpi: 3.4, corePce: 3.3, unemployment: 4.1, gdpGrowth: 1.5, treasury10y: 4.95 });
+  assert.equal(txt(window, 'sim-desc-text').split('. ')[0] + '.', 'CPI 3.4% · Unemployment 4.1% · GDP 1.5% · 10Y Treasury 4.95% · Core PCE 3.3%.');
+  assert.ok(txt(window, 'sim-desc-text').startsWith(sentence()), 'matches the Financing Strategy inputs exactly');
+  assert.ok(txt(window, 'sim-desc-text').includes('live FRED as of 2026-09-18'));
+  assert.ok(/environment — /.test(txt(window, 'sim-desc-text')), 'environment phrase derived from the model, not fixed text');
+  // other scenarios still describe their own fixed assumptions
+  window.runScenario('recession');
+  assert.ok(txt(window, 'sim-desc-text').startsWith('CPI 2.1% · Unemployment 6.2% · GDP -0.8%'));
+  window.runScenario('base');
+  assert.ok(txt(window, 'sim-desc-text').startsWith(sentence()));
+  assert.deepEqual(errors, []);
+});
