@@ -23,12 +23,16 @@ import { fetchSnapshot } from './fred.js';
 import { loadModel } from './_model.js';
 
 export const FED_ORIGIN = 'https://www.federalreserve.gov/';
+// The FOMC / monetary-policy feed comes first so that, when the same release
+// appears in press_all too, the de-duplicated item keeps the 'fomc' tag.
 export const FEEDS = [
-  { key: 'press',     url: 'https://www.federalreserve.gov/feeds/press_all.xml' },
   { key: 'fomc',      url: 'https://www.federalreserve.gov/feeds/press_monetary.xml' },
+  { key: 'press',     url: 'https://www.federalreserve.gov/feeds/press_all.xml' },
   { key: 'speeches',  url: 'https://www.federalreserve.gov/feeds/speeches.xml' },
   { key: 'testimony', url: 'https://www.federalreserve.gov/feeds/testimony.xml' }
 ];
+export const OTHER_ITEMS_MAX = 3;
+export const STATEMENT_RE = /FOMC statement/i;
 export const FOMC_CALENDAR_URL = 'https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm';
 export const DEFAULT_SUPABASE_URL = 'https://wfmhlmqsvcxaplwtdtjz.supabase.co';
 export const DEFAULT_OWNER_EMAIL = 'rajatinpa@gmail.com';
@@ -117,6 +121,38 @@ export function parseFomcCalendar(html, today) {
   return meetings.find((d) => d >= today) || null;
 }
 
+// ── Which items matter ───────────────────────────────────────────────────────
+// Relevance of a non-statement item, from its title only.
+export function relevanceScore(title) {
+  const t = String(title || '');
+  let score = 0;
+  if (/\bFOMC\b/i.test(t)) score += 3;
+  if (/monetary policy/i.test(t)) score += 3;
+  if (/\b(interest )?rates?\b/i.test(t)) score += 2;
+  if (/inflation/i.test(t)) score += 2;
+  if (/economic outlook|labor market|employment|economy\b/i.test(t)) score += 1;
+  if (/minutes of the/i.test(t)) score += 2;
+  if (/enforcement|consent order|written agreement|termination of|bank holding|application|appointment|announces (the )?(members|approval)/i.test(t)) score -= 3;
+  return score;
+}
+
+// Splits fresh items into the FOMC statement (from the FOMC feed when
+// possible, else any feed by title) and the other items ranked by relevance,
+// newest first within a rank. `others` is uncapped; callers cap for display.
+export function selectItems(fresh) {
+  const stmts = fresh.filter((it) => STATEMENT_RE.test(it.title));
+  const byDate = (a, b) => String(b.published).localeCompare(String(a.published));
+  const statement = stmts.filter((it) => it.feed === 'fomc').sort(byDate)[0] || stmts.sort(byDate)[0] || null;
+  const others = fresh.filter((it) => it !== statement)
+    .map((it) => Object.assign({ relevance: relevanceScore(it.title) }, it))
+    .sort((a, b) => (b.relevance - a.relevance) || byDate(a, b));
+  return { statement, others };
+}
+
+export function toSource(it, kind) {
+  return { kind, title: it.title, url: it.link, published: it.published ? it.published.slice(0, 10) : null };
+}
+
 // ── Validation of the model's answer ─────────────────────────────────────────
 export const BRIEF_SCHEMA = {
   type: 'object',
@@ -174,7 +210,8 @@ export function copyForward(prev, o) {
     key_phrases: prev ? (prev.key_phrases || []) : [],
     sources: o.sources || [],
     fed_funds_at_brief: o.fedFunds === undefined ? (prev ? prev.fed_funds_at_brief : null) : o.fedFunds,
-    model_json: { copied_from: prev ? prev.brief_date : null, reason: o.reason, detail: o.detail || null }
+    model_json: { copied_from: prev ? prev.brief_date : null, reason: o.reason, detail: o.detail || null,
+                  last_statement: (prev && prev.model_json && prev.model_json.last_statement) || null }
   };
 }
 
@@ -362,34 +399,43 @@ export async function runBrief(deps) {
     return finish({ action: 'copied', row, anthropicCalled: false });
   }
 
-  // 4. Fetch each statement body (official URLs only, bounded).
-  for (const it of fresh) {
+  // 4. The FOMC statement (if any) plus the most relevant other items. Sources
+  //    list the statement first and at most OTHER_ITEMS_MAX others; the model
+  //    sees the same items (up to MAX_ITEMS). Bodies are fetched from official
+  //    URLs only, bounded.
+  const picked = selectItems(fresh);
+  const forModel = (picked.statement ? [picked.statement] : []).concat(picked.others).slice(0, MAX_ITEMS);
+  for (const it of forModel) {
     try { it.body = extractArticle(await getText(fetchImpl, it.link)); } catch (e) { it.body = it.description; log('[fed-brief] body ' + it.link + ' failed: ' + e.message); }
   }
-  const sources = fresh.map((it) => ({ title: it.title, url: it.link, published: it.published ? it.published.slice(0, 10) : null }));
+  const sources = (picked.statement ? [toSource(picked.statement, 'statement')] : []).concat(picked.others.slice(0, OTHER_ITEMS_MAX).map((it) => toSource(it, 'other')));
+  const lastStatement = picked.statement ? toSource(picked.statement, 'statement') : ((prev && prev.model_json && prev.model_json.last_statement) || null);
 
   // 5. Ask the model; on any failure copy forward but keep the sources.
   let answer;
   try {
-    answer = await askModel(env, SYSTEM_PROMPT, buildUserPrompt({ today, nextMeetingDate, snapshot, prev, items: fresh }), fetchImpl);
+    answer = await askModel(env, SYSTEM_PROMPT, buildUserPrompt({ today, nextMeetingDate, snapshot, prev, items: forModel }), fetchImpl);
   } catch (e) {
     log('[fed-brief] model call failed: ' + e.message);
     const row = copyForward(prev, { briefDate: today, nextMeetingDate, fedFunds, sources, reason: 'model call failed', detail: e.message });
+    row.model_json.last_statement = lastStatement;
     return finish({ action: 'fallback', row, anthropicCalled: true, error: e.message });
   }
   const v = validateBrief(answer.text, { fallbackMeetingDate: nextMeetingDate });
   if (!v.ok) {
     log('[fed-brief] model answer rejected: ' + v.problems.join('; ') + ' — raw: ' + String(answer.text).slice(0, 300));
     const row = copyForward(prev, { briefDate: today, nextMeetingDate, fedFunds, sources, reason: 'model answer failed validation', detail: v.problems });
+    row.model_json.last_statement = lastStatement;
     return finish({ action: 'fallback', row, anthropicCalled: true, error: v.problems.join('; ') });
   }
   const row = {
     brief_date: today, stance_score: v.brief.stance_score, next_meeting_lean: v.brief.next_meeting_lean,
     next_meeting_date: v.brief.next_meeting_date || nextMeetingDate, summary: v.brief.summary, key_phrases: v.brief.key_phrases,
     sources, fed_funds_at_brief: fedFunds,
-    model_json: { answer: v.brief, raw_answer: String(answer.text).slice(0, 4000), model: answer.model, usage: answer.usage, items_considered: fresh.length, calendar_next_meeting: nextMeetingDate, fred: snapshot, forced: !!deps.force }
+    model_json: { answer: v.brief, raw_answer: String(answer.text).slice(0, 4000), model: answer.model, usage: answer.usage, items_considered: forModel.length, items_fresh: fresh.length,
+                  last_statement: lastStatement, calendar_next_meeting: nextMeetingDate, fred: snapshot, forced: !!deps.force }
   };
-  log('[fed-brief] generated: stance ' + row.stance_score + ' · ' + row.next_meeting_lean + ' · ' + fresh.length + ' items');
+  log('[fed-brief] generated: stance ' + row.stance_score + ' · ' + row.next_meeting_lean + ' · ' + forModel.length + ' items' + (picked.statement ? ' · statement ' + picked.statement.published.slice(0, 10) : ' · no FOMC statement in window'));
   return finish({ action: 'generated', row, anthropicCalled: true });
 }
 

@@ -1987,18 +1987,24 @@ function renderFedWatch() {
     if (src) src.textContent = '';
     return;
   }
-  var sources = Array.isArray(b.sources) ? b.sources : [];
-  var latest = sources.map(function(x) { return x && x.published; }).filter(Boolean).sort().pop() || (b.model_json && b.model_json.last_statement) || null;
-  var lastTxt = latest ? fmtShortDate(latest) : 'none since ' + fmtShortDate(b.brief_date);
+  var sources = (Array.isArray(b.sources) ? b.sources : []).filter(function(x) { return x && String(x.url || '').indexOf('https://www.federalreserve.gov/') === 0; });
+  // "Last statement" comes from the FOMC statement only — never from whatever
+  // press release happens to be newest. Fallback: the statement carried in
+  // model_json (copied-forward briefs have no sources of their own).
+  var stmt = sources.filter(function(x) { return x.kind === 'statement' || /FOMC statement/i.test(String(x.title || '')); })[0]
+    || (b.model_json && b.model_json.last_statement && String(b.model_json.last_statement.url || '').indexOf('https://www.federalreserve.gov/') === 0 ? b.model_json.last_statement : null);
+  var others = sources.filter(function(x) { return !stmt || x.url !== stmt.url; }).filter(function(x) { return x.kind !== 'statement'; }).slice(0, 3);
+  var lastTxt = stmt && stmt.published ? fmtShortDate(stmt.published) : 'none since ' + fmtShortDate(b.brief_date);
   line.textContent = 'Fed stance: ' + fedStanceLabel(score) + ' ' + (score >= 0 ? '+' : '') + score.toFixed(1)
     + ' · last statement ' + lastTxt + ' · next meeting ' + (b.next_meeting_date ? fmtShortDate(b.next_meeting_date) : 'unknown')
     + (b.next_meeting_lean ? ' (lean: ' + b.next_meeting_lean + ')' : '');
   if (sum) sum.textContent = b.summary || '';
   if (asof) asof.textContent = 'as of ' + fmtShortDate(b.brief_date) + (b.fed_funds_at_brief !== null && b.fed_funds_at_brief !== undefined ? ' · Fed funds ' + Number(b.fed_funds_at_brief).toFixed(2) + '%' : '');
-  if (src) src.innerHTML = sources.slice(0, 3).map(function(x) {
-    var url = String(x.url || ''); if (url.indexOf('https://www.federalreserve.gov/') !== 0) return '';
-    return '<a href="' + url.replace(/"/g, '&quot;') + '" target="_blank" rel="noopener" style="color:#1a3a6b">' + String(x.title || url).replace(/</g, '&lt;') + '</a>' + (x.published ? ' (' + fmtShortDate(x.published) + ')' : '');
-  }).filter(Boolean).join(' · ') + (sources.length ? ' · Source: federalreserve.gov' : '');
+  var linkOf = function(x, label) { return '<a href="' + String(x.url).replace(/"/g, '&quot;') + '" target="_blank" rel="noopener" style="color:#1a3a6b">' + String(label || x.title || x.url).replace(/</g, '&lt;') + '</a>' + (x.published ? ' (' + fmtShortDate(x.published) + ')' : ''); };
+  var parts = [];
+  if (stmt) parts.push(linkOf(stmt, 'FOMC statement'));
+  if (others.length) parts.push('Other Fed items: ' + others.map(function(x) { return linkOf(x); }).join(' · '));
+  if (src) src.innerHTML = parts.join(' · ') + (parts.length ? ' · Source: federalreserve.gov' : '');
 }
 function renderFedStanceRow() {
   renderFedWatch();

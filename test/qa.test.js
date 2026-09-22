@@ -538,13 +538,29 @@ test('Rate Outlook card: the Fed watch strip renders from a mocked fed_briefs ro
   window.applyFedBrief({ id: 2, brief_date: '2026-09-20', stance_score: 1.5, next_meeting_lean: 'hike', next_meeting_date: '2026-10-28',
     summary: 'Officials signalled further tightening after the energy-driven re-acceleration. A 25 bp hike on 28 October is the base case.',
     key_phrases: ['further tightening'], fed_funds_at_brief: 3.88,
-    sources: [{ title: 'Federal Reserve issues FOMC statement', url: 'https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm', published: '2026-09-16' },
+    sources: [{ kind: 'statement', title: 'Federal Reserve issues FOMC statement', url: 'https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm', published: '2026-09-16' },
+              { kind: 'other', title: 'Speech by Governor X: Inflation and the Path of Interest Rates', url: 'https://www.federalreserve.gov/newsevents/speech/x20260917a.htm', published: '2026-09-17' },
+              { kind: 'other', title: 'Federal Reserve Board announces enforcement action against Bank A', url: 'https://www.federalreserve.gov/newsevents/pressreleases/enforcement20260918a.htm', published: '2026-09-18' },
+              { kind: 'other', title: 'Federal Reserve Board announces enforcement action against Bank B', url: 'https://www.federalreserve.gov/newsevents/pressreleases/enforcement20260918b.htm', published: '2026-09-18' },
+              { kind: 'other', title: 'Federal Reserve Board announces enforcement action against Bank C', url: 'https://www.federalreserve.gov/newsevents/pressreleases/enforcement20260918c.htm', published: '2026-09-18' },
               { title: 'Speech', url: 'https://example.com/not-the-fed', published: '2026-09-18' }] });
-  assert.equal(txt(window, 'fed-watch-line'), 'Fed stance: hawkish +1.5 · last statement 18 Sep · next meeting 28 Oct (lean: hike)');
+  assert.equal(txt(window, 'fed-watch-line'), 'Fed stance: hawkish +1.5 · last statement 16 Sep · next meeting 28 Oct (lean: hike)', 'the statement date, not the newest press release');
   assert.equal(txt(window, 'fed-watch-summary'), 'Officials signalled further tightening after the energy-driven re-acceleration. A 25 bp hike on 28 October is the base case.');
   assert.equal(txt(window, 'fed-watch-asof'), 'as of 20 Sep · Fed funds 3.88%');
   const links = Array.from(window.document.querySelectorAll('#fed-watch-sources a')).map((a) => a.href);
-  assert.deepEqual(links, ['https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm'], 'only federalreserve.gov links are rendered');
+  assert.equal(links[0], 'https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm', 'the FOMC statement link comes first');
+  assert.equal(links.length, 4, 'statement + three other Fed items, the example.com link dropped');
+  assert.ok(links.every((l) => l.startsWith('https://www.federalreserve.gov/')));
+  assert.ok(txt(window, 'fed-watch-sources').startsWith('FOMC statement (16 Sep) · Other Fed items: Speech by Governor X'), txt(window, 'fed-watch-sources'));
+  // a copied-forward brief (no sources) still dates the statement from model_json
+  window.applyFedBrief({ brief_date: '2026-09-21', stance_score: 1.5, next_meeting_lean: 'hike', next_meeting_date: '2026-10-28', summary: 'Copied.', sources: [],
+    model_json: { copied_from: '2026-09-20', last_statement: { kind: 'statement', title: 'Federal Reserve issues FOMC statement', url: 'https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm', published: '2026-09-16' } } });
+  assert.ok(txt(window, 'fed-watch-line').includes('last statement 16 Sep'));
+  assert.equal(window.document.querySelectorAll('#fed-watch-sources a').length, 1);
+  // an old-format brief whose newest source is an enforcement action never dates the statement from it
+  window.applyFedBrief({ brief_date: '2026-09-21', stance_score: 1.5, next_meeting_lean: 'hike', next_meeting_date: '2026-10-28', summary: 'Old.',
+    sources: [{ title: 'Federal Reserve Board announces enforcement action against Bank A', url: 'https://www.federalreserve.gov/newsevents/pressreleases/enforcement20260918a.htm', published: '2026-09-18' }] });
+  assert.ok(txt(window, 'fed-watch-line').includes('last statement none since 21 Sep'), txt(window, 'fed-watch-line'));
   // a brief with no sources (copied forward) still renders
   window.applyFedBrief({ brief_date: '2026-09-21', stance_score: -0.75, next_meeting_lean: 'cut', next_meeting_date: '2026-10-28', summary: 'Copied.', sources: [] });
   assert.equal(txt(window, 'fed-watch-line'), 'Fed stance: dovish -0.8 · last statement none since 21 Sep · next meeting 28 Oct (lean: cut)');

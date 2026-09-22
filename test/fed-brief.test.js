@@ -92,6 +92,7 @@ function fakeNet(o) {
     if (url.includes('/rest/v1/consensus_paths') && (!opts || !opts.method)) return json(o.consensusToday ? [o.consensusToday] : []);
     if (url.includes('/rest/v1/forecast_log') && opts.method === 'POST') return json(JSON.parse(opts.body));
     if (url.includes('/feeds/press_all.xml')) return text(o.rss || '');
+    if (url.includes('/feeds/press_monetary.xml')) return text(o.fomcRss || '<rss><channel></channel></rss>');
     if (url.includes('/feeds/')) return text('<rss><channel></channel></rss>');
     if (url.includes('fomccalendars')) return text(CALENDAR);
     if (url.includes('api.stlouisfed.org')) { const id = url.match(/series_id=([A-Z0-9]+)/)[1]; return json({ observations: FRED_OBS[id] || [] }); }
@@ -145,8 +146,11 @@ test('generated: new items → statement bodies fetched from federalreserve.gov,
   assert.ok(net.calls.some((c) => c.url === 'https://www.federalreserve.gov/newsevents/speech/x20260918a.htm'), 'body fetched from the official URL');
   assert.equal(out.row.stance_score, 1.5);
   assert.equal(out.row.sources.length, 2);
-  assert.equal(out.row.sources[0].url, 'https://www.federalreserve.gov/newsevents/speech/x20260918a.htm');
+  assert.equal(out.row.sources[0].kind, 'statement', 'the FOMC statement is listed first even though the speech is newer');
+  assert.equal(out.row.sources[0].url, 'https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm');
+  assert.equal(out.row.sources[1].url, 'https://www.federalreserve.gov/newsevents/speech/x20260918a.htm');
   assert.equal(out.row.model_json.items_considered, 2);
+  assert.equal(out.row.model_json.last_statement.published, '2026-09-16');
   assert.equal(out.row.fed_funds_at_brief, 3.88);
 });
 
@@ -279,4 +283,51 @@ test('forced run regenerates from the 30-day window even when nothing is new, an
     if (saved === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = saved;
     Object.keys(savedEnv).forEach((k) => { if (savedEnv[k] === undefined) delete process.env[k]; else process.env[k] = savedEnv[k]; });
   }
+});
+
+const PRESS_ALL = `<rss><channel>
+<item><title>Federal Reserve Board announces enforcement action against Bank A</title><link>https://www.federalreserve.gov/newsevents/pressreleases/enforcement20260918a.htm</link><pubDate>Fri, 18 Sep 2026 15:00:00 GMT</pubDate></item>
+<item><title>Federal Reserve Board announces termination of enforcement action with Bank B</title><link>https://www.federalreserve.gov/newsevents/pressreleases/enforcement20260918b.htm</link><pubDate>Fri, 18 Sep 2026 15:05:00 GMT</pubDate></item>
+<item><title>Federal Reserve Board announces enforcement action against Bank C</title><link>https://www.federalreserve.gov/newsevents/pressreleases/enforcement20260918c.htm</link><pubDate>Fri, 18 Sep 2026 15:10:00 GMT</pubDate></item>
+<item><title>Federal Reserve Board approves application by Bank D</title><link>https://www.federalreserve.gov/newsevents/pressreleases/orders20260918d.htm</link><pubDate>Fri, 18 Sep 2026 16:00:00 GMT</pubDate></item>
+<item><title>Federal Reserve issues FOMC statement</title><link>https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm</link><pubDate>Wed, 16 Sep 2026 18:00:00 GMT</pubDate></item>
+<item><title>Minutes of the Federal Open Market Committee, July 28-29, 2026</title><link>https://www.federalreserve.gov/newsevents/pressreleases/monetary20260917a.htm</link><pubDate>Thu, 17 Sep 2026 18:00:00 GMT</pubDate></item>
+<item><title>Speech by Governor X: Inflation and the Path of Interest Rates</title><link>https://www.federalreserve.gov/newsevents/speech/x20260917a.htm</link><pubDate>Thu, 17 Sep 2026 14:30:00 GMT</pubDate></item>
+</channel></rss>`;
+const FOMC_FEED = `<rss><channel>
+<item><title>Federal Reserve issues FOMC statement</title><link>https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm</link><pubDate>Wed, 16 Sep 2026 18:00:00 GMT</pubDate></item>
+<item><title>Minutes of the Federal Open Market Committee, July 28-29, 2026</title><link>https://www.federalreserve.gov/newsevents/pressreleases/monetary20260917a.htm</link><pubDate>Thu, 17 Sep 2026 18:00:00 GMT</pubDate></item>
+</channel></rss>`;
+
+test('sources: the FOMC statement (from the FOMC feed) comes first with its own date; other items are ranked by relevance and capped at three', async () => {
+  const items = fb.parseRss(FOMC_FEED).map((it) => Object.assign({ feed: 'fomc' }, it)).concat(fb.parseRss(PRESS_ALL).map((it) => Object.assign({ feed: 'press' }, it)));
+  const seen = new Set();
+  const fresh = items.filter((it) => !seen.has(it.link) && seen.add(it.link));
+  const picked = fb.selectItems(fresh);
+  assert.equal(picked.statement.feed, 'fomc');
+  assert.equal(picked.statement.published.slice(0, 10), '2026-09-16');
+  assert.equal(picked.others[0].title, 'Speech by Governor X: Inflation and the Path of Interest Rates', 'inflation + rates outranks everything else');
+  assert.ok(/Minutes/.test(picked.others[1].title), 'FOMC minutes next');
+  assert.ok(picked.others.slice(2).every((it) => /enforcement|application/i.test(it.title)), 'enforcement actions and applications rank last');
+  assert.ok(fb.relevanceScore('Federal Reserve Board announces enforcement action') < 0);
+  assert.ok(fb.relevanceScore('Statement on monetary policy and rates') > fb.relevanceScore('Speech on the economy'));
+  const answer = { stance_score: 1.5, next_meeting_lean: 'hike', next_meeting_date: '2026-10-28', summary: 'Hawkish. Hike likely.', key_phrases: [], confidence: 0.8 };
+  const net = fakeNet({ prev: Object.assign({}, PREV, { brief_date: '2026-09-15' }), rss: PRESS_ALL, fomcRss: FOMC_FEED, anthropic: { content: [{ type: 'text', text: JSON.stringify(answer) }], stop_reason: 'end_turn' } });
+  const out = await fb.runBrief({ env: ENV, fetch: net.fetchImpl, today: '2026-09-20', log });
+  const src = out.row.sources;
+  assert.equal(src.length, 4, 'statement + three others');
+  assert.equal(src[0].kind, 'statement'); assert.equal(src[0].published, '2026-09-16'); assert.equal(src[0].url, 'https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm');
+  assert.equal(src[1].kind, 'other'); assert.ok(/Inflation and the Path/.test(src[1].title));
+  assert.ok(/Minutes/.test(src[2].title));
+  assert.equal(src.filter((x) => /enforcement|application/i.test(x.title)).length, 1, 'only one low-relevance item (enforcement / application) survives the cap of three');
+  assert.equal(src.filter((x) => x.url === src[0].url).length, 1, 'the statement is not duplicated from press_all');
+  assert.equal(out.row.model_json.last_statement.published, '2026-09-16');
+  assert.equal(out.row.model_json.items_fresh, fresh.length);
+  const prompt = JSON.parse(net.calls.find((c) => c.url.includes('api.anthropic.com')).opts.body).messages[0].content;
+  assert.ok(prompt.indexOf('Federal Reserve issues FOMC statement') < prompt.indexOf('Inflation and the Path'), 'the model sees the statement first');
+  // a copy-forward keeps the last statement so the card can still date it
+  const net2 = fakeNet({ prev: out.row, rss: '', fomcRss: '' });
+  const copied = await fb.runBrief({ env: ENV, fetch: net2.fetchImpl, today: '2026-09-21', log });
+  assert.equal(copied.action, 'copied');
+  assert.equal(copied.row.model_json.last_statement.published, '2026-09-16');
 });
