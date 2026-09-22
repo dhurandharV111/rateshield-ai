@@ -47,6 +47,11 @@ Run each file in `supabase/migrations/` once, in filename order, in the Supabase
 3. `20260921000000_consensus_paths.sql` — creates `consensus_paths` (owner-entered expected Fed funds
    rate at 3/6/12/18 months from a named source; anon `SELECT`, service-role insert only). These rows are
    shown and scored against RateShield's outlook but never enter the model.
+4. `20260921000001_forecast_log.sql` — adds `rate_after` to `fomc_decisions`, creates `forecast_log`
+   (per date and horizon: RateShield blended, RateShield model, market, consensus) and the
+   `forecast_errors_3m` / `forecast_error_summary` views that score the 3-month forecasts made ~90 days
+   before each meeting. The daily brief job fills RateShield and market rows automatically;
+   `/api/consensus` fills the consensus columns.
 
 ## Scorekeeping after each FOMC meeting
 
@@ -60,7 +65,19 @@ on conflict (meeting_date) do update set change_pts = excluded.change_pts, sourc
 ```
 
 Then `select * from fed_brief_scores;` shows hit / miss per brief and `select * from fed_brief_score_summary;`
-the tally per meeting. The historical backtest in `index.html` has a `fedStance` slot on every episode
+the tally per meeting.
+
+To score the 3-month forecast error as well, include the post-meeting rate:
+
+```sql
+insert into public.fomc_decisions (meeting_date, change_pts, rate_after, source)
+values ('2026-10-28', 0.25, 4.13, 'FOMC statement 2026-10-28')
+on conflict (meeting_date) do update
+  set change_pts = excluded.change_pts, rate_after = excluded.rate_after, source = excluded.source;
+```
+
+`select * from forecast_error_summary;` then gives the mean absolute 3-month error per source, which the
+Rate Outlook card shows as "3-month forecast error, last N meetings: RateShield · Market · Consensus". The historical backtest in `index.html` has a `fedStance` slot on every episode
 (currently `null`); fill them from the FOMC statement archives to backtest the stance term.
 
 ## Tests

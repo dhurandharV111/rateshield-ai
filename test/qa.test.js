@@ -724,3 +724,16 @@ test('difference sentence: generated from the live inputs, names at least two of
   assert.ok(line2.includes('9%'), line2);
   assert.deepEqual(errors, []);
 });
+
+test('3-month forecast error line renders from the forecast_error_summary view', () => {
+  const { window, errors } = boot('manufacturing');
+  assert.equal(txt(window, 'forecast-error-line'), '3-month forecast error: no scored meetings yet.');
+  assert.equal(window.applyForecastErrors({ n_meetings: 0 }), false);
+  assert.equal(window.applyForecastErrors({ n_meetings: 3, rateshield_mae: 0.21, market_mae: 0.17, consensus_mae: 0.3, consensus_n: 2, last_meeting: '2026-10-28' }), true);
+  assert.equal(txt(window, 'forecast-error-line'), '3-month forecast error, last 3 meetings: RateShield 0.21 pt · Market 0.17 pt · Consensus 0.30 pt (2 of 3 had a consensus)');
+  assert.equal(window.applyForecastErrors({ n_meetings: 1, rateshield_mae: 0.05, market_mae: 0.1, consensus_mae: null, consensus_n: 0 }), true);
+  assert.equal(txt(window, 'forecast-error-line'), '3-month forecast error, last 1 meeting: RateShield 0.05 pt · Market 0.10 pt · Consensus — (0 of 1 had a consensus)');
+  assert.equal(window.applyForecastErrors(null), false);
+  assert.equal(txt(window, 'forecast-error-line'), '3-month forecast error: no scored meetings yet.');
+  assert.deepEqual(errors, []);
+});

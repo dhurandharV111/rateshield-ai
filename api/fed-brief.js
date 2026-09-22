@@ -20,6 +20,7 @@
 //      optional SUPABASE_URL and OWNER_EMAIL (defaults below).
 
 import { fetchSnapshot } from './fred.js';
+import { loadModel } from './_model.js';
 
 export const FED_ORIGIN = 'https://www.federalreserve.gov/';
 export const FEEDS = [
@@ -248,6 +249,66 @@ export async function askModel(env, system, user, fetchImpl) {
   return { text, usage: data.usage || null, model: data.model || MODEL, stop_reason: data.stop_reason };
 }
 
+// ── Forecast log (scorekeeping) ──────────────────────────────────────────────
+export const LOG_HORIZONS = [3, 6, 12, 18];
+
+// RateShield's paths for a day, computed with the app's own Model block from the
+// FRED snapshot and the day's Fed stance. Returns null when the snapshot lacks
+// the current rate.
+export function computePaths(snapshot, fedStance, modelImpl) {
+  const { Model } = modelImpl || loadModel();
+  const fin = (v) => typeof v === 'number' && isFinite(v);
+  if (!snapshot || !fin(snapshot.fedFunds)) return null;
+  const current = Math.round(snapshot.fedFunds * 100) / 100;
+  const inputs = { cpi: snapshot.cpi, un: snapshot.unemployment, tr: snapshot.treasury10y, gdp: snapshot.gdpGrowth, pce: snapshot.corePce,
+                   cpi3mo: snapshot.cpi3moAgo, pce3mo: snapshot.corePce3moAgo, tr3mo: snapshot.treasury10y3moAgo, fedStance: fin(fedStance) ? fedStance : null };
+  if (!['cpi', 'un', 'tr', 'gdp', 'pce'].every((k) => fin(inputs[k]))) return null;
+  const score = Model.rateSignalScore(inputs);
+  const model = Model.ratePath({ current, score });
+  const market = Model.marketPath({ current, dgs6mo: snapshot.treasury6mo, dgs2: snapshot.treasury2y });
+  const blended = Model.blendedPath(model, market);
+  return { current, score, model, market, blended };
+}
+
+export async function fetchConsensusFor(env, day, fetchImpl) {
+  const res = await fetchImpl(supabaseUrl(env) + '/rest/v1/consensus_paths?select=*&as_of=eq.' + day + '&order=created_at.desc&limit=1', { headers: sbHeaders(env) });
+  if (!res.ok) throw new Error('Supabase read consensus ' + res.status);
+  const rows = await res.json();
+  return Array.isArray(rows) && rows.length ? rows[0] : null;
+}
+
+export async function upsertForecastLog(env, rows, fetchImpl) {
+  const res = await fetchImpl(supabaseUrl(env) + '/rest/v1/forecast_log?on_conflict=log_date,horizon', {
+    method: 'POST', headers: Object.assign(sbHeaders(env), { 'Prefer': 'resolution=merge-duplicates,return=representation' }), body: JSON.stringify(rows)
+  });
+  if (!res.ok) throw new Error('Supabase write forecast_log ' + res.status + ': ' + (await res.text()).slice(0, 200));
+  return res.json();
+}
+
+// Writes today's RateShield (blended + model) and market paths — and the
+// consensus logged today, if any — to forecast_log. Never throws: a failure is
+// logged and the brief still stands.
+export async function logForecastPaths(o) {
+  const log = o.log || console.log;
+  try {
+    const paths = computePaths(o.snapshot, o.fedStance, o.modelImpl);
+    if (!paths) { log('[fed-brief] forecast_log skipped — FRED snapshot incomplete'); return null; }
+    let cons = null;
+    try { cons = await fetchConsensusFor(o.env, o.today, o.fetch); } catch (e) { log('[fed-brief] consensus lookup failed: ' + e.message); }
+    const rows = LOG_HORIZONS.map((h) => {
+      const r = { log_date: o.today, horizon: h, current_rate: paths.current, rateshield_blended: paths.blended[h], rateshield_model: paths.model[h], market: paths.market ? paths.market[h] : null, updated_at: new Date().toISOString() };
+      if (cons) { const v = cons['m' + h]; r.consensus = (v === null || v === undefined) ? null : Number(v); r.consensus_source = cons.source; }
+      return r;
+    });
+    await upsertForecastLog(o.env, rows, o.fetch);
+    log('[fed-brief] forecast_log: ' + o.today + ' blended 3m ' + paths.blended[3] + ' · 12m ' + paths.blended[12] + (paths.market ? ' · market 12m ' + paths.market[12] : '') + (cons ? ' · consensus ' + cons.source : ''));
+    return { rows, paths, consensus: cons };
+  } catch (e) {
+    log('[fed-brief] forecast_log failed: ' + e.message);
+    return null;
+  }
+}
+
 // ── The daily run ────────────────────────────────────────────────────────────
 export async function runBrief(deps) {
   const env = deps.env || process.env;
@@ -278,11 +339,18 @@ export async function runBrief(deps) {
   try { snapshot = await fetchSnapshot(env.FRED_API_KEY, fetchImpl); } catch (e) { log('[fed-brief] FRED failed: ' + e.message); }
   const fedFunds = typeof snapshot.fedFunds === 'number' ? snapshot.fedFunds : (prev ? prev.fed_funds_at_brief : null);
 
+  // Every outcome ends here: write the brief, then log today's paths for scorekeeping.
+  const finish = async (result) => {
+    result.row = await upsertBrief(env, result.row, fetchImpl);
+    result.forecastLog = await logForecastPaths({ env, fetch: fetchImpl, today, snapshot, fedStance: Number(result.row.stance_score), log, modelImpl: deps.modelImpl });
+    return result;
+  };
+
   // 3. Nothing new → copy forward, no model call.
   if (!fresh.length) {
     const row = copyForward(prev, { briefDate: today, nextMeetingDate, fedFunds, sources: [], reason: prev ? 'no new Fed items since ' + prev.brief_date : 'no Fed items in the first-run window' });
     log('[fed-brief] ' + row.model_json.reason + ' — copied forward, Anthropic not called');
-    return { action: 'copied', row: await upsertBrief(env, row, fetchImpl), anthropicCalled: false };
+    return finish({ action: 'copied', row, anthropicCalled: false });
   }
 
   // 4. Fetch each statement body (official URLs only, bounded).
@@ -298,13 +366,13 @@ export async function runBrief(deps) {
   } catch (e) {
     log('[fed-brief] model call failed: ' + e.message);
     const row = copyForward(prev, { briefDate: today, nextMeetingDate, fedFunds, sources, reason: 'model call failed', detail: e.message });
-    return { action: 'fallback', row: await upsertBrief(env, row, fetchImpl), anthropicCalled: true, error: e.message };
+    return finish({ action: 'fallback', row, anthropicCalled: true, error: e.message });
   }
   const v = validateBrief(answer.text, { fallbackMeetingDate: nextMeetingDate });
   if (!v.ok) {
     log('[fed-brief] model answer rejected: ' + v.problems.join('; ') + ' — raw: ' + String(answer.text).slice(0, 300));
     const row = copyForward(prev, { briefDate: today, nextMeetingDate, fedFunds, sources, reason: 'model answer failed validation', detail: v.problems });
-    return { action: 'fallback', row: await upsertBrief(env, row, fetchImpl), anthropicCalled: true, error: v.problems.join('; ') };
+    return finish({ action: 'fallback', row, anthropicCalled: true, error: v.problems.join('; ') });
   }
   const row = {
     brief_date: today, stance_score: v.brief.stance_score, next_meeting_lean: v.brief.next_meeting_lean,
@@ -313,7 +381,7 @@ export async function runBrief(deps) {
     model_json: { answer: v.brief, model: answer.model, usage: answer.usage, items_considered: fresh.length, calendar_next_meeting: nextMeetingDate, fred: snapshot }
   };
   log('[fed-brief] generated: stance ' + row.stance_score + ' · ' + row.next_meeting_lean + ' · ' + fresh.length + ' items');
-  return { action: 'generated', row: await upsertBrief(env, row, fetchImpl), anthropicCalled: true };
+  return finish({ action: 'generated', row, anthropicCalled: true });
 }
 
 // ── Authorisation ────────────────────────────────────────────────────────────

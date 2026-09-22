@@ -89,6 +89,8 @@ function fakeNet(o) {
     calls.push({ url, opts: opts || {} });
     if (url.includes('/rest/v1/fed_briefs') && (!opts || !opts.method)) return json(o.prev ? [o.prev] : []);
     if (url.includes('/rest/v1/fed_briefs') && opts.method === 'POST') return json([Object.assign({ id: 99 }, JSON.parse(opts.body))]);
+    if (url.includes('/rest/v1/consensus_paths') && (!opts || !opts.method)) return json(o.consensusToday ? [o.consensusToday] : []);
+    if (url.includes('/rest/v1/forecast_log') && opts.method === 'POST') return json(JSON.parse(opts.body));
     if (url.includes('/feeds/press_all.xml')) return text(o.rss || '');
     if (url.includes('/feeds/')) return text('<rss><channel></channel></rss>');
     if (url.includes('fomccalendars')) return text(CALENDAR);
@@ -201,4 +203,44 @@ test('authorisation: cron secret or the owner\'s Supabase session, nothing else'
   r = res(); await fb.default({ method: 'GET', headers: { authorization: 'Bearer nope' } }, r); assert.equal(r.code, 401);
   r = res(); await fb.default({ method: 'DELETE', headers: {} }, r); assert.equal(r.code, 405);
   if (saved === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = saved;
+});
+
+test('scorekeeping: every run logs today\'s RateShield (blended + model) and market paths to forecast_log, computed with the app\'s own Model', async () => {
+  const { loadModel } = require('./helpers/loadModel');
+  const { Model } = loadModel();
+  const net = fakeNet({ prev: PREV, rss: RSS }); // copy-forward path
+  const out = await fb.runBrief({ env: ENV, fetch: net.fetchImpl, today: '2026-09-20', log });
+  assert.equal(out.action, 'copied');
+  assert.ok(out.forecastLog, 'paths logged even when the brief was copied forward');
+  const write = net.calls.find((c) => c.url.includes('/rest/v1/forecast_log'));
+  assert.ok(write.url.includes('on_conflict=log_date,horizon'));
+  assert.equal(write.opts.headers.Authorization, 'Bearer svc');
+  const rows = JSON.parse(write.opts.body);
+  assert.equal(JSON.stringify(rows.map((r) => r.horizon)), '[3,6,12,18]');
+  // recompute independently from the FRED fixture + the copied stance (1.25)
+  const snap = { fedFunds: 3.88, cpi: 3.4, corePce: 3.3, unemployment: 4.1, gdpGrowth: 1.5, treasury10y: 4.95, treasury6mo: 4.05, treasury2y: 4.0 };
+  const score = Model.rateSignalScore({ cpi: 3.4, un: 4.1, tr: 4.95, gdp: 1.5, pce: 3.3, fedStance: 1.25 });
+  const model = Model.ratePath({ current: 3.88, score }), market = Model.marketPath({ current: 3.88, dgs6mo: 4.05, dgs2: 4.0 }), blended = Model.blendedPath(model, market);
+  rows.forEach((r) => {
+    assert.equal(r.log_date, '2026-09-20'); assert.equal(r.current_rate, 3.88);
+    assert.equal(r.rateshield_model, model[r.horizon]); assert.equal(r.market, market[r.horizon]); assert.equal(r.rateshield_blended, blended[r.horizon]);
+    assert.equal(r.consensus, undefined, 'no consensus logged today → columns untouched');
+  });
+  assert.equal(fb.computePaths(snap, 1.25).blended[12], blended[12]);
+  assert.equal(fb.computePaths({ fedFunds: null }, 0), null, 'no current rate → nothing to log');
+  assert.equal(fb.computePaths({ fedFunds: 3.88, cpi: 3.4 }, 0), null, 'incomplete snapshot → nothing to log');
+  // a consensus logged today is stored alongside
+  const net2 = fakeNet({ prev: PREV, rss: RSS, consensusToday: { as_of: '2026-09-20', source: 'Bank note', m3: 3.9, m6: null, m12: 4.7, m18: 4.7 } });
+  await fb.runBrief({ env: ENV, fetch: net2.fetchImpl, today: '2026-09-20', log });
+  const rows2 = JSON.parse(net2.calls.find((c) => c.url.includes('/rest/v1/forecast_log')).opts.body);
+  assert.equal(rows2.find((r) => r.horizon === 3).consensus, 3.9);
+  assert.equal(rows2.find((r) => r.horizon === 6).consensus, null);
+  assert.equal(rows2.find((r) => r.horizon === 12).consensus_source, 'Bank note');
+  // a forecast_log failure never fails the brief
+  const net3 = fakeNet({ prev: PREV, rss: RSS });
+  const failing = async (url, opts) => { if (url.includes('/rest/v1/forecast_log')) return { ok: false, status: 500, text: async () => 'boom', json: async () => ({}) }; return net3.fetchImpl(url, opts); };
+  logs.length = 0;
+  const out3 = await fb.runBrief({ env: ENV, fetch: failing, today: '2026-09-20', log });
+  assert.equal(out3.action, 'copied'); assert.equal(out3.forecastLog, null);
+  assert.ok(logs.some((l) => l.includes('forecast_log failed')));
 });

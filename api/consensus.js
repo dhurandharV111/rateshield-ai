@@ -8,7 +8,7 @@
 // Auth: the same rule as /api/fed-brief — Authorization: Bearer $CRON_SECRET,
 // or a Supabase session token that belongs to OWNER_EMAIL.
 
-import { authorize, supabaseUrl, sbHeaders, isoDate } from './fed-brief.js';
+import { authorize, supabaseUrl, sbHeaders, isoDate, upsertForecastLog, LOG_HORIZONS } from './fed-brief.js';
 
 export const HORIZONS = ['m3', 'm6', 'm12', 'm18'];
 export const RATE_MIN = 0, RATE_MAX = 10;
@@ -59,6 +59,18 @@ export async function insertConsensus(env, row, fetchImpl) {
   return Array.isArray(rows) ? rows[0] : rows;
 }
 
+// Mirror the logged path into forecast_log (consensus columns only, merged into
+// whatever RateShield already wrote for that date). Never throws.
+export async function logConsensusToForecastLog(env, row, fetchImpl, log) {
+  try {
+    const rows = LOG_HORIZONS.filter((h) => row['m' + h] !== null && row['m' + h] !== undefined)
+      .map((h) => ({ log_date: row.as_of, horizon: h, consensus: Number(row['m' + h]), consensus_source: row.source, updated_at: new Date().toISOString() }));
+    if (!rows.length) return null;
+    await upsertForecastLog(env, rows, fetchImpl);
+    return rows;
+  } catch (e) { (log || console.log)('[consensus] forecast_log failed: ' + e.message); return null; }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY is not configured' });
@@ -70,7 +82,8 @@ export default async function handler(req, res) {
   if (!v.ok) return res.status(400).json({ error: 'Invalid consensus path', problems: v.problems });
   try {
     const row = await insertConsensus(process.env, v.row, fetch);
-    return res.status(200).json({ ok: true, via: auth.via, row });
+    const logged = await logConsensusToForecastLog(process.env, row, fetch);
+    return res.status(200).json({ ok: true, via: auth.via, row, forecastLogRows: logged ? logged.length : 0 });
   } catch (error) {
     console.error('[consensus] failed:', error);
     return res.status(500).json({ ok: false, error: error && error.message });

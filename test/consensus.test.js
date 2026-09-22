@@ -43,6 +43,7 @@ test('handler: owner or cron only, validates, inserts with the service role', as
     calls.push({ url, opts });
     if (url.includes('/auth/v1/user')) return { ok: true, status: 200, json: async () => ({ email: 'rajatinpa@gmail.com' }) };
     if (url.includes('/rest/v1/consensus_paths')) return { ok: true, status: 201, json: async () => [Object.assign({ id: 7, created_at: 'now' }, JSON.parse(opts.body))], text: async () => '' };
+    if (url.includes('/rest/v1/forecast_log')) return { ok: true, status: 201, json: async () => JSON.parse(opts.body), text: async () => '' };
     throw new Error('unexpected ' + url);
   };
   const saved = { s: process.env.SUPABASE_SERVICE_ROLE_KEY, c: process.env.CRON_SECRET };
@@ -60,6 +61,13 @@ test('handler: owner or cron only, validates, inserts with the service role', as
     const write = calls.find((c) => c.url.includes('/rest/v1/consensus_paths'));
     assert.equal(write.opts.method, 'POST');
     assert.equal(write.opts.headers.Authorization, 'Bearer svc');
+    // the logged path is mirrored into forecast_log (consensus columns only, entered horizons only)
+    assert.equal(r.body.forecastLogRows, 2);
+    const fl = calls.find((c) => c.url.includes('/rest/v1/forecast_log'));
+    assert.ok(fl.url.includes('on_conflict=log_date,horizon'));
+    const rows = JSON.parse(fl.opts.body);
+    assert.equal(JSON.stringify(rows.map((x) => [x.log_date, x.horizon, x.consensus, x.consensus_source])), JSON.stringify([['2026-09-20', 3, 3.9, 'Bank note'], ['2026-09-20', 12, 4.25, 'Bank note']]));
+    assert.ok(rows.every((x) => x.rateshield_blended === undefined && x.market === undefined), 'never overwrites RateShield or market columns');
   } finally {
     global.fetch = realFetch;
     process.env.SUPABASE_SERVICE_ROLE_KEY = saved.s; process.env.CRON_SECRET = saved.c;

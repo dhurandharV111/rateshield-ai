@@ -1,7 +1,18 @@
 {
   "crons": [
-    { "path": "/api/fed-brief", "schedule": "0 11 * * *" }
+    {
+      "path": "/api/fed-brief",
+      "schedule": "0 11 * * *"
+    }
   ],
+  "functions": {
+    "api/fed-brief.js": {
+      "includeFiles": "index.html"
+    },
+    "api/consensus.js": {
+      "includeFiles": "index.html"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/chat",

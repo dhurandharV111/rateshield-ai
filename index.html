@@ -574,6 +574,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
         <canvas id="outlookChart" height="150"></canvas>
         <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:.75rem"><thead><tr style="background:#f0ede6"><th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:700;color:#3a3a3a;border-bottom:2px solid rgba(15,15,15,.1)">Path</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Now</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">3 mo</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">6 mo</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">12 mo</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">18 mo</th></tr></thead><tbody id="outlook-tbody"></tbody></table>
         <div class="chart-src" id="outlook-src" style="margin-top:6px">Market: FRED DGS6MO/DGS2 · Consensus: none logged · RateShield: model + blend</div>
+        <div class="sn" id="forecast-error-line" style="margin-top:4px">3-month forecast error: no scored meetings yet.</div>
         <form id="consensus-form" style="display:none;margin-top:12px;padding:10px 12px;border:1px dashed rgba(15,15,15,.15);border-radius:10px;background:#faf9f6" onsubmit="return submitConsensus(event)">
           <div style="font-size:12px;font-weight:700;color:#0f0f0f;margin-bottom:6px">Log consensus path <span class="sn" style="margin:0;font-weight:400">(owner only · expected Fed funds %, entered by you — nothing is fetched)</span></div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">
@@ -2152,6 +2153,25 @@ function renderOutlookComparison(p) {
   var srcEl = document.getElementById('outlook-src');
   if (srcEl) srcEl.textContent = 'Market: FRED DGS6MO/DGS2 · Consensus: ' + (c ? c.source + ', entered ' + c.as_of : 'none logged') + ' · RateShield: model + blend';
 }
+// ── Forecast error scoreboard (Supabase forecast_error_summary view) ──
+var LAST_FORECAST_ERRORS = null;
+function applyForecastErrors(row) {
+  var n = row && isFinite(Number(row.n_meetings)) ? Number(row.n_meetings) : 0;
+  LAST_FORECAST_ERRORS = n > 0 ? row : null;
+  var el = document.getElementById('forecast-error-line');
+  if (!el) return n > 0;
+  if (n === 0) { el.textContent = '3-month forecast error: no scored meetings yet.'; return false; }
+  var f = function(v) { return (v === null || v === undefined || !isFinite(Number(v))) ? '—' : Number(v).toFixed(2) + ' pt'; };
+  el.textContent = '3-month forecast error, last ' + n + ' meeting' + (n === 1 ? '' : 's') + ': RateShield ' + f(row.rateshield_mae) + ' · Market ' + f(row.market_mae) + ' · Consensus ' + f(row.consensus_mae)
+    + (row.consensus_n !== undefined && Number(row.consensus_n) < n ? ' (' + Number(row.consensus_n) + ' of ' + n + ' had a consensus)' : '');
+  return true;
+}
+function loadForecastErrors() {
+  if (!supabase || !supabase.from) return Promise.resolve(false);
+  return supabase.from('forecast_error_summary').select('*').limit(1)
+    .then(function(r) { if (r.error) { console.warn('forecast_error_summary unavailable:', r.error.message); return false; } return applyForecastErrors(r.data && r.data[0]); })
+    .catch(function(e) { console.warn('Forecast errors load failed:', e && e.message); return false; });
+}
 function loadFedBrief() {
   if (!supabase || !supabase.from) return Promise.resolve(false);
   return supabase.from('fed_briefs').select('*').order('brief_date', { ascending: false }).limit(1)
@@ -2913,6 +2933,7 @@ function launchApp(co, sec, isTrial) {
       try { loadFredData(); } catch (e) { console.warn('FRED prefill skipped.', e); }
       try { loadFedBrief(); } catch (e) { console.warn('Fed brief skipped.', e); }
       try { loadConsensus(); } catch (e) { console.warn('Consensus skipped.', e); }
+      try { loadForecastErrors(); } catch (e) { console.warn('Forecast errors skipped.', e); }
 
       setTimeout(function() {
         try {
