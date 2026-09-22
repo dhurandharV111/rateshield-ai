@@ -569,6 +569,10 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
         <div id="fed-watch-line" style="font-size:13px;font-weight:700;color:#0f0f0f;margin-bottom:4px">Fed stance: no brief yet</div>
         <div id="fed-watch-summary" style="font-size:12px;color:#3a3a3a;line-height:1.45">The daily Fed briefing assistant has not written a brief yet. Once it runs (7 am ET), the Fed's stance, its last statement and the next FOMC meeting appear here.</div>
         <div class="sn" id="fed-watch-sources" style="margin-top:6px"></div>
+        <div class="chart-title" style="margin-top:14px">Outlook vs. consensus — Fed funds rate, next 18 months</div>
+        <canvas id="outlookChart" height="150"></canvas>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:.75rem"><thead><tr style="background:#f0ede6"><th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:700;color:#3a3a3a;border-bottom:2px solid rgba(15,15,15,.1)">Path</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Now</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">3 mo</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">6 mo</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">12 mo</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">18 mo</th></tr></thead><tbody id="outlook-tbody"></tbody></table>
+        <div class="chart-src" id="outlook-src" style="margin-top:6px">Market: FRED DGS6MO/DGS2 · Consensus: none logged · RateShield: model + blend</div>
         <form id="consensus-form" style="display:none;margin-top:12px;padding:10px 12px;border:1px dashed rgba(15,15,15,.15);border-radius:10px;background:#faf9f6" onsubmit="return submitConsensus(event)">
           <div style="font-size:12px;font-weight:700;color:#0f0f0f;margin-bottom:6px">Log consensus path <span class="sn" style="margin:0;font-weight:400">(owner only · expected Fed funds %, entered by you — nothing is fetched)</span></div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">
@@ -1106,6 +1110,11 @@ var CONFIG = {
   // holdBias − |z| × holdDecay. Purely a function of the forecast — labelled
   // "model-implied" in the UI.
   fomc: { unitBp: 0.5, temperature: 1.4, holdBias: 0.6, holdDecay: 0.4 },
+  // RateShield outlook = blend of the model path and the market-implied path
+  // (FRED Treasuries). The market is weighted more at short horizons — it is
+  // usually right about the next meeting or two — and the model more at 12–18
+  // months, which is what it is built for. Consensus paths never enter here.
+  blend: { marketWeight: { 0: 0, 3: 0.6, 6: 0.5, 12: 0.35, 18: 0.25 } },
   // Market-implied expectations from the 6-month Treasury vs Fed funds spread.
   // direction: spread > +directionThreshold → hike, < −threshold → cut, else hold.
   // Probabilities: P(hike) = σ((s − midpoint) / scale), P(cut) = σ((−s − midpoint) / scale),
@@ -1467,6 +1476,47 @@ var Model = {
     return 'hold';
   },
 
+  // ── Outlook paths: Fed funds % at 0 / 3 / 6 / 12 / 18 months ─────
+  HORIZONS: [0, 3, 6, 12, 18],
+  // The model's own path from the signal score (the Rate path panel and the
+  // 18-month chart read these same numbers). 3-month point = midpoint of now and 6.
+  ratePath: function(o) {
+    var F = CONFIG.forecast, r = function(v) { return Math.round(v * 4) / 4; };
+    var base = Model.predictedRate(o.score);
+    var r12 = r(base), r6 = r(base + (o.score > 0 ? F.path6 : -F.path6)), r18 = r(base + (o.score > 0 ? F.path18Up : F.path18Down));
+    return { 0: o.current, 3: r((o.current + r6) / 2), 6: r6, 12: r12, 18: r18 };
+  },
+  // Market-implied path from FRED Treasuries: the 6-month bill is read as the
+  // expected policy rate at 6 months and the 2-year note as the expected rate at
+  // 24 months (term premium ignored); 3 / 12 / 18 are linear interpolations.
+  // null when the 6-month yield is missing.
+  marketPath: function(o) {
+    var fin = function(v) { return typeof v === 'number' && isFinite(v); };
+    if (!fin(o.current) || !fin(o.dgs6mo)) return null;
+    var m6 = o.dgs6mo, m24 = fin(o.dgs2) ? o.dgs2 : o.dgs6mo;
+    var lerp = function(a, b, t) { return a + (b - a) * t; }, rd = function(v) { return Math.round(v * 100) / 100; };
+    return { 0: o.current, 3: rd(lerp(o.current, m6, 0.5)), 6: rd(m6), 12: rd(lerp(m6, m24, 6 / 18)), 18: rd(lerp(m6, m24, 12 / 18)) };
+  },
+  // RateShield outlook: (1 − w) × model + w × market per horizon (CONFIG.blend).
+  // With no market path the outlook is the model path.
+  blendedPath: function(model, market) {
+    var W = CONFIG.blend.marketWeight, out = {};
+    Model.HORIZONS.forEach(function(h) {
+      var w = (market && typeof market[h] === 'number' && isFinite(market[h])) ? (W[h] || 0) : 0;
+      out[h] = Math.round(((1 - w) * model[h] + w * (w ? market[h] : 0)) * 100) / 100;
+    });
+    return out;
+  },
+  // Outlook minus consensus per horizon (pt); null where the consensus has no value.
+  consensusGap: function(blended, consensus) {
+    var out = {};
+    Model.HORIZONS.forEach(function(h) {
+      var c = consensus ? consensus[h] : null;
+      out[h] = (typeof c === 'number' && isFinite(c) && typeof blended[h] === 'number') ? Math.round((blended[h] - c) * 100) / 100 : null;
+    });
+    return out;
+  },
+
   // ── Market-implied expectations ──────────────────────────────────
   // What the front end of the Treasury curve prices relative to the policy rate.
   // A 6-month bill above Fed funds means the market expects hikes inside that
@@ -1777,6 +1827,7 @@ var RS_METRICS = {};
 // Every Model.aiSavings caller passes these so all surfaces stay consistent.
 var SCENARIO_MODS = { automatableMult: 1 };
 var fChart=null, hChart=null, aiChart=null, lChart=null, eqChart=null, profChart=null, eqScChart=null, eqBasicChart=null;
+var outlookChart=null; // Outlook vs. consensus (Rate Outlook card)
 var chatBusy = false;
 var baselineRevenue = 20;
 var baselineMargin = 12;
@@ -2001,6 +2052,65 @@ function runFedBriefNow() {
       setTimeout(function() { setBtn('Run brief now', false); }, 8000);
       return false;
     });
+}
+// ── Consensus path (Supabase consensus_paths, latest row; display + scoring only) ──
+var LAST_CONSENSUS = null;
+function applyConsensus(row) {
+  var fin = function(v) { return typeof v === 'number' && isFinite(v); };
+  var ok = !!(row && typeof row === 'object' && row.as_of && row.source && ['m3', 'm6', 'm12', 'm18'].some(function(h) { return fin(Number(row[h])) && row[h] !== null; }));
+  LAST_CONSENSUS = ok ? row : null;
+  return ok;
+}
+// {0: current, 3: m3, 6: m6, 12: m12, 18: m18} with nulls where not entered; null when no row.
+function consensusPathValues(current) {
+  if (!LAST_CONSENSUS) return null;
+  var v = function(h) { var x = LAST_CONSENSUS[h]; return (x === null || x === undefined || x === '') ? null : (isFinite(Number(x)) ? Number(x) : null); };
+  return { 0: current, 3: v('m3'), 6: v('m6'), 12: v('m12'), 18: v('m18') };
+}
+function loadConsensus() {
+  if (!supabase || !supabase.from) return Promise.resolve(false);
+  return supabase.from('consensus_paths').select('*').order('as_of', { ascending: false }).order('created_at', { ascending: false }).limit(1)
+    .then(function(r) {
+      if (r.error) { console.warn('consensus_paths unavailable:', r.error.message); return false; }
+      var ok = applyConsensus(r.data && r.data[0]);
+      if (ok) { try { updateAll(); } catch (e) { console.warn('updateAll after consensus failed:', e); } }
+      return ok;
+    })
+    .catch(function(e) { console.warn('Consensus load failed:', e && e.message); return false; });
+}
+// Chart + table + source line in the Rate Outlook card. Four series when a
+// consensus row exists, three when none.
+function renderOutlookComparison(p) {
+  var H = Model.HORIZONS, labels = ['Now', '3mo', '6mo', '12mo', '18mo'];
+  var vals = function(path) { return H.map(function(h) { return path && typeof path[h] === 'number' && isFinite(path[h]) ? path[h] : null; }); };
+  var c = LAST_CONSENSUS;
+  var datasets = [
+    { label: 'RateShield outlook (blended)', data: vals(p.blended), borderColor: '#1a3a6b', backgroundColor: '#1a3a6b12', borderWidth: 3, tension: .3, pointRadius: 3, fill: false },
+    { label: 'RateShield model only', data: vals(p.model), borderColor: '#1a3a6b', borderDash: [6, 4], borderWidth: 1.5, tension: .3, pointRadius: 2, fill: false },
+    { label: 'Market-implied (FRED Treasuries)', data: vals(p.market), borderColor: '#1a6b3a', borderWidth: 2, tension: .3, pointRadius: 2, fill: false }
+  ];
+  if (c && p.consensus) datasets.push({ label: 'Consensus — ' + c.source + ' (' + c.as_of + ')', data: vals(p.consensus), borderColor: '#8b1a1a', borderDash: [2, 3], borderWidth: 2, tension: .3, pointRadius: 3, spanGaps: true, fill: false });
+  var canvas = document.getElementById('outlookChart');
+  if (canvas && typeof Chart !== 'undefined') {
+    try {
+      if (!outlookChart) {
+        outlookChart = new Chart(canvas.getContext('2d'), { type: 'line', data: { labels: labels, datasets: datasets },
+          options: { responsive: true, maintainAspectRatio: false, animation: { duration: 250 }, plugins: { legend: { labels: { font: { size: 10 }, boxWidth: 10 } } },
+                     scales: { y: { ticks: { callback: function(v) { return v.toFixed(2) + '%'; }, font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.04)' } }, x: { ticks: { font: { size: 10 } }, grid: { display: false } } } } });
+      } else { outlookChart.data.labels = labels; outlookChart.data.datasets = datasets; outlookChart.update('none'); }
+    } catch (e) { console.warn('Outlook chart failed', e); }
+  }
+  var tb = document.getElementById('outlook-tbody');
+  if (tb) {
+    var f = function(v) { return (typeof v === 'number' && isFinite(v)) ? v.toFixed(2) + '%' : '—'; };
+    var g = function(v) { return (typeof v === 'number' && isFinite(v)) ? (v >= 0 ? '+' : '') + v.toFixed(2) + ' pt' : '—'; };
+    var row = function(id, name, path, fmt, bold) { return '<tr id="' + id + '"><td style="padding:6px 10px;border-bottom:1px solid rgba(15,15,15,.06)' + (bold ? ';font-weight:700' : '') + '">' + name + '</td>' + H.map(function(h) { return '<td style="padding:6px 10px;text-align:right;border-bottom:1px solid rgba(15,15,15,.06)' + (bold ? ';font-weight:700' : '') + '">' + (fmt || f)(path ? path[h] : null) + '</td>'; }).join('') + '</tr>'; };
+    tb.innerHTML = row('ol-blended', 'RateShield outlook (blended)', p.blended, f, true) + row('ol-model', 'RateShield model only', p.model, f) + row('ol-market', 'Market-implied (FRED Treasuries)', p.market, f)
+      + row('ol-consensus', c ? 'Consensus — ' + c.source + ' (' + c.as_of + ')' : 'Consensus — none logged', p.consensus, f)
+      + row('ol-gap', 'Gap vs consensus (blended − consensus)', p.gap, g);
+  }
+  var srcEl = document.getElementById('outlook-src');
+  if (srcEl) srcEl.textContent = 'Market: FRED DGS6MO/DGS2 · Consensus: ' + (c ? c.source + ', entered ' + c.as_of : 'none logged') + ' · RateShield: model + blend';
 }
 function loadFedBrief() {
   if (!supabase || !supabase.from) return Promise.resolve(false);
@@ -2762,6 +2872,7 @@ function launchApp(co, sec, isTrial) {
       // Pre-fill the Financing Strategy inputs from live FRED data; CONFIG snapshot stays if it fails.
       try { loadFredData(); } catch (e) { console.warn('FRED prefill skipped.', e); }
       try { loadFedBrief(); } catch (e) { console.warn('Fed brief skipped.', e); }
+      try { loadConsensus(); } catch (e) { console.warn('Consensus skipped.', e); }
 
       setTimeout(function() {
         try {
@@ -3195,13 +3306,20 @@ function updateF() {
   // otherwise the CONFIG snapshot. It is deliberately NOT the Fed input, which is
   // a what-if lever.
   var cur=Math.round(CONFIG.currentFedRate*100)/100; // exact, not quarter-rounded like the path
-  var r12=r(base),r6=r(base+(sc>0?F.path6:-F.path6)),r18=r(base+(sc>0?F.path18Up:F.path18Down));
+  var modelPath=Model.ratePath({ current: cur, score: sc });
+  var r12=modelPath[12],r6=modelPath[6],r18=modelPath[18];
   // FOMC probabilities are model-implied from the predicted 12-month change.
   var fomc=Model.fomcProbabilities(r12, cur);
   var hp=fomc.hike, hp2=fomc.hold, cp=fomc.cut;
   // Market-implied row: what the 6-month bill prices against the policy rate.
   var tr6=safeVal('f-tr6mo',CONFIG.macroDefaults.tr6mo,0,25), tr2=safeVal('f-tr2y',CONFIG.macroDefaults.tr2y,0,25);
   var mkt=Model.marketImpliedMove(cur, tr6, tr2);
+  // Outlook vs. consensus: model path, market-implied path, their blend, and the
+  // latest logged consensus (display and scoring only — never an input).
+  var marketPath=Model.marketPath({ current: cur, dgs6mo: tr6, dgs2: tr2 });
+  var blended=Model.blendedPath(modelPath, marketPath);
+  var consensusPath=consensusPathValues(cur);
+  var gap=Model.consensusGap(blended, consensusPath);
   var mktP=Model.marketProbabilities(mkt.sixMonthSpread);
   var modelDir=Model.fomcDirection(fomc);
   var disagree=!!(mkt.direction && modelDir!==mkt.direction);
@@ -3216,7 +3334,9 @@ function updateF() {
     fedStance: { score: fedStanceInput(), pts: contrib.fedStance, briefDate: LAST_FED_BRIEF ? LAST_FED_BRIEF.brief_date : null },
     predicted12: r12, current: cur, currentAsOf: CONFIG.fedRateAsOf, currentSource: LAST_MARKET_DATA ? 'DFF (live, daily)' : 'CONFIG snapshot', fomc: fomc, modelDirection: modelDir,
     market: { sixMonthSpread: mkt.sixMonthSpread, twoYearSpread: mkt.twoYearSpread, direction: mkt.direction, probs: mktP, tr6mo: tr6, tr2y: tr2 }, disagree: disagree, cme: cme,
-    analogYear: analog.best.year, analogMatch: analog.best.matchPct, confidence: conf };
+    analogYear: analog.best.year, analogMatch: analog.best.matchPct, confidence: conf,
+    outlook: { model: modelPath, market: marketPath, blended: blended, consensus: consensusPath, gap: gap, consensusMeta: LAST_CONSENSUS ? { source: LAST_CONSENSUS.source, as_of: LAST_CONSENSUS.as_of } : null } };
+  renderOutlookComparison({ model: modelPath, market: marketPath, blended: blended, consensus: consensusPath, gap: gap });
   renderFedStanceRow();
   document.getElementById('pred-rate').textContent=r12.toFixed(2)+'%';
   document.getElementById('pred-env').textContent=env;

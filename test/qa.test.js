@@ -655,3 +655,45 @@ test('consensus form: hidden for non-owners, visible for the owner; empty rates 
   assert.equal(txt(window, 'cs-status'), 'Not logged: m12 must be between 0 and 10 %');
   assert.deepEqual(errors, []);
 });
+
+test('Outlook vs. consensus chart: three series without a consensus row, four with; table, gap row and source line agree with RS_METRICS', () => {
+  const { window, errors } = boot('manufacturing');
+  const M = window.RS_METRICS.forecast;
+  assert.ok(window.outlookChart, 'chart created');
+  assert.equal(JSON.stringify(window.outlookChart.data.labels), JSON.stringify(['Now', '3mo', '6mo', '12mo', '18mo']));
+  assert.equal(window.outlookChart.data.datasets.length, 3, 'blended, model, market');
+  assert.equal(JSON.stringify(window.outlookChart.data.datasets.map((d) => d.label)), JSON.stringify(['RateShield outlook (blended)', 'RateShield model only', 'Market-implied (FRED Treasuries)']));
+  assert.equal(window.outlookChart.data.datasets[0].borderWidth, 3, 'blended is bold');
+  assert.equal(JSON.stringify(window.outlookChart.data.datasets[1].borderDash), '[6,4]', 'model is dashed');
+  assert.equal(window.outlookChart.data.datasets[2].borderDash, undefined, 'market is solid');
+  const cur = M.current;
+  assert.equal(M.outlook.model[0], cur); assert.equal(M.outlook.market[0], cur); assert.equal(M.outlook.blended[0], cur, 'shared origin');
+  assert.equal(M.outlook.model[12], M.predicted12, 'model path is the Rate path panel');
+  assert.equal(txt(window, 'r6'), M.outlook.model[6].toFixed(2) + '%');
+  assert.equal(M.outlook.consensus, null);
+  assert.ok(txt(window, 'ol-consensus').includes('none logged'));
+  assert.ok(txt(window, 'ol-gap').includes('—'));
+  assert.equal(txt(window, 'outlook-src'), 'Market: FRED DGS6MO/DGS2 · Consensus: none logged · RateShield: model + blend');
+  // a consensus row → fourth series, labelled with source and date; gap row filled
+  assert.equal(window.applyConsensus({ id: 3, as_of: '2026-09-20', source: 'Bank note', m3: 3.9, m6: null, m12: 4.7, m18: 4.7, note: null }), true);
+  window.updateAll();
+  const M2 = window.RS_METRICS.forecast;
+  assert.equal(window.outlookChart.data.datasets.length, 4);
+  assert.equal(window.outlookChart.data.datasets[3].label, 'Consensus — Bank note (2026-09-20)');
+  assert.equal(JSON.stringify(window.outlookChart.data.datasets[3].borderDash), '[2,3]', 'consensus is dotted');
+  assert.equal(JSON.stringify(window.outlookChart.data.datasets[3].data), JSON.stringify([cur, 3.9, null, 4.7, 4.7]));
+  assert.ok(Math.abs(M2.outlook.gap[12] - (M2.outlook.blended[12] - 4.7)) < 1e-9);
+  assert.equal(M2.outlook.gap[6], null);
+  const gapCells = Array.from(window.document.querySelectorAll('#ol-gap td')).map((td) => td.textContent);
+  assert.equal(gapCells[4], (M2.outlook.gap[12] >= 0 ? '+' : '') + M2.outlook.gap[12].toFixed(2) + ' pt');
+  assert.equal(gapCells[3], '—');
+  assert.equal(txt(window, 'outlook-src'), 'Market: FRED DGS6MO/DGS2 · Consensus: Bank note, entered 2026-09-20 · RateShield: model + blend');
+  const blendedCells = Array.from(window.document.querySelectorAll('#ol-blended td')).map((td) => td.textContent);
+  assert.equal(blendedCells[4], M2.outlook.blended[12].toFixed(2) + '%');
+  // malformed rows are ignored
+  assert.equal(window.applyConsensus({ as_of: '2026-09-20', source: 'x' }), false);
+  window.updateAll();
+  assert.equal(window.outlookChart.data.datasets.length, 3);
+  assert.deepEqual(badValues(window, 'outlook'), []);
+  assert.deepEqual(errors, []);
+});

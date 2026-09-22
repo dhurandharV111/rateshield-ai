@@ -574,3 +574,46 @@ test('fedStanceContribution: score × 0.75, clamped ±1.5, zero when there is no
   // the historical episodes carry no stance yet, so the backtest is unaffected
   CONFIG.analog.years.forEach((y) => assert.equal(Model.rateSignalContributions(y).fedStance, 0, y.year));
 });
+
+// ── Outlook paths ───────────────────────────────────────────────────────────
+test('ratePath: the Rate path numbers (quarter-rounded), 3-month point = midpoint of now and 6 months', () => {
+  const F = CONFIG.forecast, r = (v) => Math.round(v * 4) / 4;
+  const score = 2.0, current = 3.63;
+  const p = Model.ratePath({ current, score });
+  const base = Model.predictedRate(score);
+  assert.equal(p[0], current);
+  assert.equal(p[12], r(base));
+  assert.equal(p[6], r(base + F.path6));
+  assert.equal(p[18], r(base + F.path18Up));
+  assert.equal(p[3], r((current + p[6]) / 2));
+  const neg = Model.ratePath({ current, score: -3 });
+  assert.equal(neg[6], r(Model.predictedRate(-3) - F.path6));
+  assert.equal(neg[18], r(Model.predictedRate(-3) + F.path18Down));
+  assert.equal(JSON.stringify(Model.HORIZONS), '[0,3,6,12,18]');
+});
+
+test('marketPath: 6-month bill → 6-month point, 2-year note → 24-month point, others interpolated; null without the 6-month yield', () => {
+  const p = Model.marketPath({ current: 3.63, dgs6mo: 4.03, dgs2: 4.39 });
+  assert.equal(p[0], 3.63);
+  assert.equal(p[3], 3.83);              // midpoint of 3.63 and 4.03
+  assert.equal(p[6], 4.03);
+  near(p[12], 4.03 + (4.39 - 4.03) * 6 / 18, 0.006);
+  near(p[18], 4.03 + (4.39 - 4.03) * 12 / 18, 0.006);
+  assert.equal(Model.marketPath({ current: 3.63, dgs6mo: null, dgs2: 4 }), null);
+  assert.equal(Model.marketPath({ current: 3.63, dgs6mo: 3.9 })[18], 3.9, 'no 2-year → flat beyond 6 months');
+});
+
+test('blendedPath: market weighted more at short horizons; equals the model when no market path', () => {
+  const W = CONFIG.blend.marketWeight;
+  assert.ok(W[3] > W[6] && W[6] > W[12] && W[12] > W[18] && W[0] === 0);
+  const model = { 0: 3.63, 3: 3.5, 6: 3.5, 12: 3.25, 18: 3.0 }, market = { 0: 3.63, 3: 3.83, 6: 4.03, 12: 4.15, 18: 4.27 };
+  const b = Model.blendedPath(model, market);
+  assert.equal(b[0], 3.63);
+  near(b[3], (1 - W[3]) * 3.5 + W[3] * 3.83, 0.006);
+  near(b[12], (1 - W[12]) * 3.25 + W[12] * 4.15, 0.006);
+  [3, 6, 12, 18].forEach((h) => assert.ok(b[h] >= Math.min(model[h], market[h]) && b[h] <= Math.max(model[h], market[h]), 'blend lies between model and market at ' + h));
+  assert.equal(JSON.stringify(Model.blendedPath(model, null)), JSON.stringify(model));
+  const g = Model.consensusGap(b, { 0: 3.63, 3: 3.9, 6: null, 12: 4.7, 18: 4.7 });
+  near(g[3], b[3] - 3.9, 1e-9); assert.equal(g[6], null); near(g[12], b[12] - 4.7, 1e-9); assert.equal(g[0], 0);
+  assert.equal(JSON.stringify(Model.consensusGap(b, null)), JSON.stringify({ 0: null, 3: null, 6: null, 12: null, 18: null }));
+});
