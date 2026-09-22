@@ -697,3 +697,30 @@ test('Outlook vs. consensus chart: three series without a consensus row, four wi
   assert.deepEqual(badValues(window, 'outlook'), []);
   assert.deepEqual(errors, []);
 });
+
+test('difference sentence: generated from the live inputs, names at least two of them, never "analysts"', () => {
+  const { window, errors } = boot('manufacturing');
+  const visible = window.document.body.cloneNode(true);
+  visible.querySelectorAll('script,style').forEach((n) => n.remove());
+  assert.ok(!/analysts? say|according to analysts/i.test(visible.textContent), 'the app reads FRED and the Fed, not analysts');
+  window.applyMarketData({ asOf: '2026-09-18', fedFunds: 3.63, cpi: 3.4, corePce: 3.3, unemployment: 4.1, gdpGrowth: 1.5, treasury10y: 4.95, treasury6mo: 4.03, treasury2y: 4.39, cpi3moAgo: 4.2, corePce3moAgo: 3.3, treasury10y3moAgo: 4.4 });
+  window.applyConsensus({ as_of: '2026-09-20', source: 'Bank note', m3: 3.9, m6: 4.2, m12: 4.7, m18: 4.7 });
+  window.updateAll();
+  const M = window.RS_METRICS.forecast;
+  const line = txt(window, 'outlook-diff');
+  assert.equal(line, M.outlook.sentence);
+  assert.ok(line.startsWith("At 12 months RateShield's outlook is " + M.outlook.blended[12].toFixed(2) + '%, consensus is 4.70% (gap ' + (M.outlook.gap[12] >= 0 ? '+' : '') + M.outlook.gap[12].toFixed(2) + ' pt).'), line);
+  // names at least two live inputs (their values appear in the sentence)
+  const liveValues = ['3.4%', '3.3%', '4.1%', '4.95%', '1.5%', '4.2%', '4.4%'];
+  const named = liveValues.filter((v) => line.includes(v));
+  assert.ok(named.length >= 2, 'names at least two live inputs: ' + line);
+  assert.equal(M.outlook.drivers.length, 2);
+  M.outlook.drivers.forEach((d) => assert.ok(line.includes(d.text)));
+  assert.ok(line.includes('inflation falling from 4.2% to 3.4%') || line.includes('inflation at 3.4%'), line);
+  // the sentence follows the inputs: a hot CPI print changes the drivers
+  setVal(window, 'f-cpi', '9');
+  const line2 = txt(window, 'outlook-diff');
+  assert.notEqual(line2, line);
+  assert.ok(line2.includes('9%'), line2);
+  assert.deepEqual(errors, []);
+});

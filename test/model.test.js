@@ -617,3 +617,30 @@ test('blendedPath: market weighted more at short horizons; equals the model when
   near(g[3], b[3] - 3.9, 1e-9); assert.equal(g[6], null); near(g[12], b[12] - 4.7, 1e-9); assert.equal(g[0], 0);
   assert.equal(JSON.stringify(Model.consensusGap(b, null)), JSON.stringify({ 0: null, 3: null, 6: null, 12: null, 18: null }));
 });
+
+test('outlookDifference: one sentence from the numbers naming the two largest contributors; no LLM, no "analysts"', () => {
+  const inputs = { cpi: 3.4, un: 4.1, tr: 4.95, gdp: 1.5, pce: 3.3, cpi3mo: 4.2, pce3mo: 3.3, tr3mo: 4.4, fedStance: 1.5 };
+  const c = Model.rateSignalContributions(inputs);
+  const top = Model.topContributors(c, inputs, 2);
+  assert.equal(top.length, 2);
+  assert.ok(Math.abs(top[0].pts) >= Math.abs(top[1].pts), 'ordered by |contribution|');
+  const keys = Object.keys(c).map((k) => ({ k, v: Math.abs(c[k]) })).sort((a, b) => b.v - a.v);
+  assert.equal(top[0].key, keys[0].k); assert.equal(top[1].key, keys[1].k);
+  const paths = { current: 3.63, blended: { 0: 3.63, 3: 3.7, 6: 3.75, 12: 4.1, 18: 4.2 }, model: { 0: 3.63, 3: 3.5, 6: 3.5, 12: 3.75, 18: 3.75 }, market: { 0: 3.63, 3: 3.83, 6: 4.03, 12: 4.15, 18: 4.27 } };
+  const s1 = Model.outlookDifference(Object.assign({ consensus: { 0: 3.63, 3: 3.9, 6: null, 12: 4.7, 18: 4.7 }, consensusSource: 'Bank note', contributions: c, inputs, brief: { next_meeting_lean: 'hike', stance_score: 1.5 } }, paths));
+  assert.ok(s1.startsWith("At 12 months RateShield's outlook is 4.10%, consensus is 4.70% (gap -0.60 pt). RateShield's model weights "), s1);
+  assert.ok(s1.includes(top[0].text) && s1.includes(top[1].text), 'names both drivers');
+  assert.ok(s1.endsWith("consensus is following the Fed's stated hawkish path."), s1);
+  assert.ok(!/analyst/i.test(s1));
+  // inflation falling is described from the live values, not a fixed string
+  assert.ok(top.some((t) => t.key === 'cpiMom') ? s1.includes('inflation falling from 4.2% to 3.4%') : true);
+  // consensus disagreeing with the Fed's stance is described as what it prices
+  const s2 = Model.outlookDifference(Object.assign({ consensus: { 0: 3.63, 3: 3.4, 6: 3.2, 12: 3.0, 18: 3.0 }, consensusSource: 'CME FedWatch', contributions: c, inputs, brief: { next_meeting_lean: 'hike', stance_score: 1.5 } }, paths));
+  assert.ok(s2.includes("consensus (CME FedWatch) is pricing a lower path than today's 3.63%"), s2);
+  // no consensus → says so and still names the drivers
+  const s3 = Model.outlookDifference(Object.assign({ consensus: null, contributions: c, inputs, brief: null }, paths));
+  assert.ok(s3.startsWith("No consensus path logged yet. RateShield's 12-month outlook is 4.10% (model 3.75%, market 4.15%), driven by "), s3);
+  // consensus without a 12-month value falls back to the next horizon that has one
+  const s4 = Model.outlookDifference(Object.assign({ consensus: { 0: 3.63, 3: 3.9, 6: null, 12: null, 18: null }, consensusSource: 'FedWatch (manual)', contributions: c, inputs, brief: null }, paths));
+  assert.ok(s4.startsWith('At 3 months RateShield\'s outlook is 3.70%, consensus is 3.90% (gap -0.20 pt).'), s4);
+});

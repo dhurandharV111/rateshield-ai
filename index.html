@@ -570,6 +570,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
         <div id="fed-watch-summary" style="font-size:12px;color:#3a3a3a;line-height:1.45">The daily Fed briefing assistant has not written a brief yet. Once it runs (7 am ET), the Fed's stance, its last statement and the next FOMC meeting appear here.</div>
         <div class="sn" id="fed-watch-sources" style="margin-top:6px"></div>
         <div class="chart-title" style="margin-top:14px">Outlook vs. consensus — Fed funds rate, next 18 months</div>
+        <div id="outlook-diff" style="font-size:12px;color:#3a3a3a;line-height:1.5;margin:2px 0 8px">—</div>
         <canvas id="outlookChart" height="150"></canvas>
         <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:.75rem"><thead><tr style="background:#f0ede6"><th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:700;color:#3a3a3a;border-bottom:2px solid rgba(15,15,15,.1)">Path</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Now</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">3 mo</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">6 mo</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">12 mo</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">18 mo</th></tr></thead><tbody id="outlook-tbody"></tbody></table>
         <div class="chart-src" id="outlook-src" style="margin-top:6px">Market: FRED DGS6MO/DGS2 · Consensus: none logged · RateShield: model + blend</div>
@@ -1506,6 +1507,45 @@ var Model = {
       out[h] = Math.round(((1 - w) * model[h] + w * (w ? market[h] : 0)) * 100) / 100;
     });
     return out;
+  },
+  // The two inputs doing most of the work in the score, as short phrases built
+  // from the live values (no adjectives beyond rising / falling / at).
+  topContributors: function(c, inp, n) {
+    var pct = function(v) { return (Math.round(v * 100) / 100) + '%'; };
+    var trend = function(now, ago) { return now > ago ? 'rising' : 'falling'; };
+    var phrase = {
+      cpi: function() { return 'inflation at ' + pct(inp.cpi); },
+      pce: function() { return 'core PCE at ' + pct(inp.pce); },
+      un: function() { return 'unemployment at ' + pct(inp.un); },
+      tr: function() { return 'the 10-year yield at ' + pct(inp.tr); },
+      gdp: function() { return 'growth at ' + pct(inp.gdp); },
+      cpiMom: function() { return 'inflation ' + trend(inp.cpi, inp.cpi3mo) + ' from ' + pct(inp.cpi3mo) + ' to ' + pct(inp.cpi); },
+      pceMom: function() { return 'core PCE ' + trend(inp.pce, inp.pce3mo) + ' from ' + pct(inp.pce3mo) + ' to ' + pct(inp.pce); },
+      trMom: function() { return 'the 10-year yield ' + trend(inp.tr, inp.tr3mo) + ' from ' + pct(inp.tr3mo) + ' to ' + pct(inp.tr); },
+      fedStance: function() { var sc = inp.fedStance; return 'the Fed\'s ' + (sc >= 0.5 ? 'hawkish' : sc <= -0.5 ? 'dovish' : 'neutral') + ' stance (' + (sc >= 0 ? '+' : '') + (Math.round(sc * 100) / 100) + ')'; }
+    };
+    return Object.keys(phrase).map(function(k) { return { key: k, pts: typeof c[k] === 'number' ? c[k] : 0 }; })
+      .sort(function(a, b) { return Math.abs(b.pts) - Math.abs(a.pts); }).slice(0, n || 2)
+      .map(function(x) { return { key: x.key, pts: x.pts, text: phrase[x.key]() }; });
+  },
+  // One sentence from the numbers — never from an LLM, never "analysts say".
+  // o: { current, blended, model, market, consensus (path or null), consensusSource, contributions, inputs, brief }
+  outlookDifference: function(o) {
+    var f = function(v) { return v.toFixed(2) + '%'; };
+    var top = Model.topContributors(o.contributions, o.inputs, 2);
+    var drivers = top.map(function(t) { return t.text; }).join(' and ');
+    var h = [12, 6, 18, 3].filter(function(k) { return o.consensus && typeof o.consensus[k] === 'number' && isFinite(o.consensus[k]); })[0];
+    if (!h) {
+      return 'No consensus path logged yet. RateShield\'s 12-month outlook is ' + f(o.blended[12]) + ' (model ' + f(o.model[12]) + (o.market ? ', market ' + f(o.market[12]) : '') + '), driven by ' + drivers + '.';
+    }
+    var gap = Math.round((o.blended[h] - o.consensus[h]) * 100) / 100;
+    var dir = o.consensus[h] - o.current;
+    var consDir = dir > 0.125 ? 'higher' : dir < -0.125 ? 'lower' : 'flat';
+    var b = o.brief, lean = b && b.next_meeting_lean, stance = b && typeof b.stance_score === 'number' ? b.stance_score : null;
+    var agrees = b && ((consDir === 'higher' && (lean === 'hike' || stance >= 0.5)) || (consDir === 'lower' && (lean === 'cut' || stance <= -0.5)) || (consDir === 'flat' && lean === 'hold'));
+    var consClause = agrees ? 'consensus is following the Fed\'s stated ' + (stance >= 0.5 ? 'hawkish' : stance <= -0.5 ? 'dovish' : 'on-hold') + ' path'
+      : 'consensus (' + (o.consensusSource || 'logged') + ') is pricing a ' + (consDir === 'flat' ? 'flat path' : consDir + ' path than today\'s ' + f(o.current));
+    return 'At ' + h + ' months RateShield\'s outlook is ' + f(o.blended[h]) + ', consensus is ' + f(o.consensus[h]) + ' (gap ' + (gap >= 0 ? '+' : '') + gap.toFixed(2) + ' pt). RateShield\'s model weights ' + drivers + '; ' + consClause + '.';
   },
   // Outlook minus consensus per horizon (pt); null where the consensus has no value.
   consensusGap: function(blended, consensus) {
@@ -3336,7 +3376,12 @@ function updateF() {
     market: { sixMonthSpread: mkt.sixMonthSpread, twoYearSpread: mkt.twoYearSpread, direction: mkt.direction, probs: mktP, tr6mo: tr6, tr2y: tr2 }, disagree: disagree, cme: cme,
     analogYear: analog.best.year, analogMatch: analog.best.matchPct, confidence: conf,
     outlook: { model: modelPath, market: marketPath, blended: blended, consensus: consensusPath, gap: gap, consensusMeta: LAST_CONSENSUS ? { source: LAST_CONSENSUS.source, as_of: LAST_CONSENSUS.as_of } : null } };
+  var diffSentence=Model.outlookDifference({ current: cur, blended: blended, model: modelPath, market: marketPath, consensus: consensusPath, consensusSource: LAST_CONSENSUS ? LAST_CONSENSUS.source : null,
+    contributions: contrib, inputs: sigIn, brief: LAST_FED_BRIEF ? { next_meeting_lean: LAST_FED_BRIEF.next_meeting_lean, stance_score: Number(LAST_FED_BRIEF.stance_score) } : null });
+  RS_METRICS.forecast.outlook.sentence=diffSentence;
+  RS_METRICS.forecast.outlook.drivers=Model.topContributors(contrib, sigIn, 2);
   renderOutlookComparison({ model: modelPath, market: marketPath, blended: blended, consensus: consensusPath, gap: gap });
+  var diffEl=document.getElementById('outlook-diff'); if(diffEl) diffEl.textContent=diffSentence;
   renderFedStanceRow();
   document.getElementById('pred-rate').textContent=r12.toFixed(2)+'%';
   document.getElementById('pred-env').textContent=env;
