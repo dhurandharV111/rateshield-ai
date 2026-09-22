@@ -644,3 +644,20 @@ test('outlookDifference: one sentence from the numbers naming the two largest co
   const s4 = Model.outlookDifference(Object.assign({ consensus: { 0: 3.63, 3: 3.9, 6: null, 12: null, 18: null }, consensusSource: 'FedWatch (manual)', contributions: c, inputs, brief: null }, paths));
   assert.ok(s4.startsWith('At 3 months RateShield\'s outlook is 3.70%, consensus is 3.90% (gap -0.20 pt).'), s4);
 });
+
+// ── Rules ───────────────────────────────────────────────────────────────────
+test('rule: a consensus path never enters the score, the model path or the blend', () => {
+  const base = { cpi: 3.4, un: 4.1, tr: 4.95, gdp: 1.5, pce: 3.3, cpi3mo: 4.2, pce3mo: 3.3, tr3mo: 4.4, fedStance: 1.5 };
+  const withCons = Object.assign({ consensus: { 3: 0.5, 6: 0.5, 12: 0.5, 18: 0.5 }, m12: 0.5, consensusPath: 0.5 }, base);
+  assert.equal(Model.rateSignalScore(withCons), Model.rateSignalScore(base));
+  assert.equal(JSON.stringify(Model.rateSignalContributions(withCons)), JSON.stringify(Model.rateSignalContributions(base)));
+  assert.ok(!('consensus' in Model.rateSignalContributions(base)), 'no consensus contribution key exists');
+  const model = Model.ratePath({ current: 3.63, score: 2, consensus: { 12: 0.5 } });
+  assert.equal(JSON.stringify(model), JSON.stringify(Model.ratePath({ current: 3.63, score: 2 })));
+  const market = Model.marketPath({ current: 3.63, dgs6mo: 4.03, dgs2: 4.39 });
+  assert.equal(JSON.stringify(Model.blendedPath(model, market, { 12: 0.5 })), JSON.stringify(Model.blendedPath(model, market)), 'a third argument is ignored');
+  assert.equal(Model.blendedPath.length, 2, 'blendedPath takes exactly model and market');
+  assert.equal(Model.ratePath.length, 1);
+  assert.ok(!/consensus/i.test(Model.rateSignalScore.toString() + Model.rateSignalContributions.toString() + Model.ratePath.toString() + Model.blendedPath.toString() + Model.marketPath.toString()),
+    'no forecast function mentions consensus');
+});

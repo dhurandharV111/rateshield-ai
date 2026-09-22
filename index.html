@@ -1548,6 +1548,9 @@ var Model = {
       : 'consensus (' + (o.consensusSource || 'logged') + ') is pricing a ' + (consDir === 'flat' ? 'flat path' : consDir + ' path than today\'s ' + f(o.current));
     return 'At ' + h + ' months RateShield\'s outlook is ' + f(o.blended[h]) + ', consensus is ' + f(o.consensus[h]) + ' (gap ' + (gap >= 0 ? '+' : '') + gap.toFixed(2) + ' pt). RateShield\'s model weights ' + drivers + '; ' + consClause + '.';
   },
+  // RULE: the consensus path is for display and scoring only. It is not an
+  // argument of rateSignalScore, ratePath or blendedPath, and nothing below
+  // reads LAST_CONSENSUS except the renderer and consensusGap.
   // Outlook minus consensus per horizon (pt); null where the consensus has no value.
   consensusGap: function(blended, consensus) {
     var out = {};

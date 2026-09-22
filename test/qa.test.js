@@ -737,3 +737,40 @@ test('3-month forecast error line renders from the forecast_error_summary view',
   assert.equal(txt(window, 'forecast-error-line'), '3-month forecast error: no scored meetings yet.');
   assert.deepEqual(errors, []);
 });
+
+test('rule: changing the consensus row leaves the blended and model values (and the forecast) unchanged; only display and gap move', () => {
+  const { window, errors } = boot('manufacturing');
+  const snap = () => { const M = window.RS_METRICS.forecast; return { score: M.score, pred: M.predicted12, blended: JSON.stringify(M.outlook.blended), model: JSON.stringify(M.outlook.model), market: JSON.stringify(M.outlook.market), rate: txt(window, 'pred-rate'), r6: txt(window, 'r6'), r12: txt(window, 'r12'), r18: txt(window, 'r18'), fomc: JSON.stringify(M.fomc) }; };
+  const before = snap();
+  [{ as_of: '2026-09-20', source: 'Bank note', m3: 3.9, m6: 4.2, m12: 4.7, m18: 4.7 },
+   { as_of: '2026-09-21', source: 'CME FedWatch', m3: 0.25, m6: 0.25, m12: 0.25, m18: 0.25 },
+   { as_of: '2026-09-21', source: 'StreetStats', m3: 9.5, m6: null, m12: 9.9, m18: null }].forEach((row) => {
+    assert.equal(window.applyConsensus(row), true);
+    window.updateAll();
+    const after = snap();
+    assert.equal(JSON.stringify(after), JSON.stringify(before), 'consensus ' + row.source + ' changed a forecast value');
+    const M = window.RS_METRICS.forecast;
+    assert.equal(M.outlook.consensus[12], row.m12, 'display reflects the row');
+    if (row.m12 !== null) assert.ok(Math.abs(M.outlook.gap[12] - (M.outlook.blended[12] - row.m12)) < 1e-9, 'only the gap moves');
+  });
+  window.applyConsensus(null); window.updateAll();
+  assert.equal(JSON.stringify(snap()), JSON.stringify(before));
+  assert.deepEqual(errors, []);
+});
+
+test('rule: the functions reach only federalreserve.gov, FRED, Anthropic and Supabase; the page fetches only its own /api routes', () => {
+  const fs = require('fs'), path = require('path');
+  const apiDir = path.join(__dirname, '..', 'api');
+  const allowed = ['www.federalreserve.gov', 'api.stlouisfed.org', 'api.anthropic.com', 'wfmhlmqsvcxaplwtdtjz.supabase.co', 'rateshieldai.com'];
+  fs.readdirSync(apiDir).filter((f) => f.endsWith('.js')).forEach((f) => {
+    const src = fs.readFileSync(path.join(apiDir, f), 'utf8');
+    const hosts = Array.from(new Set((src.match(/https?:\/\/([a-zA-Z0-9.-]+)/g) || []).map((u) => u.replace(/^https?:\/\//, ''))));
+    hosts.forEach((h) => assert.ok(allowed.includes(h), f + ' references ' + h));
+    assert.ok(!/https?:\/\/[^\s'"`]*(cmegroup|bloomberg|reuters|wsj\.com|ft\.com|cnbc|news)/i.test(src), f + ' must never fetch bank, news or CME pages');
+  });
+  const page = fs.readFileSync(require('./helpers/loadApp').HTML_PATH, 'utf8');
+  const targets = (page.match(/fetch\(\s*'([^']+)'/g) || []).map((m) => m.match(/'([^']+)'/)[1]);
+  assert.ok(targets.length >= 4);
+  targets.forEach((t) => assert.ok(t.startsWith('/api/'), 'page fetches ' + t));
+  assert.ok(!/fetch\(\s*[`"]/.test(page), 'every page fetch uses a literal /api route');
+});
