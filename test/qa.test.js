@@ -577,6 +577,7 @@ test('"Run brief now": visible only for the owner email, calls /api/fed-brief wi
   assert.equal(calls[0].url, '/api/fed-brief');
   assert.equal(calls[0].opts.method, 'POST');
   assert.equal(calls[0].opts.headers.Authorization, 'Bearer aaa.bbb.ccc', 'owner session token, not a cron secret');
+  assert.equal(JSON.parse(calls[0].opts.body).force, true, 'a manual run is forced so a bad stored brief can be replaced');
   assert.equal(btn.textContent, 'Brief generated · stance +1.25');
   assert.equal(txt(window, 'f-fed-stance-val'), '+1.25 hawkish');
   assert.ok(txt(window, 'fed-watch-line').startsWith('Fed stance: hawkish +1.3'));

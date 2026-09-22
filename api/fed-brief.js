@@ -132,9 +132,15 @@ export const BRIEF_SCHEMA = {
   additionalProperties: false
 };
 
+// First two sentences. A sentence ends at . ! or ? followed by whitespace or the
+// end of the text — so "3.75–4%" or "2.5 percent" never splits a sentence, and
+// the text is always kept from its first character.
 export function twoSentences(text) {
-  const parts = String(text || '').replace(/\s+/g, ' ').trim().match(/[^.!?]+[.!?]+(?:\s|$)|[^.!?]+$/g) || [];
-  return parts.slice(0, 2).join('').trim();
+  const t = String(text || '').replace(/\s+/g, ' ').trim();
+  const re = /[.!?]+["'”’)]?(?=\s|$)/g;
+  let m, count = 0;
+  while ((m = re.exec(t))) { count += 1; if (count === 2) return t.slice(0, m.index + m[0].length).trim(); }
+  return t;
 }
 
 // Returns { ok: true, brief } for a usable answer, { ok: false, problems } otherwise.
@@ -319,7 +325,10 @@ export async function runBrief(deps) {
   if (missing.length) throw new Error('Missing env: ' + missing.join(', '));
 
   const prev = await fetchPreviousBrief(env, fetchImpl);
-  const since = prev ? new Date(prev.brief_date + 'T00:00:00Z').toISOString() : daysAgo(today, FIRST_RUN_DAYS) + 'T00:00:00.000Z';
+  // force: regenerate from the whole first-run window even if nothing is new
+  // (used by the owner's manual run to replace a bad stored brief).
+  const since = (prev && !deps.force) ? new Date(prev.brief_date + 'T00:00:00Z').toISOString() : daysAgo(today, FIRST_RUN_DAYS) + 'T00:00:00.000Z';
+  if (deps.force) log('[fed-brief] forced run — considering items since ' + since.slice(0, 10));
 
   // 1. Feeds — a feed that fails is logged and skipped, never fatal.
   let items = [];
@@ -378,7 +387,7 @@ export async function runBrief(deps) {
     brief_date: today, stance_score: v.brief.stance_score, next_meeting_lean: v.brief.next_meeting_lean,
     next_meeting_date: v.brief.next_meeting_date || nextMeetingDate, summary: v.brief.summary, key_phrases: v.brief.key_phrases,
     sources, fed_funds_at_brief: fedFunds,
-    model_json: { answer: v.brief, model: answer.model, usage: answer.usage, items_considered: fresh.length, calendar_next_meeting: nextMeetingDate, fred: snapshot }
+    model_json: { answer: v.brief, raw_answer: String(answer.text).slice(0, 4000), model: answer.model, usage: answer.usage, items_considered: fresh.length, calendar_next_meeting: nextMeetingDate, fred: snapshot, forced: !!deps.force }
   };
   log('[fed-brief] generated: stance ' + row.stance_score + ' · ' + row.next_meeting_lean + ' · ' + fresh.length + ' items');
   return finish({ action: 'generated', row, anthropicCalled: true });
@@ -411,9 +420,13 @@ export default async function handler(req, res) {
   if (!process.env.CRON_SECRET) return res.status(500).json({ error: 'CRON_SECRET is not configured' });
   const auth = await authorize(req, process.env, fetch);
   if (!auth.ok) return res.status(401).json({ error: 'Unauthorized', reason: auth.reason });
+  let body = req.body;
+  if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = {}; } }
+  const q = req.query || {};
+  const force = String((body && body.force) || q.force || '') === 'true' || String((body && body.force) || q.force || '') === '1';
   try {
-    const out = await runBrief({});
-    return res.status(200).json({ ok: true, via: auth.via, action: out.action, anthropicCalled: out.anthropicCalled, error: out.error || null, brief: out.row });
+    const out = await runBrief({ force });
+    return res.status(200).json({ ok: true, via: auth.via, action: out.action, forced: force, anthropicCalled: out.anthropicCalled, error: out.error || null, brief: out.row });
   } catch (error) {
     console.error('[fed-brief] failed:', error);
     return res.status(500).json({ ok: false, error: error && error.message });

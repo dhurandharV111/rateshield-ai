@@ -424,7 +424,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
       <div class="nav-co" id="nav-co">—</div>
       <span class="trial-badge" id="trial-badge" style="display:none">FREE TRIAL</span>
       <div class="nav-sec" id="nav-sec">Sector</div>
-      <button class="nav-out" id="run-brief-btn" style="display:none" onclick="runFedBriefNow()" title="Owner only — run today's Fed brief now instead of waiting for 7 am ET">Run brief now</button>
+      <button class="nav-out" id="run-brief-btn" style="display:none" onclick="runFedBriefNow()" title="Owner only — regenerate today's Fed brief now from the last 30 days of Fed items (does not wait for 7 am ET or for new items)">Run brief now</button>
       <button class="nav-out" onclick="signOut()">Sign out</button>
     </div>
   </nav>
@@ -2080,7 +2080,9 @@ function runFedBriefNow() {
   return supabase.auth.getSession().then(function(r) {
     var token = r && r.data && r.data.session && r.data.session.access_token;
     if (!token) throw new Error('no session');
-    return fetch('/api/fed-brief', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' } });
+    // force: a manual run regenerates from the last 30 days of Fed items even when
+    // nothing is new, so a bad stored brief can be replaced without waiting.
+    return fetch('/api/fed-brief', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify({ force: true }) });
   }).then(function(res) { return res.json().then(function(d) { d._status = res.status; return d; }); })
     .then(function(d) {
       LAST_BRIEF_RUN = d;

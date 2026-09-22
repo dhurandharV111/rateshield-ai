@@ -244,3 +244,39 @@ test('scorekeeping: every run logs today\'s RateShield (blended + model) and mar
   assert.equal(out3.action, 'copied'); assert.equal(out3.forecastLog, null);
   assert.ok(logs.some((l) => l.includes('forecast_log failed')));
 });
+
+test('twoSentences keeps the text from its first character: decimals such as "3.75–4%" never split a sentence', () => {
+  const t = 'The FOMC raised the target range to 3.75–4% on a unanimous vote, citing 3.4 percent inflation. Officials signalled one more hike. A third sentence here.';
+  assert.equal(fb.twoSentences(t), 'The FOMC raised the target range to 3.75–4% on a unanimous vote, citing 3.4 percent inflation. Officials signalled one more hike.');
+  assert.equal(fb.twoSentences('One sentence only'), 'One sentence only');
+  assert.equal(fb.twoSentences('Rates at 4.5%. Done.'), 'Rates at 4.5%. Done.');
+  assert.equal(fb.twoSentences('Ends with a quote." Next one! Third?'), 'Ends with a quote." Next one!');
+  assert.equal(fb.twoSentences('  spaced   out. second.   third. '), 'spaced out. second.');
+  assert.equal(fb.twoSentences(''), '');
+  const v = fb.validateBrief({ stance_score: 1.5, next_meeting_lean: 'hike', next_meeting_date: '2026-10-28', summary: t, key_phrases: [], confidence: 0.8 });
+  assert.ok(v.brief.summary.startsWith('The FOMC raised the target range to 3.75–4%'), v.brief.summary);
+});
+
+test('forced run regenerates from the 30-day window even when nothing is new, and keeps the raw model text', async () => {
+  const answer = { stance_score: 1.5, next_meeting_lean: 'hike', next_meeting_date: '2026-10-28', summary: 'The FOMC raised the target range to 3.75–4% on a unanimous vote. One more hike is likely.', key_phrases: ['unanimous'], confidence: 0.8 };
+  const net = fakeNet({ prev: PREV, rss: RSS, anthropic: { content: [{ type: 'text', text: JSON.stringify(answer) }], stop_reason: 'end_turn', model: 'claude-opus-5' } });
+  const out = await fb.runBrief({ env: ENV, fetch: net.fetchImpl, today: '2026-09-20', log, force: true });
+  assert.equal(out.action, 'generated', 'items older than the last brief are reconsidered when forced');
+  assert.equal(out.row.summary, answer.summary, 'full summary stored');
+  assert.equal(out.row.model_json.raw_answer, JSON.stringify(answer));
+  assert.equal(out.row.model_json.forced, true);
+  const res = () => { const r = { code: 0, body: null, status(c) { r.code = c; return r; }, json(b) { r.body = b; return r; } }; return r; };
+  const saved = process.env.CRON_SECRET; process.env.CRON_SECRET = 'cron-secret';
+  const realFetch = global.fetch; global.fetch = net.fetchImpl;
+  const savedEnv = {}; ['ANTHROPIC_API_KEY', 'FRED_API_KEY', 'SUPABASE_SERVICE_ROLE_KEY'].forEach((k) => { savedEnv[k] = process.env[k]; process.env[k] = ENV[k]; });
+  try {
+    const r = res(); await fb.default({ method: 'POST', headers: { authorization: 'Bearer cron-secret' }, body: '{"force":true}', query: {} }, r);
+    assert.equal(r.code, 200); assert.equal(r.body.forced, true); assert.equal(r.body.action, 'generated');
+    const r2 = res(); await fb.default({ method: 'GET', headers: { authorization: 'Bearer cron-secret' }, query: {} }, r2);
+    assert.equal(r2.body.forced, false, 'the cron path is never forced');
+  } finally {
+    global.fetch = realFetch;
+    if (saved === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = saved;
+    Object.keys(savedEnv).forEach((k) => { if (savedEnv[k] === undefined) delete process.env[k]; else process.env[k] = savedEnv[k]; });
+  }
+});
