@@ -2962,6 +2962,7 @@ function go() {
 
 function signOut() {
   if (supabase) supabase.auth.signOut();
+  setOwnerUi(null);
   localStorage.removeItem('rs_trial');
   document.getElementById('app').style.display = 'none';
   document.getElementById('landing').style.display = 'flex';

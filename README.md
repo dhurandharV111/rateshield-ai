@@ -86,5 +86,11 @@ Rate Outlook card shows as "3-month forecast error, last N meetings: RateShield 
 npm test
 ```
 
-Runs the pure-model unit tests, the FRED and Fed-brief function tests, the backtest, and a jsdom
-QA harness that boots the whole app for every sector.
+Runs, in order: the pure-model unit tests (`test/model.test.js`), the FRED function tests
+(`test/fred.test.js`), the Fed-brief and consensus endpoint tests (`test/fed-brief.test.js`,
+`test/consensus.test.js` — feed/calendar parsing, validation bounds, copy-forward, JSON fallback,
+FedWatch-derived m3, forecast_log mirroring, authorisation), the backtest (`test/backtest.test.js`)
+and a jsdom QA harness (`test/qa.test.js`) that boots the whole app for every sector and checks the
+Rate Outlook card: three chart series without a consensus row and four with, the difference sentence
+naming at least two live inputs, owner-only controls, and that consensus never changes a forecast value.
+No test touches the network.

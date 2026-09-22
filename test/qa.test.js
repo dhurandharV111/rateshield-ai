@@ -774,3 +774,20 @@ test('rule: the functions reach only federalreserve.gov, FRED, Anthropic and Sup
   targets.forEach((t) => assert.ok(t.startsWith('/api/'), 'page fetches ' + t));
   assert.ok(!/fetch\(\s*[`"]/.test(page), 'every page fetch uses a literal /api route');
 });
+
+test('owner controls: sign-out hides the consensus form and "Run brief now"; a consensus row with no numeric horizon is ignored (three series)', () => {
+  const { window, errors } = boot('manufacturing');
+  window.setOwnerUi('rajatinpa@gmail.com');
+  assert.equal(window.document.getElementById('consensus-form').style.display, '');
+  assert.equal(window.document.getElementById('run-brief-btn').style.display, '');
+  window.supabase = null; // no session in tests; signOut must still hide the owner controls
+  window.signOut();
+  assert.equal(window.document.getElementById('consensus-form').style.display, 'none');
+  assert.equal(window.document.getElementById('run-brief-btn').style.display, 'none');
+  assert.equal(window.applyConsensus({ as_of: '2026-09-21', source: 'Bank note', m3: null, m6: null, m12: null, m18: null }), false);
+  window.updateAll();
+  assert.equal(window.outlookChart.data.datasets.length, 3);
+  assert.equal(window.RS_METRICS.forecast.outlook.consensus, null);
+  assert.ok(txt(window, 'outlook-diff').startsWith('No consensus path logged yet.'));
+  assert.deepEqual(errors, []);
+});
