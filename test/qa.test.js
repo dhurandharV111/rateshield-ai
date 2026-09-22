@@ -791,3 +791,29 @@ test('owner controls: sign-out hides the consensus form and "Run brief now"; a c
   assert.ok(txt(window, 'outlook-diff').startsWith('No consensus path logged yet.'));
   assert.deepEqual(errors, []);
 });
+
+test('Outlook chart is a <canvas> in a fixed-height wrapper, created with the other charts, and the Chart stub holds three datasets on boot', () => {
+  const { window, errors } = boot('manufacturing');
+  const card = window.document.getElementById('rate-outlook');
+  assert.equal(card.querySelectorAll('img').length, 0, 'no <img> anywhere in the card');
+  const canvas = window.document.getElementById('outlookChart');
+  assert.equal(canvas.tagName, 'CANVAS');
+  const wrap = window.document.getElementById('outlook-chart-wrap');
+  assert.equal(canvas.parentElement, wrap);
+  assert.equal(wrap.style.height, '240px', 'the responsive chart has a sized container to fill');
+  assert.ok(wrap.classList.contains('chart-wrap'));
+  assert.ok(window.outlookChart, 'chart exists after boot');
+  assert.equal(window.outlookChart.config.type, 'line');
+  assert.equal(window.outlookChart.data.datasets.length, 3, 'blended, model, market — with no consensus row');
+  window.outlookChart.data.datasets.forEach((d) => { assert.equal(d.data.length, 5); d.data.forEach((v) => assert.ok(typeof v === 'number' && isFinite(v), d.label + ' has a value at every horizon')); });
+  // initCharts creates it in the shared lifecycle (before any render) and updateAll self-heals it
+  window.outlookChart = null;
+  window.initCharts();
+  assert.ok(window.outlookChart, 'initCharts creates the outlook chart');
+  window.updateAll();
+  assert.equal(window.outlookChart.data.datasets.length, 3);
+  window.outlookChart = null;
+  window.updateAll();
+  assert.ok(window.outlookChart && window.outlookChart.data.datasets.length === 3, 'updateAll rebuilds a missing outlook chart');
+  assert.deepEqual(errors, []);
+});

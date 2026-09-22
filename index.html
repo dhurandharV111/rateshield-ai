@@ -571,7 +571,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
         <div class="sn" id="fed-watch-sources" style="margin-top:6px"></div>
         <div class="chart-title" style="margin-top:14px">Outlook vs. consensus — Fed funds rate, next 18 months</div>
         <div id="outlook-diff" style="font-size:12px;color:#3a3a3a;line-height:1.5;margin:2px 0 8px">—</div>
-        <canvas id="outlookChart" height="150"></canvas>
+        <div class="chart-wrap" id="outlook-chart-wrap" style="padding:.75rem;margin:4px 0 0;height:240px;max-height:none"><canvas id="outlookChart"></canvas></div>
         <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:.75rem"><thead><tr style="background:#f0ede6"><th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:700;color:#3a3a3a;border-bottom:2px solid rgba(15,15,15,.1)">Path</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Now</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">3 mo</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">6 mo</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">12 mo</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">18 mo</th></tr></thead><tbody id="outlook-tbody"></tbody></table>
         <div class="chart-src" id="outlook-src" style="margin-top:6px">Market: FRED DGS6MO/DGS2 · Consensus: none logged · RateShield: model + blend</div>
         <div class="sn" id="forecast-error-line" style="margin-top:4px">3-month forecast error: no scored meetings yet.</div>
@@ -2122,6 +2122,10 @@ function loadConsensus() {
     })
     .catch(function(e) { console.warn('Consensus load failed:', e && e.message); return false; });
 }
+function outlookChartOptions() {
+  return { responsive: true, maintainAspectRatio: false, animation: { duration: 250 }, plugins: { legend: { labels: { font: { size: 10 }, boxWidth: 10 } } },
+           scales: { y: { ticks: { callback: function(v) { return v.toFixed(2) + '%'; }, font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.04)' } }, x: { ticks: { font: { size: 10 } }, grid: { display: false } } } };
+}
 // Chart + table + source line in the Rate Outlook card. Four series when a
 // consensus row exists, three when none.
 function renderOutlookComparison(p) {
@@ -2138,9 +2142,7 @@ function renderOutlookComparison(p) {
   if (canvas && typeof Chart !== 'undefined') {
     try {
       if (!outlookChart) {
-        outlookChart = new Chart(canvas.getContext('2d'), { type: 'line', data: { labels: labels, datasets: datasets },
-          options: { responsive: true, maintainAspectRatio: false, animation: { duration: 250 }, plugins: { legend: { labels: { font: { size: 10 }, boxWidth: 10 } } },
-                     scales: { y: { ticks: { callback: function(v) { return v.toFixed(2) + '%'; }, font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.04)' } }, x: { ticks: { font: { size: 10 } }, grid: { display: false } } } } });
+        outlookChart = new Chart(canvas.getContext('2d'), { type: 'line', data: { labels: labels, datasets: datasets }, options: outlookChartOptions() });
       } else { outlookChart.data.labels = labels; outlookChart.data.datasets = datasets; outlookChart.update('none'); }
     } catch (e) { console.warn('Outlook chart failed', e); }
   }
@@ -2648,7 +2650,8 @@ function updateAll() {
         (!aiChart && document.getElementById('aiChart')) ||
         (!lChart  && document.getElementById('lChart')) ||
         (!eqChart && document.getElementById('eqChart')) ||
-        (!profChart && document.getElementById('profChart'));
+        (!profChart && document.getElementById('profChart')) ||
+        (!outlookChart && document.getElementById('outlookChart'));
       if (needInit) initCharts();
     }
   } catch (e) { console.warn('chart self-heal failed:', e && e.message); }
@@ -2666,7 +2669,7 @@ function updateAll() {
 
 // ── Resize all Chart.js instances
 function resizeAllCharts() {
-  [fChart, hChart, aiChart, lChart, eqChart, profChart, eqScChart, eqBasicChart, m1AC, m2AC, m3AC, m4AC, m5AC, m6AC].forEach(function(ch) {
+  [fChart, hChart, aiChart, lChart, eqChart, profChart, eqScChart, eqBasicChart, outlookChart, m1AC, m2AC, m3AC, m4AC, m5AC, m6AC].forEach(function(ch) {
     try { if (ch && typeof ch.resize === 'function') ch.resize(); } catch(e) {}
   });
 }
@@ -4053,6 +4056,15 @@ function initCharts() {
       }
     }
   };
+
+  // ── Outlook vs. consensus chart (Rate Outlook card). Created here, in the
+  // same lifecycle as every other chart, so it exists before the first render
+  // and is resized with the rest once the panel is visible.
+  try { var oc = document.getElementById('outlookChart');
+  if (oc) {
+    if (outlookChart) { outlookChart.destroy(); outlookChart = null; }
+    outlookChart = new Chart(oc.getContext('2d'), { type: 'line', data: { labels: ['Now', '3mo', '6mo', '12mo', '18mo'], datasets: [] }, options: outlookChartOptions() });
+  } } catch (e) { console.warn('Outlook chart init failed', e); }
 
   // ── Financing Strategy (Rate) chart
   try { var fc = document.getElementById('fChart');
