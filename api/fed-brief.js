@@ -149,6 +149,14 @@ export function selectItems(fresh) {
   return { statement, others };
 }
 
+// Newest FOMC statement across every fetched item (statements feed preferred), or null.
+export function newestStatementFrom(items) {
+  const byDate = (a, b) => String(b.published).localeCompare(String(a.published));
+  const stmts = (items || []).filter((it) => it && it.published && STATEMENT_RE.test(it.title));
+  const pick = stmts.filter((it) => it.feed === 'fomc').sort(byDate)[0] || stmts.sort(byDate)[0] || null;
+  return pick ? toSource(pick, 'statement') : null;
+}
+
 export function toSource(it, kind) {
   return { kind, title: it.title, url: it.link, published: it.published ? it.published.slice(0, 10) : null };
 }
@@ -376,6 +384,10 @@ export async function runBrief(deps) {
   const seen = new Set();
   const fresh = items.filter((it) => it.published && it.published > since && !seen.has(it.link) && seen.add(it.link))
     .sort((a, b) => b.published.localeCompare(a.published)).slice(0, MAX_ITEMS);
+  // The most recent FOMC statement in the statements feed, regardless of the
+  // lookback window, so every row can date "last FOMC statement" even when
+  // the statement is older than the previous brief.
+  const newestStatement = newestStatementFrom(items) || ((prev && prev.model_json && prev.model_json.last_statement) || null);
 
   // 2. Calendar and FRED.
   let nextMeetingDate = null;
@@ -395,6 +407,7 @@ export async function runBrief(deps) {
   // 3. Nothing new → copy forward, no model call.
   if (!fresh.length) {
     const row = copyForward(prev, { briefDate: today, nextMeetingDate, fedFunds, sources: [], reason: prev ? 'no new Fed items since ' + prev.brief_date : 'no Fed items in the first-run window' });
+    row.model_json.last_statement = newestStatement;
     log('[fed-brief] ' + row.model_json.reason + ' — copied forward, Anthropic not called');
     return finish({ action: 'copied', row, anthropicCalled: false });
   }
@@ -409,7 +422,7 @@ export async function runBrief(deps) {
     try { it.body = extractArticle(await getText(fetchImpl, it.link)); } catch (e) { it.body = it.description; log('[fed-brief] body ' + it.link + ' failed: ' + e.message); }
   }
   const sources = (picked.statement ? [toSource(picked.statement, 'statement')] : []).concat(picked.others.slice(0, OTHER_ITEMS_MAX).map((it) => toSource(it, 'other')));
-  const lastStatement = picked.statement ? toSource(picked.statement, 'statement') : ((prev && prev.model_json && prev.model_json.last_statement) || null);
+  const lastStatement = picked.statement ? toSource(picked.statement, 'statement') : newestStatement;
 
   // 5. Ask the model; on any failure copy forward but keep the sources.
   let answer;

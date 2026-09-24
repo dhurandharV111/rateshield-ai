@@ -544,7 +544,7 @@ test('Rate Outlook card: the Fed watch strip renders from a mocked fed_briefs ro
               { kind: 'other', title: 'Federal Reserve Board announces enforcement action against Bank B', url: 'https://www.federalreserve.gov/newsevents/pressreleases/enforcement20260918b.htm', published: '2026-09-18' },
               { kind: 'other', title: 'Federal Reserve Board announces enforcement action against Bank C', url: 'https://www.federalreserve.gov/newsevents/pressreleases/enforcement20260918c.htm', published: '2026-09-18' },
               { title: 'Speech', url: 'https://example.com/not-the-fed', published: '2026-09-18' }] });
-  assert.equal(txt(window, 'fed-watch-line'), 'Fed stance: hawkish +1.5 · last statement 16 Sep · next meeting 28 Oct (lean: hike)', 'the statement date, not the newest press release');
+  assert.equal(txt(window, 'fed-watch-line'), 'Fed stance: hawkish +1.5 · last FOMC statement 16 Sep · next meeting 28 Oct (lean: hike)', 'the statement date, not the newest press release');
   assert.equal(txt(window, 'fed-watch-summary'), 'Officials signalled further tightening after the energy-driven re-acceleration. A 25 bp hike on 28 October is the base case.');
   assert.equal(txt(window, 'fed-watch-asof'), 'as of 20 Sep · Fed funds 3.88%');
   const links = Array.from(window.document.querySelectorAll('#fed-watch-sources a')).map((a) => a.href);
@@ -555,15 +555,28 @@ test('Rate Outlook card: the Fed watch strip renders from a mocked fed_briefs ro
   // a copied-forward brief (no sources) still dates the statement from model_json
   window.applyFedBrief({ brief_date: '2026-09-21', stance_score: 1.5, next_meeting_lean: 'hike', next_meeting_date: '2026-10-28', summary: 'Copied.', sources: [],
     model_json: { copied_from: '2026-09-20', last_statement: { kind: 'statement', title: 'Federal Reserve issues FOMC statement', url: 'https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm', published: '2026-09-16' } } });
-  assert.ok(txt(window, 'fed-watch-line').includes('last statement 16 Sep'));
+  assert.ok(txt(window, 'fed-watch-line').includes('last FOMC statement 16 Sep'));
   assert.equal(window.document.querySelectorAll('#fed-watch-sources a').length, 1);
   // an old-format brief whose newest source is an enforcement action never dates the statement from it
   window.applyFedBrief({ brief_date: '2026-09-21', stance_score: 1.5, next_meeting_lean: 'hike', next_meeting_date: '2026-10-28', summary: 'Old.',
     sources: [{ title: 'Federal Reserve Board announces enforcement action against Bank A', url: 'https://www.federalreserve.gov/newsevents/pressreleases/enforcement20260918a.htm', published: '2026-09-18' }] });
-  assert.ok(txt(window, 'fed-watch-line').includes('last statement none since 21 Sep'), txt(window, 'fed-watch-line'));
+  assert.ok(txt(window, 'fed-watch-line').includes('last FOMC statement none on record'), txt(window, 'fed-watch-line'));
+  // …unless an earlier brief in history recorded one: then that date is shown regardless of the lookback window
+  assert.equal(window.applyFedBriefHistory([
+    { brief_date: '2026-09-20', sources: [{ title: 'Federal Reserve Board announces enforcement action', url: 'https://www.federalreserve.gov/x', published: '2026-09-18' }], model_json: {} },
+    { brief_date: '2026-09-17', sources: [], model_json: { last_statement: { kind: 'statement', title: 'Federal Reserve issues FOMC statement', url: 'https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm', published: '2026-09-16' } } },
+    { brief_date: '2026-08-01', sources: [{ kind: 'statement', title: 'Federal Reserve issues FOMC statement', url: 'https://www.federalreserve.gov/newsevents/pressreleases/monetary20260729a.htm', published: '2026-07-29' }], model_json: {} }
+  ]), true);
+  assert.ok(txt(window, 'fed-watch-line').includes('last FOMC statement 16 Sep'), 'newest statement in history wins: ' + txt(window, 'fed-watch-line'));
+  const hist = Array.from(window.document.querySelectorAll('#fed-watch-sources a')).map((a) => a.href);
+  assert.equal(hist[0], 'https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm', 'the recovered statement link is shown first');
+  assert.equal(hist.length, 2, 'followed by the row\'s own other item');
+  assert.equal(window.applyFedBriefHistory([]), false);
+  window.applyFedBriefHistory([{ brief_date: '2026-09-01', sources: [], model_json: {} }]);
+  assert.ok(txt(window, 'fed-watch-line').includes('last FOMC statement none on record'));
   // a brief with no sources (copied forward) still renders
   window.applyFedBrief({ brief_date: '2026-09-21', stance_score: -0.75, next_meeting_lean: 'cut', next_meeting_date: '2026-10-28', summary: 'Copied.', sources: [] });
-  assert.equal(txt(window, 'fed-watch-line'), 'Fed stance: dovish -0.8 · last statement none since 21 Sep · next meeting 28 Oct (lean: cut)');
+  assert.equal(txt(window, 'fed-watch-line'), 'Fed stance: dovish -0.8 · last FOMC statement none on record · next meeting 28 Oct (lean: cut)');
   assert.equal(txt(window, 'fed-watch-sources'), '');
   assert.deepEqual(badValues(window, 'fed-watch'), []);
   assert.deepEqual(errors, []);

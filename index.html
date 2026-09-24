@@ -1996,6 +1996,24 @@ var LAST_FED_BRIEF = null;
 function fedStanceInput() { return LAST_FED_BRIEF && isFinite(Number(LAST_FED_BRIEF.stance_score)) ? Number(LAST_FED_BRIEF.stance_score) : null; }
 function fedStanceLabel(score) { return score >= 0.5 ? 'hawkish' : score <= -0.5 ? 'dovish' : 'neutral'; }
 function fmtShortDate(iso) { if (!iso) return '—'; var d = new Date(String(iso).slice(0, 10) + 'T00:00:00Z'); return isNaN(d.getTime()) ? String(iso) : d.getUTCDate() + ' ' + d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }); }
+// Statement recorded on a fed_briefs row: model_json.last_statement, else a source of kind statement.
+function fedStatementOf(b) {
+  if (!b || typeof b !== 'object') return null;
+  var official = function(x) { return x && String(x.url || '').indexOf('https://www.federalreserve.gov/') === 0 && x.published ? x : null; };
+  var fromJson = official(b.model_json && b.model_json.last_statement);
+  if (fromJson) return fromJson;
+  var srcs = Array.isArray(b.sources) ? b.sources : [];
+  return official(srcs.filter(function(x) { return x && (x.kind === 'statement' || /FOMC statement/i.test(String(x.title || ''))); })[0]);
+}
+// Most recent FOMC statement found anywhere in fed_briefs history (newest first).
+var LAST_FED_STATEMENT = null;
+function applyFedBriefHistory(rows) {
+  var found = null;
+  (Array.isArray(rows) ? rows : []).forEach(function(r) { var st = fedStatementOf(r); if (st && (!found || String(st.published) > String(found.published))) found = st; });
+  LAST_FED_STATEMENT = found;
+  renderFedWatch();
+  return !!found;
+}
 // Applies one fed_briefs row (or null) to the app; returns true if a usable brief was applied.
 function applyFedBrief(row) {
   var ok = !!(row && typeof row === 'object' && isFinite(Number(row.stance_score)) && row.brief_date);
@@ -2019,12 +2037,14 @@ function renderFedWatch() {
   // "Last statement" comes from the FOMC statement only — never from whatever
   // press release happens to be newest. Fallback: the statement carried in
   // model_json (copied-forward briefs have no sources of their own).
-  var stmt = sources.filter(function(x) { return x.kind === 'statement' || /FOMC statement/i.test(String(x.title || '')); })[0]
-    || (b.model_json && b.model_json.last_statement && String(b.model_json.last_statement.url || '').indexOf('https://www.federalreserve.gov/') === 0 ? b.model_json.last_statement : null);
+  // The statement carried on the row (newest in the statements feed, regardless
+  // of the lookback window), else a statement among the sources, else the most
+  // recent one anywhere in fed_briefs history. "None" only when history has none.
+  var stmt = fedStatementOf(b) || LAST_FED_STATEMENT;
   var others = sources.filter(function(x) { return !stmt || x.url !== stmt.url; }).filter(function(x) { return x.kind !== 'statement'; }).slice(0, 3);
-  var lastTxt = stmt && stmt.published ? fmtShortDate(stmt.published) : 'none since ' + fmtShortDate(b.brief_date);
+  var lastTxt = stmt && stmt.published ? fmtShortDate(stmt.published) : 'none on record';
   line.textContent = 'Fed stance: ' + fedStanceLabel(score) + ' ' + (score >= 0 ? '+' : '') + score.toFixed(1)
-    + ' · last statement ' + lastTxt + ' · next meeting ' + (b.next_meeting_date ? fmtShortDate(b.next_meeting_date) : 'unknown')
+    + ' · last FOMC statement ' + lastTxt + ' · next meeting ' + (b.next_meeting_date ? fmtShortDate(b.next_meeting_date) : 'unknown')
     + (b.next_meeting_lean ? ' (lean: ' + b.next_meeting_lean + ')' : '');
   if (sum) sum.textContent = b.summary || '';
   if (asof) asof.textContent = 'as of ' + fmtShortDate(b.brief_date) + (b.fed_funds_at_brief !== null && b.fed_funds_at_brief !== undefined ? ' · Fed funds ' + Number(b.fed_funds_at_brief).toFixed(2) + '%' : '');
@@ -2220,6 +2240,11 @@ function loadFedBrief() {
       if (r.error) { console.warn('fed_briefs unavailable:', r.error.message); return false; }
       var ok = applyFedBrief(r.data && r.data[0]);
       if (ok) { try { updateAll(); } catch (e) { console.warn('updateAll after Fed brief failed:', e); } }
+      // If today's row does not carry a statement, look back through history for the last one.
+      if (ok && !fedStatementOf(r.data[0])) {
+        return supabase.from('fed_briefs').select('brief_date,sources,model_json').order('brief_date', { ascending: false }).limit(60)
+          .then(function(h) { if (!h.error) applyFedBriefHistory(h.data); return ok; }).catch(function() { return ok; });
+      }
       return ok;
     })
     .catch(function(e) { console.warn('Fed brief load failed:', e && e.message); return false; });

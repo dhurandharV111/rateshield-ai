@@ -332,3 +332,18 @@ test('sources: the FOMC statement (from the FOMC feed) comes first with its own 
   assert.equal(copied.action, 'copied');
   assert.equal(copied.row.model_json.last_statement.published, '2026-09-16');
 });
+
+test('last_statement: the newest FOMC statement in the statements feed is recorded on every row, even when older than the previous brief', async () => {
+  // previous brief 19 Sep (no statement recorded); the only statement in the feed is 16 Sep → nothing "fresh", brief copied forward
+  const net = fakeNet({ prev: Object.assign({}, PREV, { model_json: {} }), rss: '', fomcRss: FOMC_FEED });
+  const out = await fb.runBrief({ env: ENV, fetch: net.fetchImpl, today: '2026-09-23', log });
+  assert.equal(out.action, 'copied');
+  assert.equal(out.row.model_json.last_statement.published, '2026-09-16', 'statement date carried although it predates the lookback window');
+  assert.equal(out.row.model_json.last_statement.kind, 'statement');
+  assert.equal(fb.newestStatementFrom(fb.parseRss(FOMC_FEED).map((it) => Object.assign({ feed: 'fomc' }, it))).published, '2026-09-16');
+  assert.equal(fb.newestStatementFrom([]), null);
+  // when the feed is unreachable the previous row's statement is kept
+  const net2 = fakeNet({ prev: Object.assign({}, PREV, { model_json: { last_statement: { kind: 'statement', title: 'Federal Reserve issues FOMC statement', url: 'https://www.federalreserve.gov/s', published: '2026-09-16' } } }), rss: '', fomcRss: '' });
+  const out2 = await fb.runBrief({ env: ENV, fetch: net2.fetchImpl, today: '2026-09-23', log });
+  assert.equal(out2.row.model_json.last_statement.published, '2026-09-16');
+});
