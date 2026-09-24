@@ -307,7 +307,7 @@ export function computePaths(snapshot, fedStance, modelImpl) {
                    cpi3mo: snapshot.cpi3moAgo, pce3mo: snapshot.corePce3moAgo, tr3mo: snapshot.treasury10y3moAgo, fedStance: fin(fedStance) ? fedStance : null };
   if (!['cpi', 'un', 'tr', 'gdp', 'pce'].every((k) => fin(inputs[k]))) return null;
   const score = Model.rateSignalScore(inputs);
-  const model = Model.ratePath({ current, score });
+  const model = Model.ratePath({ current, score, fedStance: inputs.fedStance }); // same hawkish floor as the app
   const market = Model.marketPath({ current, dgs6mo: snapshot.treasury6mo, dgs2: snapshot.treasury2y });
   const blended = Model.blendedPath(model, market);
   return { current, score, model, market, blended };

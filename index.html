@@ -571,6 +571,7 @@ input[type=range]{width:100%;accent-color:#1a6b3a;cursor:pointer}
         <div class="sn" id="fed-watch-sources" style="margin-top:6px"></div>
         <div class="chart-title" style="margin-top:14px">Outlook vs. consensus — Fed funds rate, next 18 months</div>
         <div id="outlook-diff" style="font-size:12px;color:#3a3a3a;line-height:1.5;margin:2px 0 8px">—</div>
+        <div class="sn" id="outlook-floor-note" style="display:none;color:#8b1a1a;margin:-4px 0 8px"></div>
         <div class="chart-wrap" id="outlook-chart-wrap" style="padding:.75rem;margin:4px 0 0;height:240px;max-height:none"><canvas id="outlookChart"></canvas></div>
         <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:.75rem"><thead><tr style="background:#f0ede6"><th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:700;color:#3a3a3a;border-bottom:2px solid rgba(15,15,15,.1)">Path</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">Now</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">3 mo</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">6 mo</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">12 mo</th><th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:700;border-bottom:2px solid rgba(15,15,15,.1)">18 mo</th></tr></thead><tbody id="outlook-tbody"></tbody></table>
         <div class="chart-src" id="outlook-src" style="margin-top:6px">Market: FRED DGS6MO/DGS2 · Consensus: none logged · RateShield: model + blend</div>
@@ -1117,6 +1118,11 @@ var CONFIG = {
   // usually right about the next meeting or two — and the model more at 12–18
   // months, which is what it is built for. Consensus paths never enter here.
   blend: { marketWeight: { 0: 0, 3: 0.6, 6: 0.5, 12: 0.35, 18: 0.25 } },
+  // Outlook rules shared by every surface (Financing Strategy, Rate Outlook
+  // card, blend, daily job). floorStance: when the daily brief scores the Fed's
+  // stance at or above this (hawkish), the model path can never sit below the
+  // current rate at any horizon — the Fed has said it is not cutting.
+  outlook: { floorStance: 1.0 },
   // Market-implied expectations from the 6-month Treasury vs Fed funds spread.
   // direction: spread > +directionThreshold → hike, < −threshold → cut, else hold.
   // Probabilities: P(hike) = σ((s − midpoint) / scale), P(cut) = σ((−s − midpoint) / scale),
@@ -1482,11 +1488,31 @@ var Model = {
   HORIZONS: [0, 3, 6, 12, 18],
   // The model's own path from the signal score (the Rate path panel and the
   // 18-month chart read these same numbers). 3-month point = midpoint of now and 6.
+  // o: { current, score, fedStance } — fedStance (daily brief score) applies the
+  // hawkish floor: with stance ≥ CONFIG.outlook.floorStance no horizon is below
+  // `current`. This is the ONLY place the floor lives; every surface calls it.
   ratePath: function(o) {
     var F = CONFIG.forecast, r = function(v) { return Math.round(v * 4) / 4; };
     var base = Model.predictedRate(o.score);
     var r12 = r(base), r6 = r(base + (o.score > 0 ? F.path6 : -F.path6)), r18 = r(base + (o.score > 0 ? F.path18Up : F.path18Down));
-    return { 0: o.current, 3: r((o.current + r6) / 2), 6: r6, 12: r12, 18: r18 };
+    var path = { 0: o.current, 3: r((o.current + r6) / 2), 6: r6, 12: r12, 18: r18 };
+    if (Model.stanceFloorApplies(o.fedStance)) {
+      [3, 6, 12, 18].forEach(function(h) { path[h] = Math.max(path[h], o.current); });
+    }
+    return path;
+  },
+  stanceFloorApplies: function(fedStance) {
+    return typeof fedStance === 'number' && isFinite(fedStance) && fedStance >= CONFIG.outlook.floorStance;
+  },
+  // Whether the floor actually changed a horizon (for the on-screen note).
+  stanceFloorBinds: function(o) {
+    if (!Model.stanceFloorApplies(o.fedStance)) return false;
+    var raw = Model.ratePath({ current: o.current, score: o.score });
+    return [3, 6, 12, 18].some(function(h) { return raw[h] < o.current; });
+  },
+  stanceFloorNote: function(o) {
+    if (!Model.stanceFloorBinds(o)) return '';
+    return 'Model path floored at current rate — Fed stance hawkish (' + (o.fedStance >= 0 ? '+' : '') + (Math.round(o.fedStance * 100) / 100) + ')';
   },
   // Market-implied path from FRED Treasuries: the 6-month bill is read as the
   // expected policy rate at 6 months and the 2-year note as the expected rate at
@@ -3382,7 +3408,9 @@ function updateF() {
   // otherwise the CONFIG snapshot. It is deliberately NOT the Fed input, which is
   // a what-if lever.
   var cur=Math.round(CONFIG.currentFedRate*100)/100; // exact, not quarter-rounded like the path
-  var modelPath=Model.ratePath({ current: cur, score: sc });
+  var stanceNow=fedStanceInput();
+  var modelPath=Model.ratePath({ current: cur, score: sc, fedStance: stanceNow });
+  var floorNote=Model.stanceFloorNote({ current: cur, score: sc, fedStance: stanceNow });
   var r12=modelPath[12],r6=modelPath[6],r18=modelPath[18];
   // FOMC probabilities are model-implied from the predicted 12-month change.
   var fomc=Model.fomcProbabilities(r12, cur);
@@ -3411,13 +3439,14 @@ function updateF() {
     predicted12: r12, current: cur, currentAsOf: CONFIG.fedRateAsOf, currentSource: LAST_MARKET_DATA ? 'DFF (live, daily)' : 'CONFIG snapshot', fomc: fomc, modelDirection: modelDir,
     market: { sixMonthSpread: mkt.sixMonthSpread, twoYearSpread: mkt.twoYearSpread, direction: mkt.direction, probs: mktP, tr6mo: tr6, tr2y: tr2 }, disagree: disagree, cme: cme,
     analogYear: analog.best.year, analogMatch: analog.best.matchPct, confidence: conf,
-    outlook: { model: modelPath, market: marketPath, blended: blended, consensus: consensusPath, gap: gap, consensusMeta: LAST_CONSENSUS ? { source: LAST_CONSENSUS.source, as_of: LAST_CONSENSUS.as_of } : null } };
+    outlook: { model: modelPath, market: marketPath, blended: blended, consensus: consensusPath, gap: gap, floorNote: floorNote, floored: !!floorNote, consensusMeta: LAST_CONSENSUS ? { source: LAST_CONSENSUS.source, as_of: LAST_CONSENSUS.as_of } : null } };
   var diffSentence=Model.outlookDifference({ current: cur, blended: blended, model: modelPath, market: marketPath, consensus: consensusPath, consensusSource: LAST_CONSENSUS ? LAST_CONSENSUS.source : null,
     contributions: contrib, inputs: sigIn, brief: LAST_FED_BRIEF ? { next_meeting_lean: LAST_FED_BRIEF.next_meeting_lean, stance_score: Number(LAST_FED_BRIEF.stance_score) } : null });
   RS_METRICS.forecast.outlook.sentence=diffSentence;
   RS_METRICS.forecast.outlook.drivers=Model.topContributors(contrib, sigIn, 2);
   renderOutlookComparison({ model: modelPath, market: marketPath, blended: blended, consensus: consensusPath, gap: gap });
   var diffEl=document.getElementById('outlook-diff'); if(diffEl) diffEl.textContent=diffSentence;
+  var floorEl=document.getElementById('outlook-floor-note'); if(floorEl){ floorEl.textContent=floorNote; floorEl.style.display=floorNote?'':'none'; }
   renderFedStanceRow();
   document.getElementById('pred-rate').textContent=r12.toFixed(2)+'%';
   document.getElementById('pred-env').textContent=env;
@@ -4589,7 +4618,7 @@ function runScenario(key) {
     try { var v = fn(); return (typeof v === 'number' && !isNaN(v)) ? v : fallback; }
     catch (e) { console.warn((fn.name || 'calc') + ' failed inside runScenario.', e); return fallback; }
   }
-  var predRate  = safeCalc(function(){ return calcPredRate(sc.cpi, sc.un, sc.tr, sc.gdp, sc.pce); }, CONFIG.currentFedRate);
+  var predRate  = safeCalc(function(){ return calcPredRate(sc.cpi, sc.un, sc.tr, sc.gdp, sc.pce, key === 'base'); }, CONFIG.currentFedRate);
   var safeHires = safeCalc(function(){ return calcSafeHires(sc); }, 0);
   var aiGain    = safeCalc(function(){ return calcAIGain(sc, basRev, basLab); }, 0);
   var monthlyInt= safeCalc(function(){ return calcMonthlyInt(sc.fed); }, 0);
@@ -4663,9 +4692,12 @@ function runScenario(key) {
 
 // Scenario levels are compared with today's 3-month-ago readings, so an inflation
 // scenario carries positive momentum and a recession scenario negative momentum.
-function calcPredRate(cpi, un, tr, gdp, pce) {
-  var mom = momentumInputs();
-  return Model.predictedRate(Model.rateSignalScore({ cpi: cpi, un: un, tr: tr, gdp: gdp, pce: pce, cpi3mo: mom.cpi3mo, pce3mo: mom.pce3mo, tr3mo: mom.tr3mo, fedStance: fedStanceInput() }));
+// applyFloor: the base case is today's conditions, so it carries the Fed-stance
+// floor exactly like Module 1; hypothetical scenarios do not.
+function calcPredRate(cpi, un, tr, gdp, pce, applyFloor) {
+  var mom = momentumInputs(), stance = fedStanceInput();
+  var score = Model.rateSignalScore({ cpi: cpi, un: un, tr: tr, gdp: gdp, pce: pce, cpi3mo: mom.cpi3mo, pce3mo: mom.pce3mo, tr3mo: mom.tr3mo, fedStance: stance });
+  return Model.ratePath({ current: Math.round(CONFIG.currentFedRate * 100) / 100, score: score, fedStance: applyFloor ? stance : null })[12];
 }
 
 // Scenario metrics read the same inputs the modules use (runScenario has already
@@ -4724,7 +4756,7 @@ function updateSimCharts() {
 
   var rateData = scKeys.map(function(k) {
     var sc = SCENARIOS[k];
-    return calcPredRate(sc.cpi, sc.un, sc.tr, sc.gdp, sc.pce);
+    return calcPredRate(sc.cpi, sc.un, sc.tr, sc.gdp, sc.pce, k === 'base');
   });
 
   var price  = parseFloat((document.getElementById('sl-eq-price')  || {value:850}).value)     || 850;

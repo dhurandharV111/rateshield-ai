@@ -224,7 +224,8 @@ test('scorekeeping: every run logs today\'s RateShield (blended + model) and mar
   // recompute independently from the FRED fixture + the copied stance (1.25)
   const snap = { fedFunds: 3.88, cpi: 3.4, corePce: 3.3, unemployment: 4.1, gdpGrowth: 1.5, treasury10y: 4.95, treasury6mo: 4.05, treasury2y: 4.0 };
   const score = Model.rateSignalScore({ cpi: 3.4, un: 4.1, tr: 4.95, gdp: 1.5, pce: 3.3, fedStance: 1.25 });
-  const model = Model.ratePath({ current: 3.88, score }), market = Model.marketPath({ current: 3.88, dgs6mo: 4.05, dgs2: 4.0 }), blended = Model.blendedPath(model, market);
+  const model = Model.ratePath({ current: 3.88, score, fedStance: 1.25 }), market = Model.marketPath({ current: 3.88, dgs6mo: 4.05, dgs2: 4.0 }), blended = Model.blendedPath(model, market);
+  [3, 6, 12, 18].forEach((h) => assert.ok(model[h] >= 3.88, 'the daily job applies the same hawkish floor'));
   rows.forEach((r) => {
     assert.equal(r.log_date, '2026-09-20'); assert.equal(r.current_rate, 3.88);
     assert.equal(r.rateshield_model, model[r.horizon]); assert.equal(r.market, market[r.horizon]); assert.equal(r.rateshield_blended, blended[r.horizon]);

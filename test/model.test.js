@@ -661,3 +661,31 @@ test('rule: a consensus path never enters the score, the model path or the blend
   assert.ok(!/consensus/i.test(Model.rateSignalScore.toString() + Model.rateSignalContributions.toString() + Model.ratePath.toString() + Model.blendedPath.toString() + Model.marketPath.toString()),
     'no forecast function mentions consensus');
 });
+
+test('Fed-stance floor: with stance ≥ +1.0 no model horizon is below the current rate; one shared function', () => {
+  assert.equal(CONFIG.outlook.floorStance, 1.0);
+  // today's case: stance +1.2, current 3.88, a score that would otherwise put the path at 3.50
+  const inputs = { cpi: 3.4, un: 4.1, tr: 4.95, gdp: 1.5, pce: 3.3, fedStance: 1.2 };
+  const score = Model.rateSignalScore(inputs);
+  const raw = Model.ratePath({ current: 3.88, score });
+  assert.ok([6, 12, 18].some((h) => raw[h] < 3.88), 'unfloored path dips below the current rate (the bug)');
+  const floored = Model.ratePath({ current: 3.88, score, fedStance: 1.2 });
+  [3, 6, 12, 18].forEach((h) => assert.ok(floored[h] >= 3.88, 'horizon ' + h + ' = ' + floored[h] + ' ≥ 3.88'));
+  assert.equal(floored[0], 3.88);
+  assert.equal(Model.stanceFloorBinds({ current: 3.88, score, fedStance: 1.2 }), true);
+  assert.equal(Model.stanceFloorNote({ current: 3.88, score, fedStance: 1.2 }), 'Model path floored at current rate — Fed stance hawkish (+1.2)');
+  // below the threshold, or with no brief, nothing changes
+  assert.equal(JSON.stringify(Model.ratePath({ current: 3.88, score, fedStance: 0.99 })), JSON.stringify(raw));
+  assert.equal(JSON.stringify(Model.ratePath({ current: 3.88, score, fedStance: null })), JSON.stringify(raw));
+  assert.equal(Model.stanceFloorNote({ current: 3.88, score, fedStance: 0.5 }), '');
+  // the floor never lowers a horizon that is already above the current rate
+  const hot = Model.rateSignalScore({ cpi: 8, un: 3.4, tr: 5.5, gdp: 4.5, pce: 5, fedStance: 2 });
+  assert.equal(JSON.stringify(Model.ratePath({ current: 3.88, score: hot, fedStance: 2 })), JSON.stringify(Model.ratePath({ current: 3.88, score: hot })));
+  assert.equal(Model.stanceFloorBinds({ current: 3.88, score: hot, fedStance: 2 }), false, 'applies but does not bind → no note');
+  // exactly +1.0 applies
+  assert.equal(Model.stanceFloorApplies(1.0), true); assert.equal(Model.stanceFloorApplies(0.999), false);
+  // and the blend inherits the floored model path
+  const market = Model.marketPath({ current: 3.88, dgs6mo: 4.05, dgs2: 4.4 });
+  const b = Model.blendedPath(floored, market);
+  [3, 6, 12, 18].forEach((h) => assert.ok(b[h] >= 3.88, 'blended ' + h));
+});

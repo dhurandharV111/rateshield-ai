@@ -834,3 +834,42 @@ test('Outlook chart is a <canvas> in a fixed-height wrapper, created with the ot
   assert.ok(window.outlookChart && window.outlookChart.data.datasets.length === 3, 'updateAll rebuilds a missing outlook chart');
   assert.deepEqual(errors, []);
 });
+
+test('Fed-stance floor is applied once, in Model.ratePath, and every surface shows it: Rate path panel, outlook table/chart, blend, base scenario, note', () => {
+  const { window, errors } = boot('manufacturing');
+  // flat momentum and moderate inflation: the raw model path sits below today's 3.88 (the live case)
+  window.applyMarketData({ asOf: '2026-09-23', fedFunds: 3.88, cpi: 2.9, corePce: 2.7, unemployment: 4.1, gdpGrowth: 1.5, treasury10y: 4.95, treasury6mo: 4.05, treasury2y: 4.4,
+    cpi3moAgo: 2.9, corePce3moAgo: 2.7, treasury10y3moAgo: 4.95 });
+  window.updateAll();
+  assert.equal(window.document.getElementById('outlook-floor-note').style.display, 'none', 'no brief → no floor, no note');
+  assert.ok(window.RS_METRICS.forecast.outlook.model[12] < 3.88, 'precondition: unfloored path below the current rate');
+  const rawModel12 = window.RS_METRICS.forecast.outlook.model[12];
+  window.applyFedBrief({ brief_date: '2026-09-23', stance_score: 1.2, next_meeting_lean: 'hold', next_meeting_date: '2026-10-28', summary: 'Hawkish hold.', key_phrases: [], sources: [], fed_funds_at_brief: 3.88 });
+  window.updateAll();
+  const M = window.RS_METRICS.forecast;
+  [3, 6, 12, 18].forEach((h) => {
+    assert.ok(M.outlook.model[h] >= 3.88, 'model ' + h + ' = ' + M.outlook.model[h]);
+    assert.ok(M.outlook.blended[h] >= 3.88, 'blended ' + h);
+  });
+  assert.equal(M.outlook.floored, true);
+  assert.equal(txt(window, 'outlook-floor-note'), 'Model path floored at current rate — Fed stance hawkish (+1.2)');
+  assert.equal(window.document.getElementById('outlook-floor-note').style.display, '');
+  // Financing Strategy's Rate path rows are the same floored numbers
+  assert.equal(txt(window, 'r6'), M.outlook.model[6].toFixed(2) + '%');
+  assert.equal(txt(window, 'r12'), M.outlook.model[12].toFixed(2) + '%');
+  assert.equal(txt(window, 'r18'), M.outlook.model[18].toFixed(2) + '%');
+  assert.equal(txt(window, 'pred-rate'), M.outlook.model[12].toFixed(2) + '%');
+  assert.ok(M.outlook.model[12] >= 3.88 && (rawModel12 < 3.88 ? M.outlook.model[12] === 3.88 : true), 'floored exactly at the current rate when it binds');
+  // chart datasets carry the floored model
+  const modelSeries = window.outlookChart.data.datasets.find((d) => d.label === 'RateShield model only').data;
+  modelSeries.forEach((v) => assert.ok(v >= 3.88));
+  const modelCells = Array.from(window.document.querySelectorAll('#ol-model td')).slice(1).map((td) => parseFloat(td.textContent));
+  modelCells.forEach((v) => assert.ok(v >= 3.88));
+  // base scenario agrees with Module 1; a recession scenario is not floored
+  window.runScenario('base');
+  assert.equal(txt(window, 'sm-rate').replace(/[^\d.]/g, ''), M.predicted12.toFixed(2));
+  window.runScenario('recession');
+  assert.ok(parseFloat(txt(window, 'sm-rate')) < 3.88, 'hypothetical recession path is not held up by today\'s stance');
+  window.runScenario('base');
+  assert.deepEqual(errors, []);
+});
