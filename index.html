@@ -1113,16 +1113,16 @@ var CONFIG = {
   // holdBias − |z| × holdDecay. Purely a function of the forecast — labelled
   // "model-implied" in the UI.
   fomc: { unitBp: 0.5, temperature: 1.4, holdBias: 0.6, holdDecay: 0.4 },
-  // RateShield outlook = blend of the model path and the market-implied path
-  // (FRED Treasuries). The market is weighted more at short horizons — it is
-  // usually right about the next meeting or two — and the model more at 12–18
-  // months, which is what it is built for. Consensus paths never enter here.
-  blend: { marketWeight: { 0: 0, 3: 0.6, 6: 0.5, 12: 0.35, 18: 0.25 } },
   // Outlook rules shared by every surface (Financing Strategy, Rate Outlook
-  // card, blend, daily job). floorStance: when the daily brief scores the Fed's
-  // stance at or above this (hawkish), the model path can never sit below the
-  // current rate at any horizon — the Fed has said it is not cutting.
-  outlook: { floorStance: 1.0 },
+  // card, blend, daily job).
+  //  • blendWeights = the MARKET share per horizon: blended = market × w + model × (1 − w).
+  //    The market (FRED Treasuries) is usually right about the next meetings,
+  //    so it dominates at 3–6 months; the model's weight grows toward 18 months.
+  //  • floorStance: when the daily brief scores the Fed's stance at or above this
+  //    (hawkish), the model path can never sit below the current rate at any
+  //    horizon — the Fed has said it is not cutting.
+  // Consensus paths never enter here.
+  outlook: { blendWeights: { 0: 0, 3: 0.9, 6: 0.85, 12: 0.7, 18: 0.5 }, floorStance: 1.0 },
   // Market-implied expectations from the 6-month Treasury vs Fed funds spread.
   // direction: spread > +directionThreshold → hike, < −threshold → cut, else hold.
   // Probabilities: P(hike) = σ((s − midpoint) / scale), P(cut) = σ((−s − midpoint) / scale),
@@ -1525,13 +1525,15 @@ var Model = {
     var lerp = function(a, b, t) { return a + (b - a) * t; }, rd = function(v) { return Math.round(v * 100) / 100; };
     return { 0: o.current, 3: rd(lerp(o.current, m6, 0.5)), 6: rd(m6), 12: rd(lerp(m6, m24, 6 / 18)), 18: rd(lerp(m6, m24, 12 / 18)) };
   },
-  // RateShield outlook: (1 − w) × model + w × market per horizon (CONFIG.blend).
-  // With no market path the outlook is the model path.
+  // RateShield outlook: market × w + model × (1 − w) per horizon, w = the
+  // market share in CONFIG.outlook.blendWeights. With no market path the
+  // outlook is the model path. The chart, table, headline sentence and the
+  // daily job all call this one function.
   blendedPath: function(model, market) {
-    var W = CONFIG.blend.marketWeight, out = {};
+    var W = CONFIG.outlook.blendWeights, out = {};
     Model.HORIZONS.forEach(function(h) {
       var w = (market && typeof market[h] === 'number' && isFinite(market[h])) ? (W[h] || 0) : 0;
-      out[h] = Math.round(((1 - w) * model[h] + w * (w ? market[h] : 0)) * 100) / 100;
+      out[h] = Math.round((market && w ? market[h] * w : 0) * 100 + model[h] * (1 - w) * 100) / 100;
     });
     return out;
   },

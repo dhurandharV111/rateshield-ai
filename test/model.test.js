@@ -603,9 +603,17 @@ test('marketPath: 6-month bill → 6-month point, 2-year note → 24-month point
   assert.equal(Model.marketPath({ current: 3.63, dgs6mo: 3.9 })[18], 3.9, 'no 2-year → flat beyond 6 months');
 });
 
-test('blendedPath: market weighted more at short horizons; equals the model when no market path', () => {
-  const W = CONFIG.blend.marketWeight;
+test('blendedPath: market × w + model × (1 − w) with CONFIG.outlook.blendWeights as the market share; equals the model when no market path', () => {
+  const W = CONFIG.outlook.blendWeights;
+  assert.equal(JSON.stringify(W), JSON.stringify({ 0: 0, 3: 0.9, 6: 0.85, 12: 0.7, 18: 0.5 }), 'intended market shares');
+  assert.equal(CONFIG.blend, undefined, 'the old CONFIG.blend block is gone — one source of weights');
   assert.ok(W[3] > W[6] && W[6] > W[12] && W[12] > W[18] && W[0] === 0);
+  // the case from today's live table: model 3.50, market 4.41 at 12 months → 0.7 × 4.41 + 0.3 × 3.50 = 4.137 → 4.14
+  const m12 = Model.blendedPath({ 0: 3.88, 3: 3.5, 6: 3.5, 12: 3.5, 18: 3.5 }, { 0: 3.88, 3: 4.2, 6: 4.3, 12: 4.41, 18: 4.5 });
+  assert.equal(m12[12], 4.14);
+  assert.equal(m12[3], Math.round((0.9 * 4.2 + 0.1 * 3.5) * 100) / 100);
+  assert.equal(m12[18], Math.round((0.5 * 4.5 + 0.5 * 3.5) * 100) / 100);
+  assert.ok(!/0\.35|0\.25\b/.test(Model.blendedPath.toString()), 'no weights hard-coded in the function');
   const model = { 0: 3.63, 3: 3.5, 6: 3.5, 12: 3.25, 18: 3.0 }, market = { 0: 3.63, 3: 3.83, 6: 4.03, 12: 4.15, 18: 4.27 };
   const b = Model.blendedPath(model, market);
   assert.equal(b[0], 3.63);

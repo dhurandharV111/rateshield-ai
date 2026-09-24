@@ -873,3 +873,24 @@ test('Fed-stance floor is applied once, in Model.ratePath, and every surface sho
   window.runScenario('base');
   assert.deepEqual(errors, []);
 });
+
+test('blend: chart, table, headline sentence and RS_METRICS all show Model.blendedPath with the CONFIG.outlook.blendWeights market share', () => {
+  const { window, errors } = boot('manufacturing');
+  window.applyMarketData({ asOf: '2026-09-23', fedFunds: 3.88, cpi: 3.4, corePce: 3.3, unemployment: 4.1, gdpGrowth: 1.5, treasury10y: 4.95, treasury6mo: 4.15, treasury2y: 4.6,
+    cpi3moAgo: 3.4, corePce3moAgo: 3.3, treasury10y3moAgo: 4.95 });
+  window.updateAll();
+  const M = window.RS_METRICS.forecast.outlook;
+  const W = window.CONFIG.outlook.blendWeights;
+  [3, 6, 12, 18].forEach((h) => {
+    const expected = Math.round((M.market[h] * W[h] + M.model[h] * (1 - W[h])) * 100) / 100;
+    assert.ok(Math.abs(M.blended[h] - expected) < 0.011, 'blended ' + h + ': ' + M.blended[h] + ' vs ' + expected);
+  });
+  assert.ok(Math.abs(M.blended[12] - (0.7 * M.market[12] + 0.3 * M.model[12])) < 0.011, '12-month blend is 70% market');
+  const chartBlended = window.outlookChart.data.datasets.find((d) => d.label === 'RateShield outlook (blended)').data;
+  assert.equal(JSON.stringify(chartBlended), JSON.stringify([M.blended[0], M.blended[3], M.blended[6], M.blended[12], M.blended[18]]));
+  const cells = Array.from(window.document.querySelectorAll('#ol-blended td')).slice(1).map((td) => td.textContent);
+  assert.equal(cells[3], M.blended[12].toFixed(2) + '%');
+  const sentence = txt(window, 'outlook-diff');
+  assert.ok(sentence.includes(M.blended[12].toFixed(2) + '%'), 'headline quotes the same 12-month blend: ' + sentence);
+  assert.deepEqual(errors, []);
+});
